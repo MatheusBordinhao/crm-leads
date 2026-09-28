@@ -405,6 +405,8 @@ N8n__Eventos=lead.criado,lead.reatribuido,lead.entrada_repetida
 DOMINIO=                                     # só em produção, usado pelo Caddy
 ```
 
+Em desenvolvimento, o Docker Compose e a API leem o mesmo `.env` da raiz, e uma variável que já exista no ambiente tem prioridade sobre o arquivo. Em produção, as variáveis vêm do ambiente.
+
 ## 10. Passos de entrega
 
 As datas seguem o plano de projeto. Cada passo termina com os critérios de aceite passando e com `dotnet test` e `npm test` sem erros.

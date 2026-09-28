@@ -46,11 +46,14 @@ docs/                        especificação e guia de uso do Claude Code
 ## Comandos
 
 ```bash
-docker compose up -d db                                  # PostgreSQL local
-dotnet run --project src/Crm.Api                         # API em http://localhost:5080 (aplica migrations em dev)
+docker compose up -d db                                  # PostgreSQL local (precisa do .env; veja o README)
+dotnet run --project src/Crm.Api                         # API em http://localhost:5080 (lê o .env e aplica migrations em dev)
 cd web && npm run dev                                    # front em http://localhost:5173, com proxy de /api e /hubs
 dotnet test                                              # testes da API (os de integração precisam do Docker)
 cd web && npm test                                       # testes do front (vitest run, sem modo watch)
+dotnet format                                            # formata o C# (--verify-no-changes só confere)
+cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
+dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 ```
 
@@ -77,6 +80,8 @@ dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 - Desde julho de 2026 o CNPJ pode ser alfanumérico: 12 caracteres de A a Z ou 0 a 9, mais 2 dígitos verificadores calculados pelo código ASCII menos 48. Nunca guarde CPF/CNPJ como número.
 - CSV do Excel brasileiro costuma vir com `;` e Windows-1252; o da Meta pode vir em UTF-16 com tab. A importação detecta codificação e separador.
 - No n8n Cloud, cada execução de fluxo conta no limite do plano (Starter: 2.500 por mês), inclusive as de gatilhos agendados. Envie ao n8n só os tipos de evento que algum fluxo usa (`N8n__Eventos`) e não agende fluxos a cada poucos minutos.
+- O xUnit v3 roda no Microsoft.Testing.Platform, ligado no `global.json`. Não adicione `Microsoft.NET.Test.Sdk` nem `xunit.runner.visualstudio`: com eles, o `dotnet test` do SDK 10 falha.
+- Os testes de integração compartilham um único PostgreSQL (`CrmApiFactory`, assembly fixture). Um teste não pode depender de outro ter rodado antes.
 - O n8n Cloud não alcança `localhost`. Para testar o n8n chamando a API local, use um túnel (por exemplo, cloudflared) ou teste o endpoint pelo arquivo `src/Crm.Api/Crm.Api.http`.
 
 ## n8n
