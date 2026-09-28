@@ -36,5 +36,9 @@ internal static class ApiExtensions
     {
         opcoes.Converters.Add(new JsonStringEnumConverter());
         opcoes.NumberHandling = JsonNumberHandling.Strict;
+
+        // Campo ausente não vira o valor padrão (um perfil ou um "ativo" omitido seria perigoso), e o OpenAPI
+        // marca os parâmetros dos records como obrigatórios.
+        opcoes.RespectRequiredConstructorParameters = true;
     }
 }

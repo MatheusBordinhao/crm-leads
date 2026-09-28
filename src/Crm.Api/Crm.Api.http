@@ -30,3 +30,40 @@ Content-Type: application/json
 
 ### Logout
 POST {{host}}/api/auth/logout
+
+### Usuários (admin)
+GET {{host}}/api/usuarios
+
+### Novo usuário (admin)
+# @prompt senhaProvisoria
+POST {{host}}/api/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Adriana",
+  "email": "matheusbordinhao11+adriana@gmail.com",
+  "perfil": "Atendente",
+  "participaRodizio": true,
+  "senhaProvisoria": "{{senhaProvisoria}}"
+}
+
+### Editar usuário (admin); "ativo": false desativa
+# @prompt id
+PUT {{host}}/api/usuarios/{{id}}
+Content-Type: application/json
+
+{
+  "nome": "Adriana",
+  "email": "matheusbordinhao11+adriana@gmail.com",
+  "perfil": "Atendente",
+  "ativo": true,
+  "participaRodizio": true
+}
+
+### Redefinir a senha (admin)
+# @prompt id
+# @prompt senhaProvisoria
+POST {{host}}/api/usuarios/{{id}}/redefinir-senha
+Content-Type: application/json
+
+{ "senhaProvisoria": "{{senhaProvisoria}}" }

@@ -29,6 +29,22 @@ public class TrocaSenhaTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Com_senha_provisoria_as_outras_rotas_respondem_403_ate_trocar()
+    {
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin, trocarSenha: true);
+        using var cliente = await fabrica.LogarAsync(admin);
+
+        var antes = await cliente.GetAsync("/api/usuarios", Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, antes.StatusCode);
+        Assert.Equal(SenhaDefinidaRequirement.Mensagem, await antes.LerDetalheAsync());
+
+        await TrocarSenhaAsync(cliente, UsuariosDeTeste.SenhaPadrao, NovaSenha);
+
+        Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/api/usuarios", Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Trocar_a_senha_libera_o_acesso_e_a_senha_antiga_para_de_valer()
     {
         var usuario = await fabrica.CriarUsuarioAsync(trocarSenha: true);

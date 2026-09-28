@@ -88,6 +88,36 @@ public class AuditoriaTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Criacao_edicao_e_redefinicao_de_senha_ficam_na_auditoria_sem_os_valores()
+    {
+        var eu = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var admin = await fabrica.LogarAsync(eu);
+        var email = $"auditado-{Guid.NewGuid():N}@example.com";
+
+        var criacao = await admin.PostAsJsonAsync(
+            "/api/usuarios",
+            new { nome = "Nome Auditado", email, perfil = "Atendente", participaRodizio = true, senhaProvisoria = "provisoria-123" },
+            Ct);
+        var id = (await criacao.LerJsonAsync()).GetProperty("id").GetGuid();
+        await admin.PutAsJsonAsync(
+            $"/api/usuarios/{id}",
+            new { nome = "Nome Alterado", email, perfil = "Atendente", ativo = false, participaRodizio = true },
+            Ct);
+        await admin.PostAsJsonAsync($"/api/usuarios/{id}/redefinir-senha", new { senhaProvisoria = "outra-provisoria" }, Ct);
+
+        var registros = await RegistrosDoUsuarioAsync(id);
+        Assert.Equal(
+            [AcoesAuditoria.UsuarioCriado, AcoesAuditoria.UsuarioEditado, AcoesAuditoria.UsuarioSenhaRedefinida],
+            registros.Select(r => r.Acao));
+        Assert.All(registros, r => Assert.Equal(eu.Id, r.UsuarioId));
+        Assert.Equal("Atendente", registros[0].Detalhes!.RootElement.GetProperty("perfil").GetString());
+        Assert.Equal(
+            ["nome", "ativo"],
+            registros[1].Detalhes!.RootElement.GetProperty("campos").EnumerateArray().Select(c => c.GetString()));
+        Assert.All(registros, r => Assert.DoesNotContain("Nome", r.Detalhes?.RootElement.GetRawText() ?? "", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Nenhum_registro_da_auditoria_tem_email_ou_senha()
     {
         using var cliente = await fabrica.LogarComoAsync(Perfil.Atendente);

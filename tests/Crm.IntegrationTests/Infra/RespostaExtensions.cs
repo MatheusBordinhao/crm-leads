@@ -1,15 +1,18 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace Crm.IntegrationTests.Infra;
 
+/// <summary>
+/// Leitura do corpo das respostas. Lê como texto, que vem do buffer a cada chamada, para poder conferir
+/// mais de um campo da mesma resposta.
+/// </summary>
 public static class RespostaExtensions
 {
     /// <summary>Lê o corpo como ProblemDetails, conferindo o tipo de conteúdo.</summary>
     public static async Task<JsonElement> LerProblemaAsync(this HttpResponseMessage resposta)
     {
         Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType?.MediaType);
-        return await resposta.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        return await resposta.LerJsonAsync();
     }
 
     public static async Task<string?> LerDetalheAsync(this HttpResponseMessage resposta) =>
@@ -25,5 +28,5 @@ public static class RespostaExtensions
     }
 
     public static async Task<JsonElement> LerJsonAsync(this HttpResponseMessage resposta) =>
-        await resposta.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        JsonSerializer.Deserialize<JsonElement>(await resposta.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
 }
