@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentValidation;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Crm.Api.Infra.Web;
 
@@ -18,8 +17,8 @@ internal static class ApiExtensions
                 opcoes.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
                 opcoes.Filters.Add<ValidacaoFilter>();
 
-                // No OpenAPI, toda resposta de erro é um ProblemDetails.
-                opcoes.Filters.Add(new ProducesDefaultResponseTypeAttribute());
+                // Respostas no OpenAPI: o 200 com o tipo devolvido e o ProblemDetails nos erros.
+                opcoes.Conventions.Add(new ConvencaoRespostas());
             })
             .AddJsonOptions(opcoes => ConfigurarJson(opcoes.JsonSerializerOptions));
 

@@ -7,7 +7,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage']),
+  // schema.d.ts é gerado pelo npm run api:tipos.
+  globalIgnores(['dist', 'coverage', 'src/api/schema.d.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -19,6 +20,11 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+  },
+  // Os componentes do shadcn/ui exportam as variantes (buttonVariants etc.) junto com o componente.
+  {
+    files: ['src/components/ui/**/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
   // Por último: desliga as regras de estilo que o Prettier cuida.
   prettier,
