@@ -1,3 +1,4 @@
+using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Web;
@@ -15,6 +16,7 @@ builder.Services.AddOpenApi(opcoes => opcoes.AddDocumentTransformer((documento, 
     return Task.CompletedTask;
 }));
 builder.Services.AddCrmDbContext();
+builder.Services.AddAcesso();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 
 var app = builder.Build();
@@ -30,6 +32,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+await app.InicializarAcessoAsync();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

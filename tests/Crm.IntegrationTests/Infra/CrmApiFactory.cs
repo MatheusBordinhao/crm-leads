@@ -3,7 +3,6 @@ using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
 [assembly: AssemblyFixture(typeof(CrmApiFactory))]
@@ -21,6 +20,11 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public const string AmbienteTestes = "Testing";
 
+    /// <summary>Primeiro admin, criado na subida. Os testes não mudam a senha nem os dados dele.</summary>
+    public const string AdminInicialEmail = "admin-inicial@example.com";
+
+    public const string AdminInicialSenha = "senha-do-admin-inicial";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(ImagemPostgres).Build();
 
     public string ConnectionString => _postgres.GetConnectionString();
@@ -29,14 +33,22 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
     {
         await _postgres.StartAsync();
 
-        await using var escopo = Services.CreateAsyncScope();
-        await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Database.MigrateAsync();
+        // As migrations vêm antes da subida da API, porque a subida já cria os perfis e o primeiro admin.
+        await using (var db = new CrmDbContext(DadosExtensions.CriarOpcoes(ConnectionString)))
+        {
+            await db.Database.MigrateAsync();
+        }
+
+        // Sobe a API agora, para a criação dos perfis acontecer uma vez só, antes de qualquer teste.
+        _ = Services;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(AmbienteTestes);
         builder.UseSetting($"ConnectionStrings:{DadosExtensions.NomeConexao}", ConnectionString);
+        builder.UseSetting("Admin:Email", AdminInicialEmail);
+        builder.UseSetting("Admin:SenhaInicial", AdminInicialSenha);
     }
 
     public override async ValueTask DisposeAsync()

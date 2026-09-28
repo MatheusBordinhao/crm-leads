@@ -308,7 +308,7 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 
 | Tabela | Colunas principais | Observações |
 | --- | --- | --- |
-| usuarios (Identity) | Campos do Identity, mais nome, ativo, participa_rodizio, ultimo_lead_atribuido_em, trocar_senha | Admin e Atendente são roles |
+| usuarios (Identity) | Campos do Identity, mais nome, ativo, participa_rodizio, ultimo_lead_atribuido_em, trocar_senha, criado_em | Id uuid. Admin e Atendente são roles, na tabela `perfis`. As outras tabelas do Identity também têm nomes em português (`usuarios_perfis`, `usuarios_claims`, `usuarios_logins`, `usuarios_tokens`, `perfis_claims`) |
 | etapas | id, nome, ordem, tipo, ativa | Tipo: `aberta`, `ganho` ou `perdido` |
 | motivos_perda | id, nome, ativo | |
 | campanhas | id, origem, id_externo, nome, nome_provisorio | Única por (origem, id_externo) |
@@ -384,7 +384,7 @@ O relatório por campanha usa as mesmas definições e traz, por campanha: leads
 
 - **Cookie:** HttpOnly, Secure, SameSite=Strict, com expiração deslizante de 12 horas.
 - **Senha:** mínimo de 10 caracteres, bloqueio de 15 minutos após 5 tentativas erradas. O admin cria o usuário com senha provisória, e o sistema exige a troca no primeiro acesso.
-- **Primeiro admin:** criado na inicialização a partir de `Admin__Email` e `Admin__SenhaInicial`, se ainda não existir nenhum.
+- **Primeiro admin:** criado na inicialização a partir de `Admin__Email` e `Admin__SenhaInicial`, se ainda não existir nenhum. Como a senha do `.env` é provisória, ele também precisa trocá-la no primeiro acesso. Sem nenhum admin cadastrado e sem essas variáveis, a API não sobe.
 - **Limites de requisição:** 10 logins por minuto por IP e 120 requisições por minuto na integração.
 - **Caddy:** HTTPS automático, HSTS e cabeçalhos de segurança.
 - **Backup:** `pg_dump` diário, com 14 dias guardados e cópia fora do servidor. A restauração é testada uma vez por mês.
@@ -396,8 +396,8 @@ Variáveis de ambiente (`.env.example`):
 ConnectionStrings__Crm=Host=localhost;Port=5432;Database=crm;Username=crm;Password=
 POSTGRES_PASSWORD=
 Crm__UrlPublica=http://localhost:5173        # base dos links nos eventos
-Admin__Email=
-Admin__SenhaInicial=
+Admin__Email=                                # primeiro admin, criado na inicialização se não houver nenhum
+Admin__SenhaInicial=                         # 10+ caracteres; o sistema pede a troca no primeiro acesso
 Integracao__Chave=                           # n8n → CRM, 32+ caracteres aleatórios
 N8n__WebhookUrl=                             # URL de produção do Webhook do fluxo CRM - Alertas
 N8n__WebhookChave=                           # CRM → n8n (Header Auth), 32+ caracteres aleatórios

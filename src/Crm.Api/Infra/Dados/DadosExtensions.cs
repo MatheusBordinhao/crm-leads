@@ -12,11 +12,15 @@ internal static class DadosExtensions
     /// </summary>
     public static IServiceCollection AddCrmDbContext(this IServiceCollection services) =>
         services.AddDbContext<CrmDbContext>((provedor, opcoes) =>
-        {
-            var conexao = provedor.GetRequiredService<IConfiguration>().GetConnectionString(NomeConexao);
-            var npgsql = string.IsNullOrWhiteSpace(conexao) ? opcoes.UseNpgsql() : opcoes.UseNpgsql(conexao);
-            npgsql.UseSnakeCaseNamingConvention();
-        });
+            Configurar(opcoes, provedor.GetRequiredService<IConfiguration>().GetConnectionString(NomeConexao)));
+
+    /// <summary>Opções para um <see cref="CrmDbContext"/> criado fora da API (testes, ferramentas).</summary>
+    public static DbContextOptions<CrmDbContext> CriarOpcoes(string conexao)
+    {
+        var opcoes = new DbContextOptionsBuilder<CrmDbContext>();
+        Configurar(opcoes, conexao);
+        return opcoes.Options;
+    }
 
     /// <summary>Falha na inicialização, com uma mensagem clara, se a connection string não estiver configurada.</summary>
     public static void ExigirConnectionString(this IConfiguration configuracao)
@@ -31,5 +35,11 @@ internal static class DadosExtensions
     {
         await using var escopo = app.Services.CreateAsyncScope();
         await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Database.MigrateAsync();
+    }
+
+    private static void Configurar(DbContextOptionsBuilder opcoes, string? conexao)
+    {
+        var npgsql = string.IsNullOrWhiteSpace(conexao) ? opcoes.UseNpgsql() : opcoes.UseNpgsql(conexao);
+        npgsql.UseSnakeCaseNamingConvention();
     }
 }

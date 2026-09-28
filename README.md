@@ -33,7 +33,29 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    As outras variáveis ficam vazias até o passo que as usa.
 
-2. Instale as ferramentas e as dependências:
+2. Defina o primeiro admin no `.env`, trocando `voce@exemplo.com` pelo seu e-mail. Os comandos geram uma senha aleatória e a mostram no terminal. Ela vale só para o primeiro acesso, quando o sistema pede uma senha nova.
+
+   PowerShell:
+
+   ```powershell
+   $senha = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
+   $linhas = (Get-Content .env) -replace '^Admin__Email=.*$', 'Admin__Email=voce@exemplo.com' -replace '^Admin__SenhaInicial=.*$', "Admin__SenhaInicial=$senha"
+   [IO.File]::WriteAllText("$PWD\.env", ($linhas -join "`n") + "`n")
+   "Senha inicial do admin: $senha"
+   ```
+
+   Bash:
+
+   ```bash
+   senha=$(openssl rand -hex 8)
+   sed -i -e "s/^Admin__Email=.*/Admin__Email=voce@exemplo.com/" \
+          -e "s/^Admin__SenhaInicial=.*/Admin__SenhaInicial=$senha/" .env
+   echo "Senha inicial do admin: $senha"
+   ```
+
+   O admin é criado quando a API sobe e ainda não há nenhum. Depois disso, mudar essas variáveis não tem efeito: os outros usuários são criados na tela de usuários.
+
+3. Instale as ferramentas e as dependências:
 
    ```bash
    dotnet tool restore      # dotnet ef, para criar migrations
