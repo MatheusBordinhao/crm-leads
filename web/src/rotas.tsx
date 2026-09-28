@@ -2,9 +2,10 @@ import type { RouteObject } from 'react-router'
 import { Layout } from '@/components/layout/Layout'
 import { NaoEncontradaPage } from '@/components/NaoEncontradaPage'
 import { LoginPage } from '@/features/acesso/LoginPage'
-import { RotaProtegida } from '@/features/acesso/RotasProtegidas'
+import { RotaAdmin, RotaProtegida } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
 import { InicioPage } from '@/features/inicio/InicioPage'
+import { UsuariosPage } from '@/features/usuarios/UsuariosPage'
 
 /** Rotas da aplicação. O main.tsx usa um roteador do navegador, e os testes, um em memória. */
 export const rotas: RouteObject[] = [
@@ -15,7 +16,13 @@ export const rotas: RouteObject[] = [
       { path: '/trocar-senha', element: <TrocarSenhaPage /> },
       {
         element: <Layout />,
-        children: [{ path: '/', element: <InicioPage /> }],
+        children: [
+          { path: '/', element: <InicioPage /> },
+          {
+            element: <RotaAdmin />,
+            children: [{ path: '/configuracoes/usuarios', element: <UsuariosPage /> }],
+          },
+        ],
       },
     ],
   },
