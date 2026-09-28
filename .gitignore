@@ -8,10 +8,12 @@ bin/
 obj/
 *.user
 .vs/
+TestResults/
 
 # Node
 node_modules/
 web/dist/
+web/coverage/
 
 # Claude Code: configurações pessoais
 .claude/settings.local.json

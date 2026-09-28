@@ -1,0 +1,7 @@
+@host = http://localhost:5080
+
+### Saúde da API e do banco
+GET {{host}}/health
+
+### Documento OpenAPI (só em desenvolvimento)
+GET {{host}}/openapi/v1.json
