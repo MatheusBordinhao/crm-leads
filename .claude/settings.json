@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet format *)",
+      "Bash(dotnet ef *)",
+      "Bash(node --version)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(docker --version)",
+      "Bash(docker ps *)",
+      "Bash(docker compose *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "mcp__n8n__search_*",
+      "mcp__n8n__get_*",
+      "mcp__n8n__list_*",
+      "mcp__n8n__validate_*",
+      "mcp__n8n__explore_node_resources"
+    ],
+    "ask": [
+      "Bash(git push *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env.example)"
+    ]
+  }
+}
