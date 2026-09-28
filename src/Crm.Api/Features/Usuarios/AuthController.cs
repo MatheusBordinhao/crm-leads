@@ -1,3 +1,5 @@
+using Crm.Api.Infra.Auditoria;
+using Crm.Api.Infra.Dados;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +9,11 @@ namespace Crm.Api.Features.Usuarios;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(SignInManager<Usuario> signIn, UserManager<Usuario> usuarios) : ControllerBase
+public sealed class AuthController(
+    SignInManager<Usuario> signIn,
+    UserManager<Usuario> usuarios,
+    CrmDbContext db,
+    AuditoriaService auditoria) : ControllerBase
 {
     public const string MensagemCredenciaisInvalidas = "E-mail ou senha incorretos.";
 
@@ -26,21 +32,29 @@ public sealed class AuthController(SignInManager<Usuario> signIn, UserManager<Us
         var usuario = await usuarios.FindByEmailAsync(requisicao.Email.Trim());
         if (usuario is null)
         {
+            // O e-mail digitado não é gravado: pode ser um dado pessoal de outra pessoa.
+            auditoria.Registrar(AcoesAuditoria.LoginFalha, detalhes: new { motivo = "usuario_desconhecido" });
+            await db.SaveChangesAsync();
             return FalhaNoLogin(MensagemCredenciaisInvalidas);
         }
 
         var resultado = await signIn.PasswordSignInAsync(usuario, requisicao.Senha, isPersistent: true, lockoutOnFailure: true);
         if (resultado.Succeeded)
         {
+            RegistrarLogin(usuario, AcoesAuditoria.LoginSucesso, detalhes: null);
+            await db.SaveChangesAsync();
             return await EuAsync(usuario);
         }
 
-        return FalhaNoLogin(resultado switch
+        var (mensagem, motivo) = resultado switch
         {
-            { IsLockedOut: true } => MensagemBloqueado,
-            { IsNotAllowed: true } => MensagemDesativado,
-            _ => MensagemCredenciaisInvalidas,
-        });
+            { IsLockedOut: true } => (MensagemBloqueado, "bloqueado"),
+            { IsNotAllowed: true } => (MensagemDesativado, "desativado"),
+            _ => (MensagemCredenciaisInvalidas, "senha_incorreta"),
+        };
+        RegistrarLogin(usuario, AcoesAuditoria.LoginFalha, new { motivo });
+        await db.SaveChangesAsync();
+        return FalhaNoLogin(mensagem);
     }
 
     [HttpPost("logout")]
@@ -81,6 +95,7 @@ public sealed class AuthController(SignInManager<Usuario> signIn, UserManager<Us
             return ValidationProblem(ModelState);
         }
 
+        await using var transacao = await db.Database.BeginTransactionAsync();
         usuario.TrocarSenha = false;
         var resultado = await usuarios.ChangePasswordAsync(usuario, requisicao.SenhaAtual, requisicao.NovaSenha);
         if (!resultado.Succeeded)
@@ -89,9 +104,16 @@ public sealed class AuthController(SignInManager<Usuario> signIn, UserManager<Us
             return ValidationProblem(ModelState);
         }
 
+        auditoria.Registrar(AcoesAuditoria.SenhaTrocada, EntidadesAuditoria.Usuario, usuario.Id.ToString());
+        await db.SaveChangesAsync();
+        await transacao.CommitAsync();
+
         await signIn.RefreshSignInAsync(usuario);
         return NoContent();
     }
+
+    private void RegistrarLogin(Usuario usuario, string acao, object? detalhes) =>
+        auditoria.Registrar(acao, EntidadesAuditoria.Usuario, usuario.Id.ToString(), detalhes, usuarioId: usuario.Id);
 
     private async Task<EuResponse> EuAsync(Usuario usuario) =>
         new(usuario.Id, usuario.Nome, usuario.Email!, await usuarios.ObterPerfilAsync(usuario), usuario.TrocarSenha);

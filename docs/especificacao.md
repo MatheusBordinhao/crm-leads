@@ -318,7 +318,7 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 | interacoes | id, lead_id, usuario_id, tipo, descricao, ocorrido_em, criado_em | |
 | notificacoes | id, usuario_id, tipo, titulo, lead_id, lida_em, criado_em | |
 | eventos_saida | id (uuid), tipo, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em) |
-| auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui |
+| auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui. No login com e-mail desconhecido, usuario_id fica nulo e o e-mail digitado não é gravado |
 | configuracoes | chave, valor | `distribuicao_automatica`, `exigir_documento_para_ganho` |
 
 ## 6. API

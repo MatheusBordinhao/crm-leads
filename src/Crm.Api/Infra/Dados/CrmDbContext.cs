@@ -1,4 +1,5 @@
 using Crm.Api.Features.Usuarios;
+using Crm.Api.Infra.Auditoria;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,8 @@ namespace Crm.Api.Infra.Dados;
 public class CrmDbContext(DbContextOptions<CrmDbContext> options)
     : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>(options)
 {
+    public DbSet<RegistroAuditoria> Auditoria => Set<RegistroAuditoria>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
