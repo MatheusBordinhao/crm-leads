@@ -49,6 +49,9 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting($"ConnectionStrings:{DadosExtensions.NomeConexao}", ConnectionString);
         builder.UseSetting("Admin:Email", AdminInicialEmail);
         builder.UseSetting("Admin:SenhaInicial", AdminInicialSenha);
+
+        // No TestServer, todas as requisições vêm do mesmo "IP". O limite real é testado numa fábrica à parte.
+        builder.UseSetting("Acesso:LoginsPorMinuto", "100000");
     }
 
     public override async ValueTask DisposeAsync()

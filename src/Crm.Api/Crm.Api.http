@@ -5,3 +5,28 @@ GET {{host}}/health
 
 ### Documento OpenAPI (só em desenvolvimento)
 GET {{host}}/openapi/v1.json
+
+# O cookie da sessão é Secure. Se o seu cliente HTTP não o reenviar em http://localhost, teste as rotas
+# com sessão pelo Scalar (http://localhost:5080/scalar) ou pelo front.
+
+### Login
+# @prompt email
+# @prompt senha
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "{{email}}", "senha": "{{senha}}" }
+
+### Usuário logado
+GET {{host}}/api/auth/eu
+
+### Troca de senha
+# @prompt senhaAtual
+# @prompt novaSenha
+POST {{host}}/api/auth/trocar-senha
+Content-Type: application/json
+
+{ "senhaAtual": "{{senhaAtual}}", "novaSenha": "{{novaSenha}}" }
+
+### Logout
+POST {{host}}/api/auth/logout

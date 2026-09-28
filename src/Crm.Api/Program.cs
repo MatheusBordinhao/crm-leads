@@ -8,7 +8,7 @@ ArquivoEnv.CarregarEmDesenvolvimento();
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddApi();
 builder.Services.AddProblemDetailsPtBr();
 builder.Services.AddOpenApi(opcoes => opcoes.AddDocumentTransformer((documento, _, _) =>
 {
@@ -37,6 +37,7 @@ await app.InicializarAcessoAsync();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

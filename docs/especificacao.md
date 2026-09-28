@@ -383,7 +383,8 @@ O relatório por campanha usa as mesmas definições e traz, por campanha: leads
 ## 9. Segurança e operação
 
 - **Cookie:** HttpOnly, Secure, SameSite=Strict, com expiração deslizante de 12 horas.
-- **Senha:** mínimo de 10 caracteres, bloqueio de 15 minutos após 5 tentativas erradas. O admin cria o usuário com senha provisória, e o sistema exige a troca no primeiro acesso.
+- **Senha:** mínimo de 10 caracteres, bloqueio de 15 minutos após 5 tentativas erradas. O admin cria o usuário com senha provisória, e o sistema exige a troca no primeiro acesso: até lá, só `eu`, `logout` e `trocar-senha` funcionam, e o resto responde 403.
+- **Sessão:** conferida no banco a cada minuto. Usuário desativado não entra, e quem já estava logado perde a sessão em até 1 minuto. Senha redefinida pelo admin também encerra a sessão, e um perfil trocado passa a valer na próxima conferência.
 - **Primeiro admin:** criado na inicialização a partir de `Admin__Email` e `Admin__SenhaInicial`, se ainda não existir nenhum. Como a senha do `.env` é provisória, ele também precisa trocá-la no primeiro acesso. Sem nenhum admin cadastrado e sem essas variáveis, a API não sobe.
 - **Limites de requisição:** 10 logins por minuto por IP e 120 requisições por minuto na integração.
 - **Caddy:** HTTPS automático, HSTS e cabeçalhos de segurança.
