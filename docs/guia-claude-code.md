@@ -41,7 +41,7 @@ Responda às dúvidas dele antes de seguir. Se alguma resposta mudar uma regra, 
 
 Para cada passo:
 
-1. Abra uma conversa nova. `Ctrl+Shift+Esc` abre uma numa aba nova.
+1. Abra uma conversa nova: use o botão de nova conversa no topo do painel do Claude Code.
 2. Clique no indicador de modo, embaixo da caixa de texto, e escolha **Plan**.
 3. Envie `/passo N`, trocando N pelo número do passo.
 4. Leia o plano. Peça ajustes ou aprove.

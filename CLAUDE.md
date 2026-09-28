@@ -4,6 +4,13 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
 A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz as regras de negócio, o contrato com o n8n, o modelo de dados, as telas e os passos de entrega com critérios de aceite. Leia a seção do passo atual antes de implementar.
 
+## Situação atual
+
+- Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
+- Ainda não há servidor, domínio, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
+- Nos testes, os alertas usam a credencial "Gmail account" do n8n e vão para matheusbordinhao11@gmail.com. Os usuários de teste usam aliases com "+" desse e-mail, como matheusbordinhao11+adriana@gmail.com.
+- Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
+
 ## Arquitetura
 
 O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e conversa com o CRM pela API.
