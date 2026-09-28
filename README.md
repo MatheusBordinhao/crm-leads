@@ -79,6 +79,16 @@ cd web && npm run dev                    # front em http://localhost:5173
 
 Em desenvolvimento, a API lê o `.env` da raiz. Uma variável que já exista no ambiente tem prioridade sobre o arquivo. As migrations são aplicadas quando a API sobe, só em desenvolvimento. O arquivo [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) tem requisições prontas para testar a API pelo VS Code.
 
+### Primeiro acesso
+
+1. Abra http://localhost:5173 e entre com o `Admin__Email` e a senha inicial que o comando da primeira vez mostrou.
+2. O sistema pede uma senha nova. Depois disso, a senha do `.env` não vale mais.
+3. Em Configurações › Usuários, crie as atendentes. Para testar, use aliases do seu Gmail, como `matheusbordinhao11+adriana@gmail.com`. A tela gera a senha provisória para você copiar e enviar.
+
+Depois de 5 senhas erradas, o login fica bloqueado por 15 minutos. Um admin libera antes redefinindo a senha na tela de usuários.
+
+O cookie da sessão é `Secure`. Chrome, Edge e Firefox o aceitam em `http://localhost`, mas não pelo IP da máquina: para abrir no celular, é preciso HTTPS, que chega no Passo 5. Até lá, confira as telas de celular com a visão de dispositivo do DevTools.
+
 ## Tipos da API no front
 
 Os tipos das chamadas à API, em `web/src/api/schema.d.ts`, são gerados a partir do OpenAPI; não os edite à mão. Depois de mudar um endpoint ou um DTO, com a API rodando:
@@ -116,11 +126,13 @@ docker compose down -v                                            # para o banco
 ## Estrutura
 
 ```
-src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/
-src/Crm.Api/Infra/           DbContext e migrations (Dados/), .env (Configuracao/), ProblemDetails (Web/)
+src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/ (Usuarios/: acesso e cadastro)
+src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env (Configuracao/),
+                             ProblemDetails, validação e convenções da API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite
+web/                         React + TypeScript + Vite: features/ por módulo, components/ui/ do shadcn/ui,
+                             api/ com o cliente e os tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n
 docs/                        especificação e guia de uso do Claude Code
 ```
