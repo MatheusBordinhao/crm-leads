@@ -72,7 +72,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 6. Tudo acontece numa transação só, incluindo o evento em `eventos_saida`.
 
 - Origens possíveis: `meta_lead_ads`, `google_ads`, `site`, `whatsapp`, `telefone`, `indicacao`, `planilha` e `manual`. A integração aceita apenas as três primeiras, e o cadastro manual, `manual`, `telefone`, `whatsapp` e `indicacao`.
-- No cadastro manual, se a pessoa já é lead de outra atendente, a entrada é vinculada ao lead dela (passo 4). A tela avisa quem cadastrou que os dados foram acrescentados à ficha da outra pessoa, sem abri-la.
+- No cadastro manual, se a pessoa já é lead de outra atendente, a entrada é vinculada ao lead dela (passo 4), mas a resposta não traz o id do lead, e a tela só mostra "Já existe um lead com esses dados.", sem dizer de quem. A responsável e os admins são avisados pelas notificações do sistema (3.6), que chegam no Passo 4; até lá, a entrada fica registrada no lead e aparece na linha do tempo dele.
 - A origem e a campanha do lead são as da primeira entrada. Cada entrada guarda as suas.
 - **Leads de teste** (`teste = true`) ficam sem responsável e visíveis só para admins. Não geram alerta e ficam fora do painel e dos relatórios. Só esses o admin pode excluir de vez. Uma entrada de teste só é vinculada a um lead de teste, e uma entrada real, a um lead real: o teste da Meta feito com o e-mail de alguém não mexe no lead de verdade dessa pessoa.
 - **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "{origem} · campanha {id}", como "Google Ads · campanha 123", que o admin pode renomear. Um nome que chegue depois só substitui o provisório.
@@ -113,6 +113,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - novo lead atribuído a você;
   - lead reatribuído para você;
   - um lead seu recebeu nova entrada;
+  - (admin) uma atendente cadastrou à mão uma pessoa que já é lead de outra (3.2);
   - (admin) lead ficou sem responsável;
   - (admin) evento para o n8n falhou de vez.
 - Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas.
@@ -477,6 +478,7 @@ As datas seguem o plano de projeto. Cada passo termina com os critérios de acei
   - com duas atendentes no rodízio, três leads seguidos vão para A, B e A;
   - 20 entradas simultâneas não deixam diferença maior que 1 entre as duas;
   - sem ninguém no rodízio, o lead fica sem responsável e os admins são notificados;
+  - quando uma atendente cadastra à mão uma pessoa que já é lead de outra, a responsável e os admins são notificados, e a notificação não chega a quem cadastrou;
   - com o n8n fora do ar, o evento fica pendente e é entregue quando o n8n volta;
   - o e-mail chega à responsável com o link da ficha.
 

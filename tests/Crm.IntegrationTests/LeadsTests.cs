@@ -187,7 +187,7 @@ public class LeadsTests(CrmApiFactory fabrica)
     }
 
     [Fact]
-    public async Task Cadastrar_alguem_que_ja_e_lead_de_outra_atendente_vincula_sem_abrir_a_ficha()
+    public async Task Cadastrar_alguem_que_ja_e_lead_de_outra_atendente_vincula_sem_dizer_qual_lead_e()
     {
         using var adriana = await fabrica.LogarComoAsync(Perfil.Atendente);
         using var pietra = await fabrica.LogarComoAsync(Perfil.Atendente);
@@ -201,9 +201,10 @@ public class LeadsTests(CrmApiFactory fabrica)
 
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
         var resultado = await resposta.LerJsonAsync();
-        Assert.Equal(leadDaAdriana, resultado.GetProperty("leadId").GetInt64());
+        Assert.Equal(JsonValueKind.Null, resultado.GetProperty("leadId").ValueKind);
         Assert.Equal("vinculado", resultado.GetProperty("situacao").GetString());
         Assert.False(resultado.GetProperty("podeAbrir").GetBoolean());
+        Assert.DoesNotContain(leadDaAdriana.ToString(), await resposta.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
         Assert.Equal("Empresa Nova", (await FichaAsync(adriana, leadDaAdriana)).GetProperty("empresa").GetString());
     }
 

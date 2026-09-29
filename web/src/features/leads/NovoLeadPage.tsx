@@ -25,8 +25,8 @@ const esquema = z
   })
   .superRefine(validarDados())
 
-const MENSAGEM_LEAD_DE_OUTRA_PESSOA =
-  'Essa pessoa já é atendida por outra pessoa. Os dados foram acrescentados à ficha dela.'
+/** Pessoa que já é lead de outra atendente: os dados vão para a ficha dela, sem dizer qual é nem de quem. */
+const MENSAGEM_LEAD_DE_OUTRA_PESSOA = 'Já existe um lead com esses dados.'
 
 /**
  * Cadastro à mão. Passa pelo mesmo caminho das outras entradas: se a pessoa já é um lead, os dados vão para

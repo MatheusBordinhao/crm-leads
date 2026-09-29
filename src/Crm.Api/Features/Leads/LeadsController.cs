@@ -116,8 +116,9 @@ public sealed class LeadsController(
             },
             ct);
 
+        // Lead de outra atendente: nem o id sai na resposta, como no 404 da ficha.
         var podeAbrir = await visibilidade.Visiveis().AnyAsync(l => l.Id == processada.LeadId, ct);
-        var resposta = new CriarLeadResponse(processada.LeadId, processada.Resultado, podeAbrir);
+        var resposta = new CriarLeadResponse(podeAbrir ? processada.LeadId : null, processada.Resultado, podeAbrir);
         return processada.Resultado == ResultadoEntrada.Criado
             ? CreatedAtAction(nameof(Obter), new { id = processada.LeadId }, resposta)
             : resposta;

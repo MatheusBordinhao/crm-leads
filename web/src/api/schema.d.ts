@@ -806,7 +806,7 @@ export interface components {
         };
         CriarLeadResponse: {
             /** Format: int64 */
-            leadId: number;
+            leadId: null | number;
             situacao: components["schemas"]["ResultadoEntrada"];
             podeAbrir: boolean;
         };

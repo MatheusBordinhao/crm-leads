@@ -91,9 +91,13 @@ public sealed record CriarLeadRequest(
     Origem Origem,
     Guid? ResponsavelId) : IDadosLead;
 
+/// <param name="LeadId">
+/// Nulo quando a pessoa já é lead de outra atendente: os dados vão para a ficha dela, mas a resposta não diz
+/// qual lead é nem de quem.
+/// </param>
 /// <param name="Situacao"><c>criado</c> (201) ou <c>vinculado</c> (200), quando a pessoa já era um lead.</param>
-/// <param name="PodeAbrir">Falso quando a pessoa já era lead de outra atendente: os dados foram para a ficha dela.</param>
-public sealed record CriarLeadResponse(long LeadId, ResultadoEntrada Situacao, bool PodeAbrir);
+/// <param name="PodeAbrir">Falso quando a pessoa já é lead de outra atendente.</param>
+public sealed record CriarLeadResponse(long? LeadId, ResultadoEntrada Situacao, bool PodeAbrir);
 
 /// <param name="Versao">A <c>versao</c> da ficha que a pessoa editou.</param>
 public sealed record EditarLeadRequest(

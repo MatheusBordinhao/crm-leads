@@ -88,22 +88,18 @@ describe('novo lead', () => {
     ])
   })
 
-  it('pessoa que já é lead de outra atendente: avisa e volta para a lista', async () => {
+  it('pessoa que já é lead de outra atendente: avisa sem dizer de quem e volta para a lista', async () => {
     comSessao(atendente)
     comCadastros()
     comLista([])
-    comCadastro({ leadId: 7, situacao: 'vinculado', podeAbrir: false }, 200)
+    comCadastro({ leadId: null, situacao: 'vinculado', podeAbrir: false }, 200)
     const { usuario, router } = renderizarApp('/leads/novo')
 
     await usuario.type(await screen.findByLabelText('Nome'), 'Maria')
     await usuario.type(screen.getByLabelText('E-mail'), 'maria@empresax.com.br')
     await usuario.click(screen.getByRole('button', { name: 'Cadastrar lead' }))
 
-    expect(
-      await screen.findByText(
-        'Essa pessoa já é atendida por outra pessoa. Os dados foram acrescentados à ficha dela.',
-      ),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Já existe um lead com esses dados.')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/leads')
   })
 
