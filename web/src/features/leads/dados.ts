@@ -22,10 +22,12 @@ export function useLeads(filtros: FiltrosLeads) {
   })
 }
 
+/** Ficha do lead. Um id que não é número (`/leads/abc`) nem chama a API. */
 export function useLead(id: number) {
   return useQuery({
     queryKey: [...chaveLeads, 'ficha', id],
     queryFn: () => exigirSucesso(api.GET('/api/leads/{id}', { params: { path: { id } } })),
+    enabled: Number.isSafeInteger(id) && id > 0,
   })
 }
 

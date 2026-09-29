@@ -5,6 +5,7 @@ import { LoginPage } from '@/features/acesso/LoginPage'
 import { RotaAdmin, RotaProtegida } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
 import { InicioPage } from '@/features/inicio/InicioPage'
+import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadsPage } from '@/features/leads/LeadsPage'
 import { UsuariosPage } from '@/features/usuarios/UsuariosPage'
 
@@ -20,6 +21,7 @@ export const rotas: RouteObject[] = [
         children: [
           { path: '/', element: <InicioPage /> },
           { path: '/leads', element: <LeadsPage /> },
+          { path: '/leads/:id', element: <LeadPage /> },
           {
             element: <RotaAdmin />,
             children: [{ path: '/configuracoes/usuarios', element: <UsuariosPage /> }],
