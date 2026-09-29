@@ -98,6 +98,22 @@ public class Lead
 
     /// <summary>Concorrência otimista: o <c>xmin</c> do PostgreSQL, que muda a cada atualização da linha.</summary>
     public uint Versao { get; set; }
+
+    /// <summary>
+    /// Grava o primeiro contato (seção 3.5) uma única vez. Um contato com data anterior à entrada do lead conta
+    /// como imediato: vale a data de criação, para o tempo até o primeiro contato nunca ficar negativo.
+    /// </summary>
+    public void RegistrarPrimeiroContato(DateTimeOffset quando) => PrimeiroContatoEm ??= quando < CriadoEm ? CriadoEm : quando;
+}
+
+internal static class TravasLeads
+{
+    /// <summary>
+    /// Trava a linha do lead até o fim da transação. Duas alterações do mesmo lead (uma entrada, uma mudança de
+    /// etapa, uma interação) rodam uma depois da outra.
+    /// </summary>
+    public static Task TravarLeadAsync(this CrmDbContext db, long id, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"SELECT 1 FROM leads WHERE id = {id} FOR UPDATE", ct);
 }
 
 internal sealed class LeadConfiguracao : IEntityTypeConfiguration<Lead>

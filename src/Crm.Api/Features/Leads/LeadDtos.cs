@@ -9,6 +9,8 @@ public sealed record ResponsavelResumo(Guid Id, string Nome);
 
 public sealed record CampanhaResumo(int Id, string Nome);
 
+public sealed record MotivoPerdaResumo(int Id, string Nome);
+
 public sealed record LeadResumoResponse(
     long Id,
     string Nome,
@@ -28,6 +30,7 @@ public sealed record ListaLeadsResponse(IReadOnlyList<LeadResumoResponse> Itens,
 public sealed record RespostaExtra(string Pergunta, string Resposta);
 
 /// <summary>Ficha do lead.</summary>
+/// <param name="MotivoPerda">O motivo e o detalhe, enquanto o lead está em Perdido.</param>
 /// <param name="Avisos">Dados que precisam de atenção (seção 3.1), com o campo a que se referem.</param>
 /// <param name="Versao">Vai de volta na edição: se o lead mudou nesse meio-tempo, a edição responde 409.</param>
 public sealed record LeadResponse(
@@ -56,6 +59,8 @@ public sealed record LeadResponse(
     DateTimeOffset? PrimeiroContatoEm,
     DateTimeOffset? ConvertidoEm,
     DateTimeOffset? PerdidoEm,
+    MotivoPerdaResumo? MotivoPerda,
+    string? MotivoPerdaDetalhe,
     DateTimeOffset? AnonimizadoEm,
     IReadOnlyList<AvisoLead> Avisos,
     uint Versao);

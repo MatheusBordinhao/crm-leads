@@ -15,6 +15,7 @@ namespace Crm.Api.Features.Leads;
 public sealed class ReceberEntrada(
     CrmDbContext db,
     AuditoriaService auditoria,
+    MudancaEtapa mudancaEtapa,
     TimeProvider relogio,
     ILogger<ReceberEntrada> logger)
 {
@@ -191,7 +192,7 @@ public sealed class ReceberEntrada(
     /// </summary>
     private async Task<Lead> CarregarParaAlterarAsync(long id, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlAsync($"SELECT 1 FROM leads WHERE id = {id} FOR UPDATE", ct);
+        await db.TravarLeadAsync(id, ct);
         return await db.Leads.SingleAsync(l => l.Id == id, ct);
     }
 
@@ -214,19 +215,9 @@ public sealed class ReceberEntrada(
             return;
         }
 
+        // Voltar a entrar não é um contato da atendente.
         var inicial = await db.Etapas.InicialAsync(ct);
-        db.HistoricoEtapas.Add(new HistoricoEtapa
-        {
-            LeadId = lead.Id,
-            EtapaAnteriorId = lead.EtapaId,
-            EtapaNovaId = inicial.Id,
-            UsuarioId = usuarioId,
-            OcorridoEm = agora,
-        });
-        lead.EtapaId = inicial.Id;
-        lead.PerdidoEm = null;
-        lead.MotivoPerdaId = null;
-        lead.MotivoPerdaDetalhe = null;
+        mudancaEtapa.Registrar(lead, inicial, inicial.Id, motivo: null, detalhe: null, usuarioId, agora, contaComoContato: false);
     }
 
     private async Task<Lead> CriarLeadAsync(

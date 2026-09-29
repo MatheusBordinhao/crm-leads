@@ -39,13 +39,23 @@ public class Etapa
 
 internal static class ConsultasEtapas
 {
-    /// <summary>A etapa aberta ativa de menor ordem, onde os leads novos e os reabertos entram.</summary>
-    public static Task<Etapa> InicialAsync(this IQueryable<Etapa> etapas, CancellationToken ct) =>
-        etapas
-            .Where(e => e.Ativa && e.Tipo == TipoEtapa.Aberta)
-            .OrderBy(e => e.Ordem)
-            .ThenBy(e => e.Id)
-            .FirstAsync(ct);
+    /// <summary>
+    /// A etapa aberta ativa de menor ordem, onde os leads novos e os reabertos entram. A leitura trava a etapa
+    /// (<c>FOR SHARE</c>) até o fim da transação, para ela não ser desativada enquanto um lead entra nela.
+    /// </summary>
+    public static async Task<Etapa> InicialAsync(this DbSet<Etapa> etapas, CancellationToken ct) =>
+        (await etapas
+            .FromSql($"SELECT * FROM etapas WHERE ativa AND tipo = 'aberta' ORDER BY ordem, id LIMIT 1 FOR SHARE")
+            .ToListAsync(ct))
+        .Single();
+
+    /// <summary>
+    /// A etapa ativa com o id, travada (<c>FOR SHARE</c>) até o fim da transação: quem a desativa espera, e um
+    /// lead nunca vai para uma etapa desativada. Nulo se não existe ou está desativada.
+    /// </summary>
+    public static async Task<Etapa?> AtivaParaMoverAsync(this DbSet<Etapa> etapas, int id, CancellationToken ct) =>
+        (await etapas.FromSql($"SELECT * FROM etapas WHERE id = {id} AND ativa FOR SHARE").ToListAsync(ct))
+        .SingleOrDefault();
 }
 
 internal sealed class EtapaConfiguracao : IEntityTypeConfiguration<Etapa>

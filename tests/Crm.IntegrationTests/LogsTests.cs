@@ -99,6 +99,25 @@ public class LogsTests(CrmApiFactory fabrica)
             ]);
     }
 
+    [Fact]
+    public async Task Textos_livres_do_funil_nunca_aparecem_no_log_nem_no_nivel_trace()
+    {
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        using var atendente = await api.LogarComoAsync(Perfil.Atendente);
+        var id = await atendente.CriarLeadIdAsync();
+        var detalhe = $"Detalhe sigiloso {marca}";
+
+        var perda = await atendente.MudarEtapaAsync(id, (await api.EtapaAsync("Perdido")).Id, await api.MotivoPerdaIdAsync(), detalhe);
+        var recusada = await atendente.MudarEtapaAsync(id, (await api.EtapaAsync("Em contato")).Id, null, detalhe);
+
+        Assert.Equal(HttpStatusCode.OK, perda.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, recusada.StatusCode);
+        AssertSemVazamento(captura, [detalhe]);
+    }
+
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)
     {
         var registros = captura.Registros.ToList();

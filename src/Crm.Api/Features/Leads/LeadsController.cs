@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Crm.Api.Features.Funil;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Datas;
@@ -20,6 +21,7 @@ public sealed class LeadsController(
     CrmDbContext db,
     VisibilidadeLeads visibilidade,
     ReceberEntrada receberEntrada,
+    MudancaEtapa mudancaEtapa,
     AuditoriaService auditoria,
     TimeProvider relogio) : ControllerBase
 {
@@ -175,6 +177,40 @@ public sealed class LeadsController(
         return (await BuscarFichaAsync(id))!;
     }
 
+    /// <summary>
+    /// Leva o lead para outra etapa (seção 3.4). Perdido exige o motivo, e Ganho pode exigir CPF/CNPJ válido.
+    /// A mudança entra no histórico com quem mudou e quando. Ir para a etapa em que o lead já está não muda nada.
+    /// </summary>
+    [HttpPost("{id:long}/etapa")]
+    public async Task<ActionResult<LeadResponse>> MudarEtapa(long id, MudarEtapaRequest requisicao)
+    {
+        var ct = HttpContext.RequestAborted;
+        await using var transacao = await db.Database.BeginTransactionAsync(ct);
+
+        // Travado antes de conferir se é visível: a leitura seguinte já vê a versão final do lead.
+        await db.TravarLeadAsync(id, ct);
+        var lead = await visibilidade.Visiveis().SingleOrDefaultAsync(l => l.Id == id, ct);
+        if (lead is null)
+        {
+            return NotFound();
+        }
+
+        if (await mudancaEtapa.MudarAsync(lead, requisicao, visibilidade.UsuarioId, ct) is { } erro)
+        {
+            if (erro.Campo is null)
+            {
+                return Problem(detail: erro.Mensagem, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            ModelState.AddModelError(erro.Campo, erro.Mensagem);
+            return ValidationProblem(ModelState);
+        }
+
+        await db.SaveChangesAsync(ct);
+        await transacao.CommitAsync(ct);
+        return (await BuscarFichaAsync(id))!;
+    }
+
     private IQueryable<Lead> Filtrar(IQueryable<Lead> consulta, FiltroLeads filtro)
     {
         if (!string.IsNullOrWhiteSpace(filtro.Busca))
@@ -293,6 +329,7 @@ public sealed class LeadsController(
             .Include(l => l.Etapa)
             .Include(l => l.Responsavel)
             .Include(l => l.Campanha)
+            .Include(l => l.MotivoPerda)
             .SingleOrDefaultAsync(l => l.Id == id, HttpContext.RequestAborted);
         return lead is null ? null : ParaFicha(lead);
     }
@@ -323,6 +360,8 @@ public sealed class LeadsController(
         lead.PrimeiroContatoEm,
         lead.ConvertidoEm,
         lead.PerdidoEm,
+        lead.MotivoPerda is null ? null : new MotivoPerdaResumo(lead.MotivoPerda.Id, lead.MotivoPerda.Nome),
+        lead.MotivoPerdaDetalhe,
         lead.AnonimizadoEm,
         AvisosLead.Calcular(lead.Email, lead.Telefone, lead.CpfCnpj),
         lead.Versao);

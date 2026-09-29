@@ -131,6 +131,41 @@ public static class LeadsDeTeste
             .SingleAsync(l => l.Id == id, TestContext.Current.CancellationToken);
     }
 
+    public static Task<HttpResponseMessage> MudarEtapaAsync(
+        this HttpClient cliente, long leadId, int etapaId, int? motivoPerdaId = null, string? motivoPerdaDetalhe = null) =>
+        cliente.PostAsJsonAsync(
+            $"/api/leads/{leadId}/etapa", new { etapaId, motivoPerdaId, motivoPerdaDetalhe }, TestContext.Current.CancellationToken);
+
+    /// <summary>Uma das etapas iniciais (seção 3.4), pelo nome. Os testes não renomeiam essas etapas.</summary>
+    public static async Task<Etapa> EtapaAsync(this WebApplicationFactory<Program> fabrica, string nome)
+    {
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        return await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Etapas
+            .AsNoTracking()
+            .SingleAsync(e => e.Nome == nome, TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Um motivo de perda da lista inicial, pelo nome.</summary>
+    public static async Task<int> MotivoPerdaIdAsync(this WebApplicationFactory<Program> fabrica, string nome = "Sem resposta")
+    {
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        return await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().MotivosPerda
+            .Where(m => m.Nome == nome)
+            .Select(m => m.Id)
+            .SingleAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>As mudanças de etapa do lead, da primeira para a última.</summary>
+    public static async Task<List<HistoricoEtapa>> HistoricoAsync(this WebApplicationFactory<Program> fabrica, long leadId)
+    {
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        return await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().HistoricoEtapas
+            .AsNoTracking()
+            .Where(h => h.LeadId == leadId)
+            .OrderBy(h => h.Id)
+            .ToListAsync(TestContext.Current.CancellationToken);
+    }
+
     /// <summary>Muda a etapa direto no banco, como se alguém tivesse mudado pela tela.</summary>
     public static async Task MoverParaAsync(this WebApplicationFactory<Program> fabrica, long leadId, TipoEtapa tipo)
     {

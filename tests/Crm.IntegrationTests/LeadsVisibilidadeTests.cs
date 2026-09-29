@@ -58,6 +58,30 @@ public class LeadsVisibilidadeTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Atendente_recebe_404_ao_mudar_a_etapa_de_lead_que_nao_e_dela()
+    {
+        using var adriana = await fabrica.LogarComoAsync(Perfil.Atendente);
+        using var pietra = await fabrica.LogarComoAsync(Perfil.Atendente);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpoTeste = LeadsDeTeste.CorpoIntegracao();
+        corpoTeste["teste"] = true;
+        var alheios = new[]
+        {
+            await adriana.CriarLeadIdAsync(),
+            await n8n.EnviarLeadIdAsync(LeadsDeTeste.CorpoIntegracao()),
+            await n8n.EnviarLeadIdAsync(corpoTeste),
+        };
+        var emContato = await fabrica.EtapaAsync("Em contato");
+
+        foreach (var id in alheios)
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await pietra.MudarEtapaAsync(id, emContato.Id)).StatusCode);
+            Assert.Equal("Novo", (await fabrica.BuscarLeadAsync(id)).Etapa.Nome);
+            Assert.Empty(await fabrica.HistoricoAsync(id));
+        }
+    }
+
+    [Fact]
     public async Task Lista_da_atendente_so_traz_os_leads_dela_mesmo_filtrando_por_outra_pessoa()
     {
         var pietraUsuario = await fabrica.CriarUsuarioAsync();
