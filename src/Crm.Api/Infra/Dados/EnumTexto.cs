@@ -1,4 +1,6 @@
 using System.Collections.Frozen;
+using System.ComponentModel;
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -36,6 +38,24 @@ internal static class EnumTexto<TEnum>
     private static string NomeDoMembro(TEnum valor) =>
         typeof(TEnum).GetField(valor.ToString())?.GetCustomAttribute<JsonStringEnumMemberNameAttribute>()?.Name
         ?? valor.ToString();
+}
+
+/// <summary>
+/// Deixa a query string usar os mesmos nomes do JSON (<c>?origem=meta_lead_ads</c>). Os nomes do C# continuam
+/// valendo.
+/// </summary>
+internal sealed class EnumTextoTypeConverter<TEnum>() : EnumConverter(typeof(TEnum))
+    where TEnum : struct, Enum
+{
+    public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value) =>
+        value is string texto && EnumTexto<TEnum>.TentarLer(texto.Trim(), out var valor)
+            ? valor
+            : base.ConvertFrom(context, culture, value);
+
+    public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType) =>
+        destinationType == typeof(string) && value is TEnum valor
+            ? EnumTexto<TEnum>.Nome(valor)
+            : base.ConvertTo(context, culture, value, destinationType);
 }
 
 internal static class EnumTextoExtensions

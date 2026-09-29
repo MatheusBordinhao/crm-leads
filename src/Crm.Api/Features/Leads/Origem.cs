@@ -1,8 +1,11 @@
+using System.ComponentModel;
 using System.Text.Json.Serialization;
+using Crm.Api.Infra.Dados;
 
 namespace Crm.Api.Features.Leads;
 
 /// <summary>De onde o lead veio (seção 3.2). Os valores começam em 1: o zero não é uma origem válida.</summary>
+[TypeConverter(typeof(EnumTextoTypeConverter<Origem>))]
 public enum Origem
 {
     [JsonStringEnumMemberName("meta_lead_ads")]

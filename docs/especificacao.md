@@ -55,7 +55,7 @@ Ficam fora da primeira versão:
 | empresa | Opcional, até 150 caracteres |
 
 - Todo lead precisa de nome e de pelo menos um entre e-mail e telefone.
-- Na tela, a validação é estrita e mostra o erro no campo.
+- Na tela, a validação é estrita e mostra o erro no campo. Na edição, o formato de e-mail, telefone e CPF/CNPJ só é conferido nos campos que a pessoa mudou: um valor inválido que veio da integração não impede salvar o resto, e o aviso continua na ficha.
 - Na integração e na importação, formato inválido não recusa o lead. O valor é guardado como veio (normalizado quando possível) e a ficha mostra um aviso, calculado na leitura: "E-mail em formato inválido", "Telefone não reconhecido", "CPF/CNPJ inválido" ou "Sem CPF/CNPJ". Valor maior que o tamanho do campo é cortado, também sem recusar o lead.
 - CNPJ alfanumérico, válido desde julho de 2026: os 12 primeiros caracteres podem ser letras de A a Z ou números, e os 2 últimos são dígitos. Cada caractere vale o código ASCII menos 48 (0–9 valem 0–9, A vale 17, Z vale 42). Os pesos são 5,4,3,2,9,8,7,6,5,4,3,2 para o primeiro dígito e 6,5,4,3,2,9,8,7,6,5,4,3,2 para o segundo. Se o resto da divisão por 11 for menor que 2, o dígito é 0; senão, é 11 menos o resto. Entrada em minúsculas é convertida antes.
 - Valores de teste: `12ABC34501DE35` e `11222333000181` são CNPJs válidos, `52998224725` é CPF válido, e trocar o último dígito de qualquer um deles invalida.
@@ -71,7 +71,8 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 5. **Pessoa nova:** cria o lead na etapa inicial, com a origem e a campanha da entrada, distribui (3.3), notifica e gera `lead.criado`.
 6. Tudo acontece numa transação só, incluindo o evento em `eventos_saida`.
 
-- Origens possíveis: `meta_lead_ads`, `google_ads`, `site`, `whatsapp`, `telefone`, `indicacao`, `planilha` e `manual`. A integração aceita apenas as três primeiras.
+- Origens possíveis: `meta_lead_ads`, `google_ads`, `site`, `whatsapp`, `telefone`, `indicacao`, `planilha` e `manual`. A integração aceita apenas as três primeiras, e o cadastro manual, `manual`, `telefone`, `whatsapp` e `indicacao`.
+- No cadastro manual, se a pessoa já é lead de outra atendente, a entrada é vinculada ao lead dela (passo 4). A tela avisa quem cadastrou que os dados foram acrescentados à ficha da outra pessoa, sem abri-la.
 - A origem e a campanha do lead são as da primeira entrada. Cada entrada guarda as suas.
 - **Leads de teste** (`teste = true`) ficam sem responsável e visíveis só para admins. Não geram alerta e ficam fora do painel e dos relatórios. Só esses o admin pode excluir de vez. Uma entrada de teste só é vinculada a um lead de teste, e uma entrada real, a um lead real: o teste da Meta feito com o e-mail de alguém não mexe no lead de verdade dessa pessoa.
 - **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "{origem} · campanha {id}", como "Google Ads · campanha 123", que o admin pode renomear. Um nome que chegue depois só substitui o provisório.
@@ -81,7 +82,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - A configuração `distribuicao_automatica` vem ligada por padrão.
 - Ligada, o próximo lead vai para o usuário ativo com `participa_rodizio = true` que recebeu lead há mais tempo: menor `ultimo_lead_atribuido_em`, com nulos primeiro e empate decidido pelo id. A escolha roda sob um `pg_advisory_xact_lock` global, para dois leads simultâneos não caírem na mesma pessoa.
 - Se ninguém participa do rodízio ou a distribuição está desligada, o lead fica sem responsável e os admins são notificados.
-- Lead criado à mão por atendente fica com ela. Lead criado por admin vai para quem o admin escolher, ou para o rodízio.
+- Lead criado à mão por atendente fica com ela. Lead criado por admin vai para quem o admin escolher, ou para o rodízio. Até o rodízio entrar (Passo 4), os leads da integração e os do admin sem escolha ficam sem responsável.
 - Só admin troca a responsável. A troca notifica a nova responsável, gera `lead.reatribuido` e entra na auditoria.
 - Nas férias ou folgas, o admin desmarca `participa_rodizio` da pessoa.
 
@@ -339,7 +340,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD |
 | `DELETE /api/leads/{id}` | Admin | Só para leads de teste |
 | `GET /api/usuarios`, `GET /api/usuarios/{id}`, `POST /api/usuarios`, `PUT /api/usuarios/{id}`, `POST /api/usuarios/{id}/redefinir-senha` | Admin | Criar, editar, desativar (`ativo = false`) e redefinir a senha provisória, o que também tira o bloqueio. O admin não pode desativar a si mesmo nem tirar o próprio perfil de Admin |
-| `GET /api/etapas` | Admin e atendente | Etapas na ordem do funil, para os filtros e o quadro |
+| `GET /api/etapas`, `GET /api/campanhas` | Admin e atendente | Leitura, para os filtros e o quadro |
 | `/api/etapas`, `/api/motivos-perda`, `/api/campanhas`, `/api/configuracoes` | Admin | Cadastros e configurações |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8 |

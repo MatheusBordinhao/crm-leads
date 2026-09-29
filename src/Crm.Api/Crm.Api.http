@@ -68,6 +68,34 @@ Content-Type: application/json
 
 { "senhaProvisoria": "{{senhaProvisoria}}" }
 
+### Leads (a atendente só vê os seus)
+GET {{host}}/api/leads?busca=maria&ordem=Recentes&pagina=1&tamanho=25
+
+### Ficha do lead, com os avisos
+# @prompt id
+GET {{host}}/api/leads/{{id}}
+
+### Novo lead (a atendente fica com ele; o admin pode mandar "responsavelId")
+POST {{host}}/api/leads
+Content-Type: application/json
+
+{
+  "nome": "João da Silva",
+  "email": "matheusbordinhao11+joao@gmail.com",
+  "telefone": "(51) 99999-8888",
+  "cpfCnpj": "529.982.247-25",
+  "uf": "RS",
+  "empresa": null,
+  "origem": "whatsapp",
+  "responsavelId": null
+}
+
+### Etapas, para os filtros
+GET {{host}}/api/etapas
+
+### Campanhas, para os filtros
+GET {{host}}/api/campanhas
+
 ### Lead pela integração, como o n8n envia (chave do Integracao__Chave, no .env)
 # Reenviar a mesma requisição responde "ja_recebido". Troque o idExterno para simular um lead novo.
 # @prompt chave

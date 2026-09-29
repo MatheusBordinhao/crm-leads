@@ -303,5 +303,6 @@ public sealed class ReceberEntrada(
 
 internal static class LeadsExtensions
 {
-    public static IServiceCollection AddLeads(this IServiceCollection services) => services.AddScoped<ReceberEntrada>();
+    public static IServiceCollection AddLeads(this IServiceCollection services) =>
+        services.AddScoped<ReceberEntrada>().AddScoped<VisibilidadeLeads>();
 }

@@ -79,6 +79,41 @@ public static class LeadsDeTeste
     public static Task<HttpResponseMessage> EnviarLeadAsync(this HttpClient cliente, object corpo) =>
         cliente.PostAsJsonAsync("/api/integracoes/leads", corpo, TestContext.Current.CancellationToken);
 
+    /// <summary>Envia pela integração e devolve o id do lead.</summary>
+    public static async Task<long> EnviarLeadIdAsync(this HttpClient cliente, Dictionary<string, object?> corpo)
+    {
+        var resposta = await cliente.EnviarLeadAsync(corpo);
+        resposta.EnsureSuccessStatusCode();
+        return (await resposta.LerJsonAsync()).GetProperty("leadId").GetInt64();
+    }
+
+    /// <summary>Corpo do cadastro manual (<c>POST /api/leads</c>), com e-mail único.</summary>
+    public static Dictionary<string, object?> CorpoLead(string nome = "Maria Souza") => new()
+    {
+        ["nome"] = nome,
+        ["email"] = EmailUnico(),
+        ["telefone"] = null,
+        ["cpfCnpj"] = null,
+        ["uf"] = null,
+        ["empresa"] = null,
+        ["origem"] = "manual",
+        ["responsavelId"] = null,
+    };
+
+    public static Task<HttpResponseMessage> CriarLeadAsync(this HttpClient cliente, object corpo) =>
+        cliente.PostAsJsonAsync("/api/leads", corpo, TestContext.Current.CancellationToken);
+
+    /// <summary>Cadastra pela tela e devolve o id do lead.</summary>
+    public static async Task<long> CriarLeadIdAsync(this HttpClient cliente, Dictionary<string, object?>? corpo = null)
+    {
+        var resposta = await cliente.CriarLeadAsync(corpo ?? CorpoLead());
+        resposta.EnsureSuccessStatusCode();
+        return (await resposta.LerJsonAsync()).GetProperty("leadId").GetInt64();
+    }
+
+    /// <summary>Telefone em E.164 escrito como a pessoa digita: <c>(51) 99123-4567</c>.</summary>
+    public static string ComoDigitado(string e164) => $"({e164[3..5]}) {e164[5..10]}-{e164[10..]}";
+
     /// <summary>Processa a entrada pelo serviço, num escopo próprio, como numa requisição.</summary>
     public static async Task<EntradaProcessada> ReceberAsync(this WebApplicationFactory<Program> fabrica, NovaEntrada entrada)
     {

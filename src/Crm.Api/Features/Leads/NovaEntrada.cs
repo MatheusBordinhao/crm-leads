@@ -70,14 +70,17 @@ public sealed record EntradaProcessada(long LeadId, ResultadoEntrada Resultado);
 /// <summary>Dados pessoais da entrada normalizados e cortados no tamanho das colunas.</summary>
 internal sealed record DadosPessoa(string Nome, string? Email, string? Telefone, string? CpfCnpj, string? Uf, string? Empresa)
 {
-    public static DadosPessoa De(NovaEntrada entrada) => new(
-        Textos.LimparECortar(entrada.Nome, Lead.TamanhoMaximoNome)
-            ?? throw new ArgumentException("A entrada precisa de um nome.", nameof(entrada)),
-        Textos.Cortar(Emails.Normalizar(entrada.Email), Emails.TamanhoMaximo),
-        Textos.Cortar(Telefones.Normalizar(entrada.Telefone), Lead.TamanhoMaximoTelefone),
-        Textos.Cortar(Documentos.Normalizar(entrada.CpfCnpj), Lead.TamanhoMaximoDocumento),
-        Ufs.Normalizar(entrada.Uf),
-        Textos.LimparECortar(entrada.Empresa, Lead.TamanhoMaximoEmpresa));
+    public static DadosPessoa De(NovaEntrada entrada) =>
+        Normalizar(entrada.Nome, entrada.Email, entrada.Telefone, entrada.CpfCnpj, entrada.Uf, entrada.Empresa);
+
+    public static DadosPessoa Normalizar(string nome, string? email, string? telefone, string? cpfCnpj, string? uf, string? empresa) =>
+        new(
+            Textos.LimparECortar(nome, Lead.TamanhoMaximoNome) ?? throw new ArgumentException("Informe o nome.", nameof(nome)),
+            Textos.Cortar(Emails.Normalizar(email), Emails.TamanhoMaximo),
+            Textos.Cortar(Telefones.Normalizar(telefone), Lead.TamanhoMaximoTelefone),
+            Textos.Cortar(Documentos.Normalizar(cpfCnpj), Lead.TamanhoMaximoDocumento),
+            Ufs.Normalizar(uf),
+            Textos.LimparECortar(empresa, Lead.TamanhoMaximoEmpresa));
 
     public bool DocumentoValido => Documentos.Valido(CpfCnpj);
 
