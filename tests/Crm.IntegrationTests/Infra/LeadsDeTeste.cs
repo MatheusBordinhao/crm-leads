@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
 using Crm.Api.Infra.Dados;
@@ -135,6 +136,21 @@ public static class LeadsDeTeste
         this HttpClient cliente, long leadId, int etapaId, int? motivoPerdaId = null, string? motivoPerdaDetalhe = null) =>
         cliente.PostAsJsonAsync(
             $"/api/leads/{leadId}/etapa", new { etapaId, motivoPerdaId, motivoPerdaDetalhe }, TestContext.Current.CancellationToken);
+
+    public static Task<HttpResponseMessage> RegistrarInteracaoAsync(
+        this HttpClient cliente, long leadId, string tipo, string? descricao = null, DateTimeOffset? ocorridoEm = null) =>
+        cliente.PostAsJsonAsync(
+            $"/api/leads/{leadId}/interacoes",
+            new { tipo, descricao, ocorridoEm = ocorridoEm ?? DateTimeOffset.UtcNow },
+            TestContext.Current.CancellationToken);
+
+    /// <summary>Os itens da linha do tempo, do mais recente para o mais antigo.</summary>
+    public static async Task<List<JsonElement>> LinhaDoTempoAsync(this HttpClient cliente, long leadId)
+    {
+        var resposta = await cliente.GetAsync($"/api/leads/{leadId}/linha-do-tempo", TestContext.Current.CancellationToken);
+        resposta.EnsureSuccessStatusCode();
+        return [.. (await resposta.LerJsonAsync()).EnumerateArray()];
+    }
 
     /// <summary>Uma das etapas iniciais (seção 3.4), pelo nome. Os testes não renomeiam essas etapas.</summary>
     public static async Task<Etapa> EtapaAsync(this WebApplicationFactory<Program> fabrica, string nome)

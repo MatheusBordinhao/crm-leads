@@ -109,13 +109,20 @@ public class LogsTests(CrmApiFactory fabrica)
         using var atendente = await api.LogarComoAsync(Perfil.Atendente);
         var id = await atendente.CriarLeadIdAsync();
         var detalhe = $"Detalhe sigiloso {marca}";
+        var descricao = $"Conversa sigilosa {marca}";
 
+        var interacao = await atendente.RegistrarInteracaoAsync(id, "ligacao", descricao);
+        var interacaoRecusada = await atendente.RegistrarInteracaoAsync(id, "ligacao", descricao, DateTimeOffset.UtcNow.AddDays(1));
+        var linhaDoTempo = await atendente.LinhaDoTempoAsync(id);
         var perda = await atendente.MudarEtapaAsync(id, (await api.EtapaAsync("Perdido")).Id, await api.MotivoPerdaIdAsync(), detalhe);
         var recusada = await atendente.MudarEtapaAsync(id, (await api.EtapaAsync("Em contato")).Id, null, detalhe);
 
+        Assert.Equal(HttpStatusCode.Created, interacao.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, interacaoRecusada.StatusCode);
+        Assert.NotEmpty(linhaDoTempo);
         Assert.Equal(HttpStatusCode.OK, perda.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, recusada.StatusCode);
-        AssertSemVazamento(captura, [detalhe]);
+        AssertSemVazamento(captura, [detalhe, descricao]);
     }
 
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)

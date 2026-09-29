@@ -313,6 +313,54 @@ namespace Crm.Api.Infra.Dados.Migrations
                     b.ToTable("entradas_recebidas", (string)null);
                 });
 
+            modelBuilder.Entity("Crm.Api.Features.Leads.Interacao", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("descricao");
+
+                    b.Property<long>("LeadId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lead_id");
+
+                    b.Property<DateTimeOffset>("OcorridoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocorrido_em");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_interacoes");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_interacoes_usuario_id");
+
+                    b.HasIndex("LeadId", "OcorridoEm")
+                        .HasDatabaseName("ix_interacoes_lead_id_ocorrido_em");
+
+                    b.ToTable("interacoes", (string)null);
+                });
+
             modelBuilder.Entity("Crm.Api.Features.Leads.Lead", b =>
                 {
                     b.Property<long>("Id")
@@ -877,6 +925,23 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasForeignKey("LeadId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .HasConstraintName("fk_entradas_recebidas_leads_lead_id");
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Leads.Interacao", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Leads.Lead", null)
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_interacoes_leads_lead_id");
+
+                    b.HasOne("Crm.Api.Features.Usuarios.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_interacoes_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Crm.Api.Features.Leads.Lead", b =>

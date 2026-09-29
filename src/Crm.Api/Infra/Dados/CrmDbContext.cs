@@ -28,6 +28,8 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options)
 
     public DbSet<HistoricoEtapa> HistoricoEtapas => Set<HistoricoEtapa>();
 
+    public DbSet<Interacao> Interacoes => Set<Interacao>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -82,6 +82,31 @@ public class LeadsVisibilidadeTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Atendente_recebe_404_na_linha_do_tempo_e_nas_interacoes_de_lead_que_nao_e_dela()
+    {
+        using var adriana = await fabrica.LogarComoAsync(Perfil.Atendente);
+        using var pietra = await fabrica.LogarComoAsync(Perfil.Atendente);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpoTeste = LeadsDeTeste.CorpoIntegracao();
+        corpoTeste["teste"] = true;
+        var alheios = new[]
+        {
+            await adriana.CriarLeadIdAsync(),
+            await n8n.EnviarLeadIdAsync(LeadsDeTeste.CorpoIntegracao()),
+            await n8n.EnviarLeadIdAsync(corpoTeste),
+        };
+
+        foreach (var id in alheios)
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await pietra.GetAsync($"/api/leads/{id}/linha-do-tempo", Ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await pietra.RegistrarInteracaoAsync(id, "ligacao", "Tentativa")).StatusCode);
+            Assert.Null((await fabrica.BuscarLeadAsync(id)).PrimeiroContatoEm);
+        }
+
+        Assert.Single(await adriana.LinhaDoTempoAsync(alheios[0]));
+    }
+
+    [Fact]
     public async Task Lista_da_atendente_so_traz_os_leads_dela_mesmo_filtrando_por_outra_pessoa()
     {
         var pietraUsuario = await fabrica.CriarUsuarioAsync();

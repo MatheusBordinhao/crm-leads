@@ -15,6 +15,9 @@ internal static class AcoesAuditoria
     public const string UsuarioSenhaRedefinida = "usuario.senha_redefinida";
     public const string LeadCriado = "lead.criado";
     public const string LeadEditado = "lead.editado";
+
+    /// <summary>Troca de responsável, com <c>detalhes { anteriorId, novoId }</c>. A linha do tempo lê daqui.</summary>
+    public const string LeadReatribuido = "lead.reatribuido";
 }
 
 internal static class EntidadesAuditoria
