@@ -25,6 +25,9 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
 
     public const string AdminInicialSenha = "senha-do-admin-inicial";
 
+    /// <summary>Chave de integração (X-Api-Key) dos testes.</summary>
+    public const string ChaveIntegracao = "chave-de-integracao-dos-testes-0123456789";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(ImagemPostgres).Build();
 
     public string ConnectionString => _postgres.GetConnectionString();
@@ -49,9 +52,12 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting($"ConnectionStrings:{DadosExtensions.NomeConexao}", ConnectionString);
         builder.UseSetting("Admin:Email", AdminInicialEmail);
         builder.UseSetting("Admin:SenhaInicial", AdminInicialSenha);
+        builder.UseSetting("Integracao:Chave", ChaveIntegracao);
 
-        // No TestServer, todas as requisições vêm do mesmo "IP". O limite real é testado numa fábrica à parte.
+        // No TestServer, todas as requisições vêm do mesmo "IP", e a integração tem um contador só. Os limites
+        // reais são testados em fábricas à parte.
         builder.UseSetting("Acesso:LoginsPorMinuto", "100000");
+        builder.UseSetting("Integracao:RequisicoesPorMinuto", "100000");
     }
 
     public override async ValueTask DisposeAsync()

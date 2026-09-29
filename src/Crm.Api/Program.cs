@@ -1,3 +1,4 @@
+using Crm.Api.Features.Integracoes;
 using Crm.Api.Features.Leads;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
@@ -21,6 +22,7 @@ builder.Services.AddCrmDbContext();
 builder.Services.AddAcesso();
 builder.Services.AddAuditoria();
 builder.Services.AddLeads();
+builder.Services.AddIntegracoes();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 
 var app = builder.Build();

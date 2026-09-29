@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
@@ -39,6 +40,44 @@ public static class LeadsDeTeste
         Nome = nome,
         Email = EmailUnico(),
     };
+
+    /// <summary>Cliente do n8n: sem cookie, com a chave de integração.</summary>
+    public static HttpClient CriarClienteIntegracao(this WebApplicationFactory<Program> fabrica, string? chave = CrmApiFactory.ChaveIntegracao)
+    {
+        var cliente = fabrica.CriarClienteHttps();
+        if (chave is not null)
+        {
+            cliente.DefaultRequestHeaders.Add("X-Api-Key", chave);
+        }
+
+        return cliente;
+    }
+
+    /// <summary>Corpo da seção 4.2, com id externo e e-mail únicos. Os testes mudam ou tiram campos.</summary>
+    public static Dictionary<string, object?> CorpoIntegracao(string origem = "meta_lead_ads") => new()
+    {
+        ["origem"] = origem,
+        ["idExterno"] = IdExternoUnico(),
+        ["recebidoEm"] = "2026-10-05T14:03:00Z",
+        ["teste"] = false,
+        ["nome"] = "Maria Souza",
+        ["email"] = EmailUnico(),
+        ["telefone"] = TelefoneUnico(),
+        ["cpfCnpj"] = null,
+        ["uf"] = "RS",
+        ["empresa"] = "Empresa X",
+        ["plataforma"] = "instagram",
+        ["campanha"] = new { id = IdExternoUnico(), nome = "Outubro | Serviço Y" },
+        ["conjunto"] = new { id = "120210000000002", nome = "RS | 25-55" },
+        ["anuncio"] = new { id = "120210000000003", nome = "Vídeo 1" },
+        ["formulario"] = new { id = "987654321", nome = "Orçamento" },
+        ["utm"] = new { source = "instagram", medium = "paid", campaign = "outubro-servico-y", content = (string?)null, term = (string?)null },
+        ["gclid"] = null,
+        ["respostasExtras"] = new Dictionary<string, string> { ["Qual serviço você procura?"] = "Serviço Y" },
+    };
+
+    public static Task<HttpResponseMessage> EnviarLeadAsync(this HttpClient cliente, object corpo) =>
+        cliente.PostAsJsonAsync("/api/integracoes/leads", corpo, TestContext.Current.CancellationToken);
 
     /// <summary>Processa a entrada pelo serviço, num escopo próprio, como numa requisição.</summary>
     public static async Task<EntradaProcessada> ReceberAsync(this WebApplicationFactory<Program> fabrica, NovaEntrada entrada)
