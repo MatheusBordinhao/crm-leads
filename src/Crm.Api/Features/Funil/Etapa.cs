@@ -37,6 +37,17 @@ public class Etapa
     public bool Ativa { get; set; } = true;
 }
 
+internal static class ConsultasEtapas
+{
+    /// <summary>A etapa aberta ativa de menor ordem, onde os leads novos e os reabertos entram.</summary>
+    public static Task<Etapa> InicialAsync(this IQueryable<Etapa> etapas, CancellationToken ct) =>
+        etapas
+            .Where(e => e.Ativa && e.Tipo == TipoEtapa.Aberta)
+            .OrderBy(e => e.Ordem)
+            .ThenBy(e => e.Id)
+            .FirstAsync(ct);
+}
+
 internal sealed class EtapaConfiguracao : IEntityTypeConfiguration<Etapa>
 {
     public void Configure(EntityTypeBuilder<Etapa> builder)

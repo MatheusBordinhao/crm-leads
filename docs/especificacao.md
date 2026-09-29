@@ -51,12 +51,12 @@ Ficam fora da primeira versão:
 | email | Minúsculas, sem espaços, formato validado |
 | telefone | E.164 com libphonenumber, região padrão BR |
 | cpf_cnpj | Só letras e números, em maiúsculas. 11 caracteres é CPF; 14 é CNPJ, numérico ou alfanumérico. Dígitos verificadores validados |
-| uf | Uma das 27 siglas |
+| uf | Uma das 27 siglas. A integração e a importação também aceitam o nome do estado, com ou sem acento ("Rio Grande do Sul" vira RS). Valor não reconhecido fica vazio, e o original continua no payload bruto |
 | empresa | Opcional, até 150 caracteres |
 
 - Todo lead precisa de nome e de pelo menos um entre e-mail e telefone.
 - Na tela, a validação é estrita e mostra o erro no campo.
-- Na integração e na importação, formato inválido não recusa o lead. O valor é guardado como veio (normalizado quando possível) e a ficha mostra um aviso, calculado na leitura: "E-mail em formato inválido", "Telefone não reconhecido", "CPF/CNPJ inválido" ou "Sem CPF/CNPJ".
+- Na integração e na importação, formato inválido não recusa o lead. O valor é guardado como veio (normalizado quando possível) e a ficha mostra um aviso, calculado na leitura: "E-mail em formato inválido", "Telefone não reconhecido", "CPF/CNPJ inválido" ou "Sem CPF/CNPJ". Valor maior que o tamanho do campo é cortado, também sem recusar o lead.
 - CNPJ alfanumérico, válido desde julho de 2026: os 12 primeiros caracteres podem ser letras de A a Z ou números, e os 2 últimos são dígitos. Cada caractere vale o código ASCII menos 48 (0–9 valem 0–9, A vale 17, Z vale 42). Os pesos são 5,4,3,2,9,8,7,6,5,4,3,2 para o primeiro dígito e 6,5,4,3,2,9,8,7,6,5,4,3,2 para o segundo. Se o resto da divisão por 11 for menor que 2, o dígito é 0; senão, é 11 menos o resto. Entrada em minúsculas é convertida antes.
 - Valores de teste: `12ABC34501DE35` e `11222333000181` são CNPJs válidos, `52998224725` é CPF válido, e trocar o último dígito de qualquer um deles invalida.
 
@@ -66,15 +66,15 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 
 1. **Idempotência:** se já existe entrada processada com a mesma `(origem, id_externo)`, responde com o lead dela e não faz mais nada.
 2. **Registro:** normaliza os dados e grava a entrada em `entradas_recebidas`, com o payload bruto.
-3. **Busca:** procura um lead existente e não anonimizado, nesta ordem: CPF/CNPJ válido, e-mail e telefone normalizado. A busca e a criação rodam sob `pg_advisory_xact_lock` pela chave normalizada, para duas entradas simultâneas da mesma pessoa não criarem dois leads.
-4. **Pessoa já existe:** vincula a entrada ao lead e preenche só os campos que estavam vazios. Registra a entrada na linha do tempo, notifica a responsável e gera `lead.entrada_repetida`. Se o lead estava numa etapa do tipo perdido, volta para a etapa inicial (reaberto); se estava em ganho, continua em ganho.
+3. **Busca:** procura um lead existente e não anonimizado, nesta ordem: CPF/CNPJ, e-mail e telefone normalizados. Cada um só entra na busca quando está em formato válido, para um "a@a" ou um "000" não juntar pessoas diferentes. A busca e a criação rodam sob `pg_advisory_xact_lock`, para duas entradas simultâneas da mesma pessoa não criarem dois leads. As travas usam as chaves da entrada (origem e id externo), da pessoa (documento, e-mail e telefone válidos) e da campanha, pegas em ordem alfabética.
+4. **Pessoa já existe:** vincula a entrada ao lead e preenche só os campos que estavam vazios. Registra a entrada na linha do tempo, notifica a responsável e gera `lead.entrada_repetida`. Se o lead estava numa etapa do tipo perdido, volta para a etapa inicial (reaberto) e grava `historico_etapas`, sem usuário quando a entrada veio da integração; se estava em ganho, continua em ganho.
 5. **Pessoa nova:** cria o lead na etapa inicial, com a origem e a campanha da entrada, distribui (3.3), notifica e gera `lead.criado`.
 6. Tudo acontece numa transação só, incluindo o evento em `eventos_saida`.
 
 - Origens possíveis: `meta_lead_ads`, `google_ads`, `site`, `whatsapp`, `telefone`, `indicacao`, `planilha` e `manual`. A integração aceita apenas as três primeiras.
 - A origem e a campanha do lead são as da primeira entrada. Cada entrada guarda as suas.
-- **Leads de teste** (`teste = true`) ficam sem responsável e visíveis só para admins. Não geram alerta e ficam fora do painel e dos relatórios. Só esses o admin pode excluir de vez.
-- **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "Google Ads · campanha {id}", que o admin pode renomear. Um nome que chegue depois só substitui o provisório.
+- **Leads de teste** (`teste = true`) ficam sem responsável e visíveis só para admins. Não geram alerta e ficam fora do painel e dos relatórios. Só esses o admin pode excluir de vez. Uma entrada de teste só é vinculada a um lead de teste, e uma entrada real, a um lead real: o teste da Meta feito com o e-mail de alguém não mexe no lead de verdade dessa pessoa.
+- **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "{origem} · campanha {id}", como "Google Ads · campanha 123", que o admin pode renomear. Um nome que chegue depois só substitui o provisório.
 
 ### 3.3 Distribuição
 

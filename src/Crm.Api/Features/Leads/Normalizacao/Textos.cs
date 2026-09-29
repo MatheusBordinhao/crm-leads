@@ -16,9 +16,8 @@ public static class Textos
     }
 
     /// <summary>Limpa e corta no tamanho máximo. Serve para a entrada da integração, que nunca é recusada por tamanho.</summary>
-    public static string? LimparECortar(string? valor, int tamanhoMaximo)
-    {
-        var limpo = Limpar(valor);
-        return limpo is null || limpo.Length <= tamanhoMaximo ? limpo : limpo[..tamanhoMaximo].TrimEnd();
-    }
+    public static string? LimparECortar(string? valor, int tamanhoMaximo) => Cortar(Limpar(valor), tamanhoMaximo)?.TrimEnd();
+
+    public static string? Cortar(string? valor, int tamanhoMaximo) =>
+        valor is null || valor.Length <= tamanhoMaximo ? valor : valor[..tamanhoMaximo];
 }

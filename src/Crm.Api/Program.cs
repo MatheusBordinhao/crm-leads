@@ -1,3 +1,4 @@
+using Crm.Api.Features.Leads;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
@@ -19,6 +20,7 @@ builder.Services.AddOpenApi(opcoes => opcoes.AddDocumentTransformer((documento, 
 builder.Services.AddCrmDbContext();
 builder.Services.AddAcesso();
 builder.Services.AddAuditoria();
+builder.Services.AddLeads();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 
 var app = builder.Build();

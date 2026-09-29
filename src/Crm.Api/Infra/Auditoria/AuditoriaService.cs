@@ -13,11 +13,14 @@ internal static class AcoesAuditoria
     public const string UsuarioCriado = "usuario.criado";
     public const string UsuarioEditado = "usuario.editado";
     public const string UsuarioSenhaRedefinida = "usuario.senha_redefinida";
+    public const string LeadCriado = "lead.criado";
+    public const string LeadEditado = "lead.editado";
 }
 
 internal static class EntidadesAuditoria
 {
     public const string Usuario = "usuario";
+    public const string Lead = "lead";
 }
 
 /// <summary>
