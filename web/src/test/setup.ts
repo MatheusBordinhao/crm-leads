@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
+import { toast } from 'sonner'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 import { servidor } from './servidor'
 
@@ -29,6 +30,8 @@ beforeAll(() => servidor.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   cleanup()
   servidor.resetHandlers()
+  // Os toasts ficam num estado global do sonner: sem isso, o de um teste aparece de novo no seguinte.
+  toast.dismiss()
 })
 
 afterAll(() => servidor.close())

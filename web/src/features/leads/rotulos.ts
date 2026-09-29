@@ -14,7 +14,12 @@ export const ROTULOS_ORIGEM: Record<Origem, string> = {
 export const ORIGENS = Object.keys(ROTULOS_ORIGEM) as Origem[]
 
 /** Origens que a pessoa escolhe ao cadastrar um lead à mão. */
-export const ORIGENS_DO_CADASTRO: Origem[] = ['manual', 'telefone', 'whatsapp', 'indicacao']
+export const ORIGENS_DO_CADASTRO = [
+  'manual',
+  'telefone',
+  'whatsapp',
+  'indicacao',
+] as const satisfies readonly Origem[]
 
 const ROTULOS_PLATAFORMA: Record<string, string> = {
   facebook: 'Facebook',

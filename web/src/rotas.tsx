@@ -7,6 +7,7 @@ import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
 import { InicioPage } from '@/features/inicio/InicioPage'
 import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadsPage } from '@/features/leads/LeadsPage'
+import { NovoLeadPage } from '@/features/leads/NovoLeadPage'
 import { UsuariosPage } from '@/features/usuarios/UsuariosPage'
 
 /** Rotas da aplicação. O main.tsx usa um roteador do navegador, e os testes, um em memória. */
@@ -21,6 +22,7 @@ export const rotas: RouteObject[] = [
         children: [
           { path: '/', element: <InicioPage /> },
           { path: '/leads', element: <LeadsPage /> },
+          { path: '/leads/novo', element: <NovoLeadPage /> },
           { path: '/leads/:id', element: <LeadPage /> },
           {
             element: <RotaAdmin />,
