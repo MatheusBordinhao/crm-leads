@@ -208,6 +208,28 @@ public class ReceberEntradaTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Entrada_real_nunca_vincula_a_lead_de_teste()
+    {
+        // Só existe o lead de teste: sem o filtro, a entrada real seria vinculada a ele.
+        var cpf = LeadsDeTeste.CpfUnico();
+        var telefone = LeadsDeTeste.TelefoneUnico();
+        var teste = await fabrica.ReceberAsync(LeadsDeTeste.Entrada() with { CpfCnpj = cpf, Telefone = telefone, Teste = true });
+        var email = (await fabrica.BuscarLeadAsync(teste.LeadId)).Email;
+
+        var real = await fabrica.ReceberAsync(LeadsDeTeste.Entrada(Origem.GoogleAds) with
+        {
+            CpfCnpj = cpf,
+            Email = email,
+            Telefone = telefone,
+        });
+
+        Assert.Equal(ResultadoEntrada.Criado, real.Resultado);
+        Assert.NotEqual(teste.LeadId, real.LeadId);
+        Assert.False((await fabrica.BuscarLeadAsync(real.LeadId)).Teste);
+        Assert.Single(await EntradasDoLeadAsync(teste.LeadId));
+    }
+
+    [Fact]
     public async Task Lead_de_teste_fica_sem_responsavel()
     {
         var atendente = await fabrica.CriarUsuarioAsync();
