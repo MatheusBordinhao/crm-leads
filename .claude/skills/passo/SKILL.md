@@ -19,4 +19,9 @@ Execute o Passo $ARGUMENTS da seção 10 de `docs/especificacao.md`.
 4. **Verificação.** Rode `dotnet build` e `dotnet test`. Dentro de `web/`, rode `npm run lint` e `npm test` (sem modo watch). Corrija até tudo passar.
 5. **Critérios de aceite.** Confira um por um e mostre como cada um foi verificado. Os que dependem de algo externo (acesso à Meta, ao Google Ads, ao servidor, credencial de e-mail), deixe prontos e liste o que eu preciso providenciar.
 6. **n8n.** Se o passo envolver fluxos, crie e valide pelo MCP do n8n e salve o JSON de cada fluxo em `n8n/`. Não publique, não ative e não execute nenhum fluxo sem me perguntar.
-7. **Fechamento.** Atualize o README e a especificação se algo mudou. Faça os commits em português, um assunto por commit, e não faça push. Termine com um resumo curto: o que foi feito, como eu testo e o que ficou pendente.
+7. **Revisão.** Antes de fechar, confira no código e nos testes:
+   - cada item de "Regras que não podem quebrar" do `CLAUDE.md`;
+   - as decisões da especificação que tocam o passo: as regras das seções que ele cita, as decisões tomadas neste passo e nos anteriores, as respostas que eu dei às suas dúvidas (nesta conversa ou já registradas na especificação) e o padrão da seção 11.
+
+   Mostre como cada uma foi respeitada: o trecho que a cumpre (arquivo e linha) e o teste que a prova. Se uma regra não puder ser provada por teste (por exemplo, comparação em tempo constante), mostre o trecho que a garante. Regra sem teste ganha o teste; regra quebrada é corrigida, com teste, antes do fechamento. Regra que não se aplica ao passo, diga em uma linha por quê. Se a revisão mudar código, rode de novo a verificação da etapa 4.
+8. **Fechamento.** Atualize o README e a especificação se algo mudou. Faça os commits em português, um assunto por commit, e não faça push. Termine com um resumo curto: o que foi feito, como eu testo e o que ficou pendente.
