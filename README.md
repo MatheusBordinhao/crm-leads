@@ -19,7 +19,7 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    ```powershell
    $senha = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object { [char]$_ })
-   $linhas = (Get-Content .env.example) -replace '^POSTGRES_PASSWORD=$', "POSTGRES_PASSWORD=$senha" -replace '^(ConnectionStrings__Crm=.*Password=)$', "`${1}$senha"
+   $linhas = (Get-Content .env.example -Encoding UTF8) -replace '^POSTGRES_PASSWORD=$', "POSTGRES_PASSWORD=$senha" -replace '^(ConnectionStrings__Crm=.*Password=)$', "`${1}$senha"
    [IO.File]::WriteAllText("$PWD\.env", ($linhas -join "`n") + "`n")
    ```
 
@@ -39,7 +39,7 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    ```powershell
    $senha = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 16 | ForEach-Object { [char]$_ })
-   $linhas = (Get-Content .env) -replace '^Admin__Email=.*$', 'Admin__Email=voce@exemplo.com' -replace '^Admin__SenhaInicial=.*$', "Admin__SenhaInicial=$senha"
+   $linhas = (Get-Content .env -Encoding UTF8) -replace '^Admin__Email=.*$', 'Admin__Email=voce@exemplo.com' -replace '^Admin__SenhaInicial=.*$', "Admin__SenhaInicial=$senha"
    [IO.File]::WriteAllText("$PWD\.env", ($linhas -join "`n") + "`n")
    "Senha inicial do admin: $senha"
    ```
@@ -55,7 +55,26 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    O admin é criado quando a API sobe e ainda não há nenhum. Depois disso, mudar essas variáveis não tem efeito: os outros usuários são criados na tela de usuários.
 
-3. Instale as ferramentas e as dependências:
+3. Gere a chave da integração (`Integracao__Chave`), que o n8n manda no cabeçalho `X-Api-Key` para enviar leads. Os comandos usam um gerador criptográfico e gravam a chave direto no `.env`, sem mostrá-la. Sem chave, a integração fica desligada e responde 401; com menos de 32 caracteres, a API não sobe.
+
+   PowerShell:
+
+   ```powershell
+   $bytes = New-Object byte[] 24; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+   $chave = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+   $linhas = (Get-Content .env -Encoding UTF8) -replace '^Integracao__Chave=.*$', "Integracao__Chave=$chave"
+   [IO.File]::WriteAllText("$PWD\.env", ($linhas -join "`n") + "`n")
+   ```
+
+   Bash:
+
+   ```bash
+   sed -i "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" .env
+   ```
+
+   A mesma chave vai para a credencial Header Auth do n8n no Passo 6. Para trocá-la, rode o comando de novo e atualize a credencial.
+
+4. Instale as ferramentas e as dependências:
 
    ```bash
    dotnet tool restore      # dotnet ef, para criar migrations
@@ -88,6 +107,15 @@ Em desenvolvimento, a API lê o `.env` da raiz. Uma variável que já exista no 
 Depois de 5 senhas erradas, o login fica bloqueado por 15 minutos. Um admin libera antes redefinindo a senha na tela de usuários.
 
 O cookie da sessão é `Secure`. Chrome, Edge e Firefox o aceitam em `http://localhost`, mas não pelo IP da máquina: para abrir no celular, é preciso HTTPS, que chega no Passo 5. Até lá, confira as telas de celular com a visão de dispositivo do DevTools.
+
+### Leads pela integração
+
+O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especificação). Para simular um envio sem o n8n, com a API rodando, use a requisição "Lead pela integração" do [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) e informe o valor de `Integracao__Chave` quando o VS Code pedir.
+
+- Reenviar a mesma requisição responde `ja_recebido` e não duplica o lead. Troque o `idExterno` para simular um lead novo.
+- O exemplo vai com `"teste": true`: lead de teste fica sem responsável e só aparece para admins.
+- Até o rodízio (Passo 4), os leads da integração ficam sem responsável. O admin os encontra em Leads, com o filtro Responsável › Sem responsável.
+- Telefone, e-mail ou CPF/CNPJ em formato inválido não recusam o lead: a ficha mostra o aviso embaixo do campo.
 
 ## Tipos da API no front
 
@@ -126,9 +154,11 @@ docker compose down -v                                            # para o banco
 ## Estrutura
 
 ```
-src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/ (Usuarios/: acesso e cadastro)
-src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env (Configuracao/),
-                             ProblemDetails, validação e convenções da API (Web/)
+src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/: Usuarios/ (acesso e cadastro),
+                             Leads/ (leads, entrada, normalização e campanhas), Funil/ (etapas e histórico),
+                             Integracoes/ (chave e rotas do n8n)
+src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações (Configuracao/),
+                             horário de Brasília (Datas/), ProblemDetails, validação e convenções da API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React + TypeScript + Vite: features/ por módulo, components/ui/ do shadcn/ui,
