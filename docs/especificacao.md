@@ -323,7 +323,7 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 
 ## 6. API
 
-Os erros seguem o padrão ProblemDetails, com mensagens em português. A documentação OpenAPI fica disponível em desenvolvimento.
+Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo ausente no corpo JSON responde 400 em vez de assumir o valor padrão: um `perfil` ou um `ativo` omitido não vira Admin nem desativa ninguém. A documentação OpenAPI fica disponível em desenvolvimento.
 
 | Método e rota | Quem | O que faz |
 | --- | --- | --- |
@@ -384,7 +384,7 @@ O relatório por campanha usa as mesmas definições e traz, por campanha: leads
 ## 9. Segurança e operação
 
 - **Cookie:** HttpOnly, Secure, SameSite=Strict, com expiração deslizante de 12 horas.
-- **Senha:** mínimo de 10 caracteres, bloqueio de 15 minutos após 5 tentativas erradas. O admin cria o usuário com senha provisória, e o sistema exige a troca no primeiro acesso: até lá, só `eu`, `logout` e `trocar-senha` funcionam, e o resto responde 403.
+- **Senha:** mínimo de 10 caracteres. A 5ª tentativa errada bloqueia o login por 15 minutos e já responde com o aviso de bloqueio; a partir da 6ª, o login é recusado até com a senha certa. Senha atual errada na troca de senha também conta para o bloqueio. O admin cria o usuário com senha provisória, e o sistema exige a troca no primeiro acesso: até lá, só `eu`, `logout` e `trocar-senha` funcionam, e o resto responde 403.
 - **Sessão:** conferida no banco a cada minuto. Usuário desativado não entra, e quem já estava logado perde a sessão em até 1 minuto. Senha redefinida pelo admin também encerra a sessão, e um perfil trocado passa a valer na próxima conferência.
 - **Primeiro admin:** criado na inicialização a partir de `Admin__Email` e `Admin__SenhaInicial`, se ainda não existir nenhum. Como a senha do `.env` é provisória, ele também precisa trocá-la no primeiro acesso. Sem nenhum admin cadastrado e sem essas variáveis, a API não sobe.
 - **Limites de requisição:** 10 logins por minuto por IP e 120 requisições por minuto na integração.
@@ -482,12 +482,15 @@ As datas seguem o plano de projeto. Cada passo termina com os critérios de acei
 
 - Importação CSV (3.7) com mapeamento de colunas e relatório de erros.
 - `docker-compose.prod.yml` com a API servindo o build do React, PostgreSQL e Caddy.
+- IP real do cliente atrás do Caddy: a API lê os cabeçalhos encaminhados (`UseForwardedHeaders`), confiando só no Caddy. Sem isso, o limite de logins por IP e a auditoria enxergam todo mundo com o IP do Caddy.
+- Chaves do Data Protection, que protegem o cookie da sessão, guardadas num volume. Sem isso, todos perdem a sessão quando o contêiner da API reinicia.
 - Backup diário e guia de publicação no README.
 - Publicação no servidor definido (seção 11).
 - Aceite:
   - importar um CSV exportado da Meta (UTF-16, tab) e um do Excel (`;`, Windows-1252) sem erro de acentuação;
   - reimportar o mesmo arquivo não cria duplicados;
-  - o sistema está no ar com HTTPS, e a restauração do backup foi testada.
+  - o sistema está no ar com HTTPS, e a restauração do backup foi testada;
+  - reiniciar o contêiner da API não encerra as sessões, e a auditoria registra o IP real de quem faz login.
 
 ### Entrega 2, até 23/10/2026: leads automáticos
 
@@ -541,6 +544,7 @@ As datas seguem o plano de projeto. Cada passo termina com os critérios de acei
 
 - Etapas definitivas, combinadas com a Gama.
 - Instalação como app no celular (PWA) e revisão da usabilidade no celular.
+- Pacote do front dividido por tela (rotas carregadas sob demanda), para o primeiro acesso no celular ficar mais leve. No fim do Passo 1, o build já avisava que o pacote passava de 500 kB (cerca de 200 kB compactado).
 - README de operação: publicar, fazer e restaurar backup, trocar as chaves.
 - Roteiro de treinamento de uma página para Adriana e Pietra.
 - Aceite: as atendentes conseguem, sozinhas, receber um lead, registrar o contato e levá-lo até Ganho ou Perdido.
