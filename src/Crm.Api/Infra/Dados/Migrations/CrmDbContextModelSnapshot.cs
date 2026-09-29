@@ -64,6 +64,68 @@ namespace Crm.Api.Infra.Dados.Migrations
                     b.ToTable("etapas", (string)null);
                 });
 
+            modelBuilder.Entity("Crm.Api.Features.Funil.HistoricoEtapa", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("EtapaAnteriorId")
+                        .HasColumnType("integer")
+                        .HasColumnName("etapa_anterior_id");
+
+                    b.Property<int>("EtapaNovaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("etapa_nova_id");
+
+                    b.Property<long>("LeadId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lead_id");
+
+                    b.Property<string>("MotivoPerdaDetalhe")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_perda_detalhe");
+
+                    b.Property<int?>("MotivoPerdaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("motivo_perda_id");
+
+                    b.Property<DateTimeOffset>("OcorridoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocorrido_em");
+
+                    b.Property<Guid?>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_historico_etapas");
+
+                    b.HasIndex("EtapaAnteriorId")
+                        .HasDatabaseName("ix_historico_etapas_etapa_anterior_id");
+
+                    b.HasIndex("EtapaNovaId")
+                        .HasDatabaseName("ix_historico_etapas_etapa_nova_id");
+
+                    b.HasIndex("LeadId")
+                        .HasDatabaseName("ix_historico_etapas_lead_id");
+
+                    b.HasIndex("MotivoPerdaId")
+                        .HasDatabaseName("ix_historico_etapas_motivo_perda_id");
+
+                    b.HasIndex("OcorridoEm")
+                        .HasDatabaseName("ix_historico_etapas_ocorrido_em");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_historico_etapas_usuario_id");
+
+                    b.ToTable("historico_etapas", (string)null);
+                });
+
             modelBuilder.Entity("Crm.Api.Features.Funil.MotivoPerda", b =>
                 {
                     b.Property<int>("Id")
@@ -87,6 +149,338 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasName("pk_motivos_perda");
 
                     b.ToTable("motivos_perda", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Leads.Campanha", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("IdExterno")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("id_externo");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("nome");
+
+                    b.Property<bool>("NomeProvisorio")
+                        .HasColumnType("boolean")
+                        .HasColumnName("nome_provisorio");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origem");
+
+                    b.HasKey("Id")
+                        .HasName("pk_campanhas");
+
+                    b.HasIndex("Origem", "IdExterno")
+                        .IsUnique()
+                        .HasDatabaseName("ix_campanhas_origem_id_externo");
+
+                    b.ToTable("campanhas", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Leads.EntradaRecebida", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<JsonDocument>("Anuncio")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("anuncio");
+
+                    b.Property<int?>("CampanhaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("campanha_id");
+
+                    b.Property<JsonDocument>("Conjunto")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("conjunto");
+
+                    b.Property<string>("Erro")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("erro");
+
+                    b.Property<JsonDocument>("Formulario")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("formulario");
+
+                    b.Property<string>("Gclid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("gclid");
+
+                    b.Property<string>("IdExterno")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("id_externo");
+
+                    b.Property<long?>("LeadId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lead_id");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origem");
+
+                    b.Property<JsonDocument>("PayloadBruto")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_bruto");
+
+                    b.Property<DateTimeOffset>("ProcessadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processado_em");
+
+                    b.Property<DateTimeOffset>("RecebidoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recebido_em");
+
+                    b.Property<JsonDocument>("RespostasExtras")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("respostas_extras");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("situacao");
+
+                    b.Property<bool>("Teste")
+                        .HasColumnType("boolean")
+                        .HasColumnName("teste");
+
+                    b.Property<string>("UtmCampaign")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_campaign");
+
+                    b.Property<string>("UtmContent")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_content");
+
+                    b.Property<string>("UtmMedium")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_medium");
+
+                    b.Property<string>("UtmSource")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_source");
+
+                    b.Property<string>("UtmTerm")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_term");
+
+                    b.HasKey("Id")
+                        .HasName("pk_entradas_recebidas");
+
+                    b.HasIndex("CampanhaId")
+                        .HasDatabaseName("ix_entradas_recebidas_campanha_id");
+
+                    b.HasIndex("LeadId")
+                        .HasDatabaseName("ix_entradas_recebidas_lead_id");
+
+                    b.HasIndex("RecebidoEm")
+                        .HasDatabaseName("ix_entradas_recebidas_recebido_em");
+
+                    b.HasIndex("Origem", "IdExterno")
+                        .IsUnique()
+                        .HasDatabaseName("ix_entradas_recebidas_origem_id_externo")
+                        .HasFilter("situacao <> 'erro'");
+
+                    b.ToTable("entradas_recebidas", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Leads.Lead", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset?>("AnonimizadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("anonimizado_em");
+
+                    b.Property<DateTimeOffset>("AtualizadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("atualizado_em");
+
+                    b.Property<int?>("CampanhaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("campanha_id");
+
+                    b.Property<DateTimeOffset?>("ConvertidoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("convertido_em");
+
+                    b.Property<string>("CpfCnpj")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("cpf_cnpj");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Empresa")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("empresa");
+
+                    b.Property<int>("EtapaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("etapa_id");
+
+                    b.Property<string>("Gclid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("gclid");
+
+                    b.Property<string>("MotivoPerdaDetalhe")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("motivo_perda_detalhe");
+
+                    b.Property<int?>("MotivoPerdaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("motivo_perda_id");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nome");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origem");
+
+                    b.Property<DateTimeOffset?>("PerdidoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("perdido_em");
+
+                    b.Property<string>("Plataforma")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("plataforma");
+
+                    b.Property<DateTimeOffset?>("PrimeiroContatoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("primeiro_contato_em");
+
+                    b.Property<Guid?>("ResponsavelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsavel_id");
+
+                    b.Property<JsonDocument>("RespostasExtras")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("respostas_extras");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("telefone");
+
+                    b.Property<bool>("Teste")
+                        .HasColumnType("boolean")
+                        .HasColumnName("teste");
+
+                    b.Property<string>("Uf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("uf");
+
+                    b.Property<string>("UtmCampaign")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_campaign");
+
+                    b.Property<string>("UtmContent")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_content");
+
+                    b.Property<string>("UtmMedium")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_medium");
+
+                    b.Property<string>("UtmSource")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_source");
+
+                    b.Property<string>("UtmTerm")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("utm_term");
+
+                    b.Property<uint>("Versao")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_leads");
+
+                    b.HasIndex("CampanhaId")
+                        .HasDatabaseName("ix_leads_campanha_id");
+
+                    b.HasIndex("CpfCnpj")
+                        .HasDatabaseName("ix_leads_cpf_cnpj");
+
+                    b.HasIndex("CriadoEm")
+                        .HasDatabaseName("ix_leads_criado_em");
+
+                    b.HasIndex("Email")
+                        .HasDatabaseName("ix_leads_email");
+
+                    b.HasIndex("EtapaId")
+                        .HasDatabaseName("ix_leads_etapa_id");
+
+                    b.HasIndex("MotivoPerdaId")
+                        .HasDatabaseName("ix_leads_motivo_perda_id");
+
+                    b.HasIndex("Telefone")
+                        .HasDatabaseName("ix_leads_telefone");
+
+                    b.HasIndex("ResponsavelId", "EtapaId")
+                        .HasDatabaseName("ix_leads_responsavel_id_etapa_id");
+
+                    b.ToTable("leads", (string)null);
                 });
 
             modelBuilder.Entity("Crm.Api.Features.Usuarios.Usuario", b =>
@@ -432,6 +826,93 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasName("pk_usuarios_tokens");
 
                     b.ToTable("usuarios_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Funil.HistoricoEtapa", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Funil.Etapa", null)
+                        .WithMany()
+                        .HasForeignKey("EtapaAnteriorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_historico_etapas_etapas_etapa_anterior_id");
+
+                    b.HasOne("Crm.Api.Features.Funil.Etapa", null)
+                        .WithMany()
+                        .HasForeignKey("EtapaNovaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_historico_etapas_etapas_etapa_nova_id");
+
+                    b.HasOne("Crm.Api.Features.Leads.Lead", null)
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_historico_etapas_leads_lead_id");
+
+                    b.HasOne("Crm.Api.Features.Funil.MotivoPerda", null)
+                        .WithMany()
+                        .HasForeignKey("MotivoPerdaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_historico_etapas_motivos_perda_motivo_perda_id");
+
+                    b.HasOne("Crm.Api.Features.Usuarios.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_historico_etapas_usuarios_usuario_id");
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Leads.EntradaRecebida", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Leads.Campanha", null)
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_entradas_recebidas_campanhas_campanha_id");
+
+                    b.HasOne("Crm.Api.Features.Leads.Lead", null)
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_entradas_recebidas_leads_lead_id");
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Leads.Lead", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Leads.Campanha", "Campanha")
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_leads_campanhas_campanha_id");
+
+                    b.HasOne("Crm.Api.Features.Funil.Etapa", "Etapa")
+                        .WithMany()
+                        .HasForeignKey("EtapaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_leads_etapas_etapa_id");
+
+                    b.HasOne("Crm.Api.Features.Funil.MotivoPerda", "MotivoPerda")
+                        .WithMany()
+                        .HasForeignKey("MotivoPerdaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_leads_motivos_perda_motivo_perda_id");
+
+                    b.HasOne("Crm.Api.Features.Usuarios.Usuario", "Responsavel")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_leads_usuarios_responsavel_id");
+
+                    b.Navigation("Campanha");
+
+                    b.Navigation("Etapa");
+
+                    b.Navigation("MotivoPerda");
+
+                    b.Navigation("Responsavel");
                 });
 
             modelBuilder.Entity("Crm.Api.Infra.Auditoria.RegistroAuditoria", b =>

@@ -1,4 +1,5 @@
 using Crm.Api.Features.Funil;
+using Crm.Api.Features.Leads;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
@@ -18,6 +19,14 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options)
     public DbSet<MotivoPerda> MotivosPerda => Set<MotivoPerda>();
 
     public DbSet<ConfiguracaoSistema> Configuracoes => Set<ConfiguracaoSistema>();
+
+    public DbSet<Lead> Leads => Set<Lead>();
+
+    public DbSet<Campanha> Campanhas => Set<Campanha>();
+
+    public DbSet<EntradaRecebida> EntradasRecebidas => Set<EntradaRecebida>();
+
+    public DbSet<HistoricoEtapa> HistoricoEtapas => Set<HistoricoEtapa>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
