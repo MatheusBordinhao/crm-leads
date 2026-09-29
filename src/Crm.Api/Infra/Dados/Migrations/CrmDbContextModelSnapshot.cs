@@ -24,6 +24,71 @@ namespace Crm.Api.Infra.Dados.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "unaccent");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Crm.Api.Features.Funil.Etapa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativa");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nome");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordem");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_etapas");
+
+                    b.HasIndex("Tipo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_etapas_tipo")
+                        .HasFilter("ativa AND tipo <> 'aberta'");
+
+                    b.ToTable("etapas", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Funil.MotivoPerda", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome");
+
+                    b.HasKey("Id")
+                        .HasName("pk_motivos_perda");
+
+                    b.ToTable("motivos_perda", (string)null);
+                });
+
             modelBuilder.Entity("Crm.Api.Features.Usuarios.Usuario", b =>
                 {
                     b.Property<Guid>("Id")
@@ -186,6 +251,25 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasDatabaseName("ix_auditoria_entidade_entidade_id");
 
                     b.ToTable("auditoria", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Infra.Configuracao.ConfiguracaoSistema", b =>
+                {
+                    b.Property<string>("Chave")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("chave");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("valor");
+
+                    b.HasKey("Chave")
+                        .HasName("pk_configuracoes");
+
+                    b.ToTable("configuracoes", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>

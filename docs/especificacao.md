@@ -339,6 +339,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD |
 | `DELETE /api/leads/{id}` | Admin | Só para leads de teste |
 | `GET /api/usuarios`, `GET /api/usuarios/{id}`, `POST /api/usuarios`, `PUT /api/usuarios/{id}`, `POST /api/usuarios/{id}/redefinir-senha` | Admin | Criar, editar, desativar (`ativo = false`) e redefinir a senha provisória, o que também tira o bloqueio. O admin não pode desativar a si mesmo nem tirar o próprio perfil de Admin |
+| `GET /api/etapas` | Admin e atendente | Etapas na ordem do funil, para os filtros e o quadro |
 | `/api/etapas`, `/api/motivos-perda`, `/api/campanhas`, `/api/configuracoes` | Admin | Cadastros e configurações |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8 |

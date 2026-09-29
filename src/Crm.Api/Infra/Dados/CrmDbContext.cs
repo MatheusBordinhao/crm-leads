@@ -1,5 +1,7 @@
+using Crm.Api.Features.Funil;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
+using Crm.Api.Infra.Configuracao;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +12,12 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options)
     : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<RegistroAuditoria> Auditoria => Set<RegistroAuditoria>();
+
+    public DbSet<Etapa> Etapas => Set<Etapa>();
+
+    public DbSet<MotivoPerda> MotivosPerda => Set<MotivoPerda>();
+
+    public DbSet<ConfiguracaoSistema> Configuracoes => Set<ConfiguracaoSistema>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
