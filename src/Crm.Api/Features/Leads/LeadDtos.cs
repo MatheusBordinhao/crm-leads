@@ -1,4 +1,5 @@
 using Crm.Api.Features.Funil;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Crm.Api.Features.Leads;
 
@@ -111,7 +112,7 @@ public enum OrdemLeads
     Nome = 3,
 }
 
-/// <summary>Filtros da lista de leads, na query string.</summary>
+/// <summary>Filtros da lista de leads, na query string, com os nomes em camelCase como no resto da API.</summary>
 public sealed class FiltroLeads
 {
     public const int TamanhoPadrao = 25;
@@ -119,29 +120,40 @@ public sealed class FiltroLeads
     public const int TamanhoMaximo = 100;
 
     /// <summary>Nome, empresa ou e-mail, sem acento; os dígitos também procuram no telefone e no CPF/CNPJ.</summary>
+    [FromQuery(Name = "busca")]
     public string? Busca { get; set; }
 
+    [FromQuery(Name = "etapaId")]
     public int? EtapaId { get; set; }
 
+    [FromQuery(Name = "origem")]
     public Origem? Origem { get; set; }
 
+    [FromQuery(Name = "campanhaId")]
     public int? CampanhaId { get; set; }
 
     /// <summary>Só para o admin.</summary>
+    [FromQuery(Name = "responsavelId")]
     public Guid? ResponsavelId { get; set; }
 
     /// <summary>Só para o admin: leads que ainda não têm responsável.</summary>
+    [FromQuery(Name = "semResponsavel")]
     public bool SemResponsavel { get; set; }
 
     /// <summary>Primeiro dia do período de entrada, no horário de Brasília.</summary>
+    [FromQuery(Name = "de")]
     public DateOnly? De { get; set; }
 
     /// <summary>Último dia do período de entrada, no horário de Brasília.</summary>
+    [FromQuery(Name = "ate")]
     public DateOnly? Ate { get; set; }
 
+    [FromQuery(Name = "ordem")]
     public OrdemLeads Ordem { get; set; } = OrdemLeads.Recentes;
 
+    [FromQuery(Name = "pagina")]
     public int Pagina { get; set; } = 1;
 
+    [FromQuery(Name = "tamanho")]
     public int Tamanho { get; set; } = TamanhoPadrao;
 }
