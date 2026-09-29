@@ -94,6 +94,41 @@ public class UsuariosTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Perfil_enviado_como_zero_responde_400_e_nao_cria_admin()
+    {
+        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+        var email = EmailNovo();
+
+        var resposta = await admin.PostAsJsonAsync(
+            "/api/usuarios",
+            new { nome = "Perfil zero", email, perfil = 0, participaRodizio = false, senhaProvisoria = SenhaProvisoria },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal(["Perfil inválido."], await resposta.LerErrosDoCampoAsync("perfil"));
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        Assert.Null(await escopo.ServiceProvider.GetRequiredService<UserManager<Usuario>>().FindByEmailAsync(email));
+    }
+
+    [Fact]
+    public async Task Editar_com_perfil_zero_responde_400_e_mantem_o_perfil()
+    {
+        var usuario = await fabrica.CriarUsuarioAsync(Perfil.Atendente);
+        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+
+        var resposta = await admin.PutAsJsonAsync(
+            $"/api/usuarios/{usuario.Id}",
+            new { nome = usuario.Nome, email = usuario.Email, perfil = 0, ativo = true, participaRodizio = false },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal(["Perfil inválido."], await resposta.LerErrosDoCampoAsync("perfil"));
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        var usuarios = escopo.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+        Assert.Equal([nameof(Perfil.Atendente)], await usuarios.GetRolesAsync((await usuarios.FindByIdAsync(usuario.Id.ToString()))!));
+    }
+
+    [Fact]
     public async Task Lista_mostra_perfil_e_bloqueio()
     {
         var atendente = await fabrica.CriarUsuarioAsync(Perfil.Atendente);

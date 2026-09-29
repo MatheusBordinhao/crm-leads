@@ -37,6 +37,25 @@ public class CadastroUsuarioTests
     }
 
     [Fact]
+    public void O_valor_padrao_do_enum_nao_e_um_perfil()
+    {
+        Assert.False(Enum.IsDefined(default(Perfil)));
+        Assert.NotEqual(Perfil.Admin, default);
+    }
+
+    [Fact]
+    public void Perfil_com_o_valor_padrao_e_recusado_na_criacao_e_na_edicao()
+    {
+        var criacao = new CriarUsuarioRequestValidator().Validate(
+            new CriarUsuarioRequest("Adriana", "adriana@example.com", default, ParticipaRodizio: true, "provisoria-123"));
+        var edicao = new EditarUsuarioRequestValidator().Validate(
+            new EditarUsuarioRequest("Adriana", "adriana@example.com", default, Ativo: true, ParticipaRodizio: true));
+
+        Assert.Equal("Perfil inválido.", Assert.Single(criacao.Errors).ErrorMessage);
+        Assert.Equal("Perfil inválido.", Assert.Single(edicao.Errors).ErrorMessage);
+    }
+
+    [Fact]
     public void Perfil_fora_da_lista_e_invalido()
     {
         var resultado = new EditarUsuarioRequestValidator().Validate(
