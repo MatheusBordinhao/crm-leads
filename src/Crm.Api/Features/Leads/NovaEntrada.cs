@@ -62,6 +62,9 @@ public sealed record NovaEntrada
 
     /// <summary>Quem registrou a entrada, no cadastro manual. Nulo na integração.</summary>
     public Guid? UsuarioId { get; init; }
+
+    /// <summary>Sem dados pessoais nem o payload, para a entrada nunca ir inteira para um log.</summary>
+    public override string ToString() => $"{nameof(NovaEntrada)} {{ Origem = {Origem}, IdExterno = {IdExterno} }}";
 }
 
 /// <param name="LeadId">O lead criado, o lead ao qual a entrada foi vinculada ou o da entrada já recebida.</param>

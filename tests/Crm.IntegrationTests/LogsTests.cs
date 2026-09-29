@@ -1,0 +1,112 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Crm.Api.Features.Usuarios;
+using Crm.IntegrationTests.Infra;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
+
+namespace Crm.IntegrationTests;
+
+/// <summary>Nenhum dado pessoal em log (regra que não pode quebrar).</summary>
+public class LogsTests(CrmApiFactory fabrica)
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task O_corpo_da_integracao_nunca_aparece_no_log_nem_no_nivel_trace()
+    {
+        // Todos os níveis, inclusive os que a configuração deixa de fora (Trace e Debug).
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        using var n8n = api.CriarClienteIntegracao();
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        corpo["nome"] = $"Nome Sigiloso {marca}";
+        corpo["empresa"] = $"Empresa Sigilosa {marca}";
+        corpo["cpfCnpj"] = LeadsDeTeste.CpfUnico();
+        corpo["respostasExtras"] = new Dictionary<string, string> { ["Pergunta"] = $"Resposta sigilosa {marca}" };
+        string[] sensiveis =
+        [
+            (string)corpo["nome"]!,
+            (string)corpo["email"]!,
+            (string)corpo["telefone"]!,
+            (string)corpo["cpfCnpj"]!,
+            (string)corpo["empresa"]!,
+            $"Resposta sigilosa {marca}",
+            CrmApiFactory.ChaveIntegracao,
+        ];
+
+        // Criado, já recebido, vinculado por outra origem, recusado pela validação, JSON malformado e sem a chave.
+        Assert.Equal(HttpStatusCode.Created, (await n8n.EnviarLeadAsync(corpo)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await n8n.EnviarLeadAsync(corpo)).StatusCode);
+        var outraOrigem = new Dictionary<string, object?>(corpo) { ["origem"] = "site", ["idExterno"] = LeadsDeTeste.IdExternoUnico() };
+        Assert.Equal(HttpStatusCode.OK, (await n8n.EnviarLeadAsync(outraOrigem)).StatusCode);
+        var origemInvalida = new Dictionary<string, object?>(corpo) { ["origem"] = "whatsapp" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await n8n.EnviarLeadAsync(origemInvalida)).StatusCode);
+        var malformado = new StringContent(
+            $"{{ \"nome\": {JsonSerializer.Serialize(corpo["nome"])}, \"email\": {JsonSerializer.Serialize(corpo["email"])}, x }}",
+            Encoding.UTF8,
+            "application/json");
+        Assert.Equal(HttpStatusCode.BadRequest, (await n8n.PostAsync("/api/integracoes/leads", malformado, Ct)).StatusCode);
+        using var semChave = api.CriarClienteIntegracao("chave-errada-mas-com-o-mesmo-tamanho-0123");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await semChave.EnviarLeadAsync(corpo)).StatusCode);
+
+        AssertSemVazamento(captura, sensiveis);
+    }
+
+    [Fact]
+    public async Task Senhas_e_dados_da_tela_nunca_aparecem_no_log_nem_no_nivel_trace()
+    {
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        var eu = await api.CriarUsuarioAsync(Perfil.Admin);
+        using var admin = await api.LogarAsync(eu);
+        using var errado = api.CriarClienteHttps();
+        await errado.PostLoginAsync(eu.Email, $"senha-errada-{marca}");
+
+        var corpo = LeadsDeTeste.CorpoLead($"Nome Sigiloso {marca}");
+        corpo["telefone"] = LeadsDeTeste.TelefoneUnico();
+        corpo["cpfCnpj"] = LeadsDeTeste.CpfUnico();
+        var id = await admin.CriarLeadIdAsync(corpo);
+        var versao = (await (await admin.GetAsync($"/api/leads/{id}", Ct)).LerJsonAsync()).GetProperty("versao").GetUInt32();
+        var edicao = new Dictionary<string, object?>(corpo) { ["empresa"] = $"Empresa Sigilosa {marca}", ["versao"] = versao };
+        edicao.Remove("origem");
+        edicao.Remove("responsavelId");
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/leads/{id}", edicao, Ct)).StatusCode);
+        var emailNovo = $"sigiloso-{marca}@example.com";
+        var usuarioNovo = new { nome = $"Usuária Sigilosa {marca}", email = emailNovo, perfil = "Atendente", participaRodizio = true, senhaProvisoria = $"provisoria-{marca}" };
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/usuarios", usuarioNovo, Ct)).StatusCode);
+
+        AssertSemVazamento(
+            captura,
+            [
+                eu.Email!,
+                UsuariosDeTeste.SenhaPadrao,
+                $"senha-errada-{marca}",
+                (string)corpo["nome"]!,
+                (string)corpo["email"]!,
+                (string)corpo["telefone"]!,
+                (string)corpo["cpfCnpj"]!,
+                $"Empresa Sigilosa {marca}",
+                usuarioNovo.nome,
+                emailNovo,
+                usuarioNovo.senhaProvisoria,
+            ]);
+    }
+
+    private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)
+    {
+        var registros = captura.Registros.ToList();
+        Assert.Contains(registros, r => r.StartsWith("Trace ", StringComparison.Ordinal));
+        foreach (var valor in sensiveis)
+        {
+            var vazados = registros.Where(r => r.Contains(valor, StringComparison.OrdinalIgnoreCase)).ToList();
+            Assert.True(vazados.Count == 0, $"O log tem um dado pessoal ou secreto:{Environment.NewLine}{string.Join(Environment.NewLine, vazados)}");
+        }
+    }
+}

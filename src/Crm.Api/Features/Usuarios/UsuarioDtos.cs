@@ -14,13 +14,27 @@ public sealed record UsuarioResponse(
     DateTimeOffset? UltimoLeadAtribuidoEm,
     DateTimeOffset CriadoEm);
 
+// Os records de requisição não imprimem nome, e-mail nem senha no ToString: o MVC imprime os argumentos da
+// action no log de nível Trace.
+
 /// <param name="SenhaProvisoria">O usuário troca no primeiro acesso.</param>
-public sealed record CriarUsuarioRequest(string Nome, string Email, Perfil Perfil, bool ParticipaRodizio, string SenhaProvisoria);
+public sealed record CriarUsuarioRequest(string Nome, string Email, Perfil Perfil, bool ParticipaRodizio, string SenhaProvisoria)
+{
+    public override string ToString() =>
+        $"{nameof(CriarUsuarioRequest)} {{ Perfil = {Perfil}, ParticipaRodizio = {ParticipaRodizio} }}";
+}
 
 /// <param name="Ativo">Falso desativa: o usuário não entra mais e perde a sessão em até 1 minuto.</param>
-public sealed record EditarUsuarioRequest(string Nome, string Email, Perfil Perfil, bool Ativo, bool ParticipaRodizio);
+public sealed record EditarUsuarioRequest(string Nome, string Email, Perfil Perfil, bool Ativo, bool ParticipaRodizio)
+{
+    public override string ToString() =>
+        $"{nameof(EditarUsuarioRequest)} {{ Perfil = {Perfil}, Ativo = {Ativo}, ParticipaRodizio = {ParticipaRodizio} }}";
+}
 
-public sealed record RedefinirSenhaRequest(string SenhaProvisoria);
+public sealed record RedefinirSenhaRequest(string SenhaProvisoria)
+{
+    public override string ToString() => nameof(RedefinirSenhaRequest);
+}
 
 /// <summary>Campos que o admin edita, para saber quais mudaram (a auditoria guarda só os nomes).</summary>
 internal sealed record DadosEditaveisUsuario(string Nome, string Email, Perfil Perfil, bool Ativo, bool ParticipaRodizio)

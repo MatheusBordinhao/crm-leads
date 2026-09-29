@@ -35,7 +35,11 @@ public sealed record EntradaIntegracaoRequest(
     ReferenciaExterna? Formulario = null,
     Utm? Utm = null,
     string? Gclid = null,
-    Dictionary<string, JsonElement>? RespostasExtras = null);
+    Dictionary<string, JsonElement>? RespostasExtras = null)
+{
+    /// <summary>Sem dados pessoais: o MVC imprime os argumentos da action no log de nível Trace.</summary>
+    public override string ToString() => $"{nameof(EntradaIntegracaoRequest)} {{ Origem = {Origem}, IdExterno = {IdExterno} }}";
+}
 
 /// <param name="Situacao"><c>criado</c> (201), <c>vinculado</c> ou <c>ja_recebido</c> (200).</param>
 public sealed record EntradaIntegracaoResponse(long LeadId, ResultadoEntrada Situacao);

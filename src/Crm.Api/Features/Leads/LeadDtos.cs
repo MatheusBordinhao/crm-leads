@@ -89,7 +89,11 @@ public sealed record CriarLeadRequest(
     string? Uf,
     string? Empresa,
     Origem Origem,
-    Guid? ResponsavelId) : IDadosLead;
+    Guid? ResponsavelId) : IDadosLead
+{
+    /// <summary>Sem dados pessoais: o MVC imprime os argumentos da action no log de nível Trace.</summary>
+    public override string ToString() => $"{nameof(CriarLeadRequest)} {{ Origem = {Origem} }}";
+}
 
 /// <param name="LeadId">
 /// Nulo quando a pessoa já é lead de outra atendente: os dados vão para a ficha dela, mas a resposta não diz
@@ -107,7 +111,11 @@ public sealed record EditarLeadRequest(
     string? CpfCnpj,
     string? Uf,
     string? Empresa,
-    uint Versao) : IDadosLead;
+    uint Versao) : IDadosLead
+{
+    /// <summary>Sem dados pessoais: o MVC imprime os argumentos da action no log de nível Trace.</summary>
+    public override string ToString() => $"{nameof(EditarLeadRequest)} {{ Versao = {Versao} }}";
+}
 
 public enum OrdemLeads
 {
