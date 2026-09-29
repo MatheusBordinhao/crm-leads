@@ -9,10 +9,12 @@ import { chaveEu } from '@/lib/queryClient'
 
 const chaveUsuarios = ['usuarios'] as const
 
-export function useUsuarios() {
+/** Lista de usuários (só admin). Com `enabled: false`, não chama a API: telas da atendente também usam. */
+export function useUsuarios({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: chaveUsuarios,
     queryFn: () => exigirSucesso(api.GET('/api/usuarios')),
+    enabled,
   })
 }
 

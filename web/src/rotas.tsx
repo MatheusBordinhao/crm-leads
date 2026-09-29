@@ -5,6 +5,7 @@ import { LoginPage } from '@/features/acesso/LoginPage'
 import { RotaAdmin, RotaProtegida } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
 import { InicioPage } from '@/features/inicio/InicioPage'
+import { LeadsPage } from '@/features/leads/LeadsPage'
 import { UsuariosPage } from '@/features/usuarios/UsuariosPage'
 
 /** Rotas da aplicação. O main.tsx usa um roteador do navegador, e os testes, um em memória. */
@@ -18,6 +19,7 @@ export const rotas: RouteObject[] = [
         element: <Layout />,
         children: [
           { path: '/', element: <InicioPage /> },
+          { path: '/leads', element: <LeadsPage /> },
           {
             element: <RotaAdmin />,
             children: [{ path: '/configuracoes/usuarios', element: <UsuariosPage /> }],

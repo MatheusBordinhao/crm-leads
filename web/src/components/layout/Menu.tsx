@@ -1,4 +1,4 @@
-import { HouseIcon, UsersIcon, type LucideIcon } from 'lucide-react'
+import { ContactRoundIcon, HouseIcon, UsersIcon, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router'
 import type { Perfil } from '@/api/cliente'
 import { cn } from '@/lib/utils'
@@ -8,7 +8,14 @@ type Grupo = { titulo?: string; itens: Item[] }
 
 /** Itens do menu. Cada passo acrescenta as telas que entrega. */
 function gruposDoMenu(perfil: Perfil): Grupo[] {
-  const grupos: Grupo[] = [{ itens: [{ para: '/', rotulo: 'Início', icone: HouseIcon }] }]
+  const grupos: Grupo[] = [
+    {
+      itens: [
+        { para: '/', rotulo: 'Início', icone: HouseIcon },
+        { para: '/leads', rotulo: 'Leads', icone: ContactRoundIcon },
+      ],
+    },
+  ]
   if (perfil === 'Admin') {
     grupos.push({
       titulo: 'Configurações',

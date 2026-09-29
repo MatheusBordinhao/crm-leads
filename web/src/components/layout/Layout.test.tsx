@@ -14,6 +14,7 @@ describe('layout', () => {
     expect(await screen.findByRole('heading', { name: 'Olá, Adriana' })).toBeInTheDocument()
     const menu = screen.getByRole('navigation', { name: 'Menu principal' })
     expect(within(menu).getByRole('link', { name: 'Início' })).toBeInTheDocument()
+    expect(within(menu).getByRole('link', { name: 'Leads' })).toHaveAttribute('href', '/leads')
     expect(within(menu).queryByRole('link', { name: 'Usuários' })).not.toBeInTheDocument()
   })
 

@@ -7,6 +7,19 @@ export type EuResponse = Schemas['EuResponse']
 export type UsuarioResponse = Schemas['UsuarioResponse']
 export type CriarUsuarioRequest = Schemas['CriarUsuarioRequest']
 export type EditarUsuarioRequest = Schemas['EditarUsuarioRequest']
+export type Origem = Schemas['Origem']
+export type TipoEtapa = Schemas['TipoEtapa']
+export type OrdemLeads = Schemas['OrdemLeads']
+export type EtapaResponse = Schemas['EtapaResponse']
+export type CampanhaResponse = Schemas['CampanhaResponse']
+export type LeadResumoResponse = Schemas['LeadResumoResponse']
+export type ListaLeadsResponse = Schemas['ListaLeadsResponse']
+export type LeadResponse = Schemas['LeadResponse']
+export type AvisoLead = Schemas['AvisoLead']
+export type CriarLeadRequest = Schemas['CriarLeadRequest']
+export type CriarLeadResponse = Schemas['CriarLeadResponse']
+export type EditarLeadRequest = Schemas['EditarLeadRequest']
+export type FiltrosLeads = NonNullable<paths['/api/leads']['get']['parameters']['query']>
 
 /** ProblemDetails da API. Nas respostas 400, `errors` traz as mensagens de cada campo. */
 export type Problema = Schemas['ProblemDetails'] & { errors?: Record<string, string[]> }
