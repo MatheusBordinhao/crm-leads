@@ -1,4 +1,4 @@
-import { ContactRoundIcon, HouseIcon, UsersIcon, type LucideIcon } from 'lucide-react'
+import { ContactRoundIcon, SquareKanbanIcon, UsersIcon, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router'
 import type { Perfil } from '@/api/cliente'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,7 @@ function gruposDoMenu(perfil: Perfil): Grupo[] {
   const grupos: Grupo[] = [
     {
       itens: [
-        { para: '/', rotulo: 'Início', icone: HouseIcon },
+        { para: '/funil', rotulo: 'Funil', icone: SquareKanbanIcon },
         { para: '/leads', rotulo: 'Leads', icone: ContactRoundIcon },
       ],
     },

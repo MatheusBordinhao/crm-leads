@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { UsuarioResponse } from '@/api/cliente'
 import { admin, atendente, comSessao, problema } from '@/test/api'
+import { comQuadro } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -62,13 +63,14 @@ async function tabela() {
 }
 
 describe('usuários', () => {
-  it('atendente que abre a tela volta ao início', async () => {
+  it('atendente que abre a tela volta ao funil', async () => {
     comSessao(atendente)
+    comQuadro()
 
     const { router } = renderizarApp('/configuracoes/usuarios')
 
-    expect(await screen.findByRole('heading', { name: 'Olá, Adriana' })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/')
+    expect(await screen.findByRole('heading', { name: 'Funil' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/funil')
   })
 
   it('lista perfil, bloqueio e senha provisória', async () => {

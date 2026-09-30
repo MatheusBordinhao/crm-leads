@@ -1,11 +1,13 @@
 import { http, HttpResponse } from 'msw'
 import type {
   CampanhaResponse,
+  CartaoFunilResponse,
   EtapaResponse,
   ItemLinhaDoTempo,
   LeadResponse,
   LeadResumoResponse,
   MotivoPerdaResponse,
+  QuadroFunilResponse,
   UsuarioResponse,
 } from '@/api/cliente'
 import { admin, atendente } from './api'
@@ -141,6 +143,51 @@ export function itemLinhaDoTempo(
     responsavel: null,
     ...parcial,
   }
+}
+
+export function cartao(parcial: Partial<CartaoFunilResponse> = {}): CartaoFunilResponse {
+  return {
+    id: 1024,
+    nome: 'Maria Souza',
+    empresa: 'Empresa X',
+    origem: 'meta_lead_ads',
+    responsavel: { id: atendente.id, nome: 'Adriana' },
+    teste: false,
+    criadoEm: '2026-10-05T17:03:00Z',
+    ...parcial,
+  }
+}
+
+/** Quadro com Maria em Novo e João em Em contato; Ganho e Perdido com os contadores dos 30 dias. */
+export function quadroFunil(): QuadroFunilResponse {
+  const coluna = (id: number, leads: CartaoFunilResponse[]) => {
+    const etapa = etapas.find((e) => e.id === id)!
+    return { etapa: { id, nome: etapa.nome, tipo: etapa.tipo }, total: leads.length, leads }
+  }
+  return {
+    colunas: [
+      coluna(1, [cartao()]),
+      coluna(2, [cartao({ id: 1025, nome: 'João Lima', empresa: null, origem: 'google_ads' })]),
+      coluna(3, []),
+      coluna(4, []),
+    ],
+    ganho: { etapa: { id: 5, nome: 'Ganho', tipo: 'ganho' }, periodo: 3 },
+    perdido: { etapa: { id: 6, nome: 'Perdido', tipo: 'perdido' }, periodo: 1 },
+    desde: '2026-09-06',
+  }
+}
+
+/** Quadro simulado, com os cadastros. Devolve os endereços pedidos, para conferir os filtros. */
+export function comQuadro(quadro: QuadroFunilResponse = quadroFunil()) {
+  const pedidos: URL[] = []
+  comCadastros()
+  servidor.use(
+    http.get('*/api/funil', ({ request }) => {
+      pedidos.push(new URL(request.url))
+      return HttpResponse.json(quadro)
+    }),
+  )
+  return pedidos
 }
 
 /** Etapas, motivos de perda, campanhas e usuários, que a lista, a ficha e os formulários usam. */

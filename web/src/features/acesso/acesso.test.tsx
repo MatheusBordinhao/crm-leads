@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { atendente, comSessao, problema } from '@/test/api'
+import { comQuadro } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -41,8 +42,9 @@ describe('login', () => {
     expect(await screen.findByText('E-mail ou senha incorretos.')).toBeInTheDocument()
   })
 
-  it('entra e vai para o início', async () => {
+  it('entra e vai para o funil', async () => {
     comSessao(null)
+    comQuadro()
     let enviado: unknown
     servidor.use(
       http.post('*/api/auth/login', async ({ request }) => {
@@ -56,7 +58,7 @@ describe('login', () => {
     await usuario.type(screen.getByLabelText('Senha'), 'senha-certa-123')
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }))
 
-    expect(await screen.findByRole('heading', { name: 'Olá, Adriana' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Funil' })).toBeInTheDocument()
     expect(enviado).toEqual({ email: atendente.email, senha: 'senha-certa-123' })
   })
 
@@ -135,6 +137,7 @@ describe('troca de senha', () => {
 
   it('depois de trocar, libera o sistema', async () => {
     comSessao({ ...atendente, trocarSenha: true })
+    comQuadro()
     servidor.use(
       http.post('*/api/auth/trocar-senha', () => new HttpResponse(null, { status: 204 })),
     )
@@ -142,6 +145,6 @@ describe('troca de senha', () => {
 
     await preencher(usuario, 'provisoria-123', 'nova-senha-123', 'nova-senha-123')
 
-    expect(await screen.findByRole('heading', { name: 'Olá, Adriana' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Funil' })).toBeInTheDocument()
   })
 })

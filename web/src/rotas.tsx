@@ -1,10 +1,10 @@
-import type { RouteObject } from 'react-router'
+import { Navigate, type RouteObject } from 'react-router'
 import { Layout } from '@/components/layout/Layout'
 import { NaoEncontradaPage } from '@/components/NaoEncontradaPage'
 import { LoginPage } from '@/features/acesso/LoginPage'
 import { RotaAdmin, RotaProtegida } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
-import { InicioPage } from '@/features/inicio/InicioPage'
+import { FunilPage } from '@/features/funil/FunilPage'
 import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadsPage } from '@/features/leads/LeadsPage'
 import { NovoLeadPage } from '@/features/leads/NovoLeadPage'
@@ -20,7 +20,9 @@ export const rotas: RouteObject[] = [
       {
         element: <Layout />,
         children: [
-          { path: '/', element: <InicioPage /> },
+          // O funil é a tela inicial, até o painel chegar (Passo 8).
+          { path: '/', element: <Navigate to="/funil" replace /> },
+          { path: '/funil', element: <FunilPage /> },
           { path: '/leads', element: <LeadsPage /> },
           { path: '/leads/novo', element: <NovoLeadPage /> },
           { path: '/leads/:id', element: <LeadPage /> },
