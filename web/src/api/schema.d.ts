@@ -1496,6 +1496,7 @@ export interface components {
         };
         ConfiguracoesResponse: {
             exigirDocumentoParaGanho: boolean;
+            distribuicaoAutomatica: boolean;
         };
         CriarEtapaRequest: {
             nome: string;
@@ -1533,6 +1534,7 @@ export interface components {
         };
         EditarConfiguracoesRequest: {
             exigirDocumentoParaGanho: boolean;
+            distribuicaoAutomatica: boolean;
         };
         EditarLeadRequest: {
             nome: string;

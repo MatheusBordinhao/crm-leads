@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
-import type { EtapaResponse, MotivoPerdaResponse } from '@/api/cliente'
+import type { ConfiguracoesResponse, EtapaResponse, MotivoPerdaResponse } from '@/api/cliente'
 import { admin, atendente, comSessao, problema } from '@/test/api'
 import { comQuadro, etapas, motivos } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
@@ -13,7 +13,10 @@ type Pedido = { metodo: string; caminho: string; corpo: unknown }
 function comCadastrosDoFunil() {
   let listaEtapas: EtapaResponse[] = etapas.map((etapa) => ({ ...etapa }))
   let listaMotivos: MotivoPerdaResponse[] = motivos.map((motivo) => ({ ...motivo }))
-  let exigirDocumentoParaGanho = true
+  let configuracoes: ConfiguracoesResponse = {
+    exigirDocumentoParaGanho: true,
+    distribuicaoAutomatica: true,
+  }
   const pedidos: Pedido[] = []
   const registrar = async (request: Request) => {
     const texto = await request.text()
@@ -27,7 +30,7 @@ function comCadastrosDoFunil() {
   servidor.use(
     http.get('*/api/etapas', () => HttpResponse.json(listaEtapas)),
     http.get('*/api/motivos-perda', () => HttpResponse.json(listaMotivos)),
-    http.get('*/api/configuracoes', () => HttpResponse.json({ exigirDocumentoParaGanho })),
+    http.get('*/api/configuracoes', () => HttpResponse.json(configuracoes)),
     http.post('*/api/etapas', async ({ request }) => {
       const { nome } = (await registrar(request)) as { nome: string }
       if (listaEtapas.some((e) => e.nome.toLowerCase() === nome.toLowerCase())) {
@@ -78,10 +81,8 @@ function comCadastrosDoFunil() {
       return HttpResponse.json(listaMotivos.find((m) => m.id === Number(params.id)))
     }),
     http.put('*/api/configuracoes', async ({ request }) => {
-      ;({ exigirDocumentoParaGanho } = (await registrar(request)) as {
-        exigirDocumentoParaGanho: boolean
-      })
-      return HttpResponse.json({ exigirDocumentoParaGanho })
+      configuracoes = (await registrar(request)) as ConfiguracoesResponse
+      return HttpResponse.json(configuracoes)
     }),
   )
   return pedidos
@@ -244,7 +245,11 @@ describe('configuração do funil', () => {
     expect(await screen.findByText('Ganho não exige mais CPF/CNPJ.')).toBeInTheDocument()
     expect(interruptor).not.toBeChecked()
     expect(pedidos).toEqual([
-      { metodo: 'PUT', caminho: '/api/configuracoes', corpo: { exigirDocumentoParaGanho: false } },
+      {
+        metodo: 'PUT',
+        caminho: '/api/configuracoes',
+        corpo: { exigirDocumentoParaGanho: false, distribuicaoAutomatica: true },
+      },
     ])
   })
 })

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, exigirSucesso } from '@/api/cliente'
+import { api, exigirSucesso, type EditarConfiguracoesRequest } from '@/api/cliente'
 import { chaveFunil } from '@/features/leads/dados'
 
 const chaveEtapas = ['etapas'] as const
@@ -95,11 +95,12 @@ export function useConfiguracoes() {
   })
 }
 
+/** A API recebe todas as configurações juntas: quem muda uma manda as outras como estão. */
 export function useEditarConfiguracoes() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (exigirDocumentoParaGanho: boolean) =>
-      exigirSucesso(api.PUT('/api/configuracoes', { body: { exigirDocumentoParaGanho } })),
+    mutationFn: (configuracoes: EditarConfiguracoesRequest) =>
+      exigirSucesso(api.PUT('/api/configuracoes', { body: configuracoes })),
     onSuccess: (configuracoes) => queryClient.setQueryData(chaveConfiguracoes, configuracoes),
   })
 }

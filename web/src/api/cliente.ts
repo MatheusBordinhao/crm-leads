@@ -31,6 +31,7 @@ export type ColunaFunilResponse = Schemas['ColunaFunilResponse']
 export type CartaoFunilResponse = Schemas['CartaoFunilResponse']
 export type FiltrosFunil = NonNullable<paths['/api/funil']['get']['parameters']['query']>
 export type ConfiguracoesResponse = Schemas['ConfiguracoesResponse']
+export type EditarConfiguracoesRequest = Schemas['EditarConfiguracoesRequest']
 
 /** ProblemDetails da API. Nas respostas 400, `errors` traz as mensagens de cada campo. */
 export type Problema = Schemas['ProblemDetails'] & { errors?: Record<string, string[]> }

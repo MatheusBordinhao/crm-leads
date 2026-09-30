@@ -10,6 +10,10 @@ public sealed class Configuracoes(CrmDbContext db)
     public Task<bool> ExigirDocumentoParaGanhoAsync(CancellationToken ct) =>
         LerBoolAsync(ChavesConfiguracao.ExigirDocumentoParaGanho, padrao: true, ct);
 
+    /// <summary>Os leads novos vão para o rodízio (seção 3.3). Sem valor gravado, vale o padrão: ligada.</summary>
+    public Task<bool> DistribuicaoAutomaticaAsync(CancellationToken ct) =>
+        LerBoolAsync(ChavesConfiguracao.DistribuicaoAutomatica, padrao: true, ct);
+
     private async Task<bool> LerBoolAsync(string chave, bool padrao, CancellationToken ct)
     {
         var valor = await db.Configuracoes.Where(c => c.Chave == chave).Select(c => c.Valor).SingleOrDefaultAsync(ct);

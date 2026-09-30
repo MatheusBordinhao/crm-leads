@@ -294,13 +294,17 @@ function Regras() {
             checked={configuracoes?.exigirDocumentoParaGanho ?? true}
             disabled={!configuracoes || editar.isPending}
             onCheckedChange={(exigir) =>
-              editar.mutate(exigir, {
-                onSuccess: () =>
-                  toast.success(
-                    exigir ? 'Ganho volta a exigir CPF/CNPJ.' : 'Ganho não exige mais CPF/CNPJ.',
-                  ),
-                onError: (erro) => toast.error(mensagemDoErro(erro)),
-              })
+              configuracoes &&
+              editar.mutate(
+                { ...configuracoes, exigirDocumentoParaGanho: exigir },
+                {
+                  onSuccess: () =>
+                    toast.success(
+                      exigir ? 'Ganho volta a exigir CPF/CNPJ.' : 'Ganho não exige mais CPF/CNPJ.',
+                    ),
+                  onError: (erro) => toast.error(mensagemDoErro(erro)),
+                },
+              )
             }
           />
         </Field>

@@ -349,7 +349,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/etapas`, `GET /api/motivos-perda`, `GET /api/campanhas` | Admin e atendente | Leitura, para os filtros, o quadro e o motivo da perda |
 | `POST /api/etapas`, `PUT /api/etapas/{id}`, `PUT /api/etapas/ordem`, `POST /api/etapas/{id}/desativar`, `POST /api/etapas/{id}/reativar` | Admin | Criar, renomear, reordenar as abertas, desativar (com `moverLeadsParaId`) e reativar |
 | `POST /api/motivos-perda`, `PUT /api/motivos-perda/{id}` | Admin | Criar, renomear, desativar e reativar |
-| `GET /api/configuracoes`, `PUT /api/configuracoes` | Admin | `exigirDocumentoParaGanho` (a distribuição chega no Passo 4) |
+| `GET /api/configuracoes`, `PUT /api/configuracoes` | Admin | `exigirDocumentoParaGanho` e `distribuicaoAutomatica`. O PUT recebe as duas, e cada mudança entra na auditoria |
 | `/api/campanhas` | Admin | Renomear as campanhas provisórias (Passo 6) |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8 |
