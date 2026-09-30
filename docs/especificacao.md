@@ -92,20 +92,24 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - Etapas iniciais: Novo, Em contato, Qualificado e Proposta enviada (abertas), Ganho (ganho) e Perdido (perdido).
 - A etapa inicial é a etapa aberta ativa de menor ordem.
 - Existe sempre exatamente uma etapa ativa do tipo ganho e uma do tipo perdido.
-- Etapa com leads não pode ser desativada. A tela oferece mover todos os leads para outra etapa antes.
-- O lead pode ir para qualquer etapa, não só para a seguinte.
-- **Perdido** exige um motivo da lista configurável, com detalhe opcional. Lista inicial: Sem resposta, Sem interesse, Preço, Fechou com concorrente, Fora do perfil e Contato inválido.
-- **Ganho** grava `convertido_em`. Com `exigir_documento_para_ganho` ligada (padrão), exige CPF/CNPJ válido.
+- Etapa com leads não pode ser desativada. A tela oferece mover todos os leads para outra etapa antes: a etapa de destino precisa ser aberta e ativa, e os leads mudam e a etapa é desativada na mesma transação, com uma linha em `historico_etapas` por lead. Essa mudança em lote não conta como primeiro contato. Sem destino, a API responde 409 com a quantidade de leads.
+- Etapa nova é sempre do tipo aberta e entra no fim das abertas. Ganho e Perdido podem ser renomeadas, mas não desativadas nem reordenadas: ficam sempre no fim. Os nomes não se repetem, sem diferenciar maiúsculas. A última etapa aberta ativa não pode ser desativada, porque é a etapa inicial.
+- Toda mudança de lead trava a etapa de destino (`FOR SHARE`), e a desativação trava a etapa com `FOR UPDATE`: nenhum lead entra numa etapa que está sendo desativada.
+- O lead pode ir para qualquer etapa, não só para a seguinte. Ir para a etapa em que ele já está não muda nada nem grava histórico, e uma etapa desativada responde 400.
+- **Perdido** exige um motivo da lista configurável, com detalhe opcional (até 500 caracteres). O motivo só é aceito quando o destino é Perdido. Lista inicial: Sem resposta, Sem interesse, Preço, Fechou com concorrente, Fora do perfil e Contato inválido. Um motivo desativado sai da lista de escolha, mas continua nos leads e no histórico, e o último motivo ativo não pode ser desativado.
+- **Ganho** grava `convertido_em`. Com `exigir_documento_para_ganho` ligada (padrão), exige CPF/CNPJ válido; sem ele, a API responde 400 com "Para marcar como Ganho, informe um CPF ou CNPJ válido na ficha do lead." O admin muda a configuração em Configurações › Etapas e motivos.
 - Ao sair de Ganho ou Perdido, `convertido_em`, `perdido_em` e o motivo são limpos; o histórico guarda tudo.
-- Toda mudança grava `historico_etapas` (de, para, quem e quando) e gera `lead.etapa_alterada`.
+- Toda mudança grava `historico_etapas` (de, para, quem e quando) e gera `lead.etapa_alterada` (os eventos chegam no Passo 4). As mudanças passam todas pelo serviço `MudancaEtapa`: a da tela, a reabertura por nova entrada e a mudança em lote.
 
 ### 3.5 Interações e primeiro contato
 
 - Tipos: `nota`, `ligacao`, `whatsapp`, `email` e `reuniao`. Cada interação tem tipo, descrição e `ocorrido_em`, que vem com a hora atual e aceita datas passadas, nunca futuras.
+- A descrição, de até 2.000 caracteres, é obrigatória só na nota: um clique em "Ligar" seguido de "Registrar" já registra a ligação.
+- `ocorrido_em` até 5 minutos no futuro (relógio do navegador adiantado) é gravado como a hora atual; mais que isso responde 400. O campo da tela só tem minutos: sem mudar o campo, vale a hora do registro, com os segundos.
 - Interações não são editadas nem excluídas: uma correção vira nova nota. A exceção é a anonimização da LGPD.
-- `primeiro_contato_em` é gravado uma única vez: na primeira ligação, WhatsApp, e-mail ou reunião registrada, ou na primeira saída da etapa inicial, o que acontecer antes.
-- A ficha tem botões de WhatsApp (`https://wa.me/<número sem o +>`), Ligar (`tel:`) e E-mail (`mailto:`). Depois do clique, abre o registro de interação com o tipo já preenchido.
-- A linha do tempo da ficha junta entradas recebidas, interações, mudanças de etapa e trocas de responsável, da mais recente para a mais antiga.
+- `primeiro_contato_em` é gravado uma única vez: na primeira ligação, WhatsApp, e-mail ou reunião registrada, ou na primeira saída da etapa inicial, o que acontecer antes. Vale o `ocorrido_em` da interação, nunca anterior a `criado_em` (um contato de antes da entrada conta como imediato), ou a hora da mudança de etapa. A nota, a reabertura por nova entrada e a mudança em lote ao desativar uma etapa não contam.
+- A ficha tem botões de WhatsApp (`https://wa.me/<número sem o +>`), Ligar (`tel:`) e E-mail (`mailto:`). Depois do clique, abre o registro de interação com o tipo já preenchido. Telefone ou e-mail com aviso de formato não vira botão.
+- A linha do tempo da ficha junta entradas recebidas, interações, mudanças de etapa e trocas de responsável, da mais recente para a mais antiga, com quem fez (ou "o sistema") e quando. As entradas mostram origem, campanha e situação, sem dados pessoais. As trocas de responsável vêm da auditoria (`lead.reatribuido`, com `detalhes { anteriorId, novoId }`), que o Passo 4 grava.
 
 ### 3.6 Notificações
 
@@ -341,8 +345,12 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD |
 | `DELETE /api/leads/{id}` | Admin | Só para leads de teste |
 | `GET /api/usuarios`, `GET /api/usuarios/{id}`, `POST /api/usuarios`, `PUT /api/usuarios/{id}`, `POST /api/usuarios/{id}/redefinir-senha` | Admin | Criar, editar, desativar (`ativo = false`) e redefinir a senha provisória, o que também tira o bloqueio. O admin não pode desativar a si mesmo nem tirar o próprio perfil de Admin |
-| `GET /api/etapas`, `GET /api/campanhas` | Admin e atendente | Leitura, para os filtros e o quadro |
-| `/api/etapas`, `/api/motivos-perda`, `/api/campanhas`, `/api/configuracoes` | Admin | Cadastros e configurações |
+| `GET /api/funil` | Admin e atendente | Quadro do funil: as colunas abertas, com até 100 leads cada e o total, e quantos leads foram para Ganho e para Perdido nos últimos 30 dias. Filtros da lista: busca, origem, campanha e responsável (admin) |
+| `GET /api/etapas`, `GET /api/motivos-perda`, `GET /api/campanhas` | Admin e atendente | Leitura, para os filtros, o quadro e o motivo da perda |
+| `POST /api/etapas`, `PUT /api/etapas/{id}`, `PUT /api/etapas/ordem`, `POST /api/etapas/{id}/desativar`, `POST /api/etapas/{id}/reativar` | Admin | Criar, renomear, reordenar as abertas, desativar (com `moverLeadsParaId`) e reativar |
+| `POST /api/motivos-perda`, `PUT /api/motivos-perda/{id}` | Admin | Criar, renomear, desativar e reativar |
+| `GET /api/configuracoes`, `PUT /api/configuracoes` | Admin | `exigirDocumentoParaGanho` (a distribuição chega no Passo 4) |
+| `/api/campanhas` | Admin | Renomear as campanhas provisórias (Passo 6) |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8 |
 | `GET /api/relatorios/campanhas` | Admin | Relatório por campanha, também em CSV |
@@ -354,14 +362,14 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 ## 7. Telas
 
 - **Login e troca de senha.**
-- **Funil:** quadro com uma coluna por etapa aberta e Ganho e Perdido como áreas de soltar, mostrando os últimos 30 dias. Cada cartão mostra nome, empresa, origem, tempo desde a entrada e, para o admin, a responsável. Tem filtros por responsável (admin), origem, campanha e busca. No celular, vira uma lista por etapa com seletor, sem arrastar.
+- **Funil:** quadro com uma coluna por etapa aberta e Ganho e Perdido como áreas de soltar. As colunas mostram todos os leads em andamento, de qualquer data, para nenhum lead parado sumir (até 100 por coluna, com um link para a lista); Ganho e Perdido mostram quantos leads foram para lá nos últimos 30 dias, no horário de Brasília (hoje incluído). Cada cartão mostra nome, empresa, origem, tempo desde a entrada e, para o admin, a responsável. Tem filtros por responsável (admin), origem, campanha e busca. Soltar em Perdido pede o motivo, e cancelar devolve o cartão; um Ganho recusado devolve o cartão e mostra a mensagem. O teclado também arrasta, pela alça do cartão: espaço pega, as setas para a direita e para a esquerda escolhem a etapa e espaço solta. O quadro não rola para o lado: as colunas dividem a largura e passam para a linha de baixo quando não cabem. No celular, vira uma lista por etapa com seletor, sem arrastar, e um "Mover para" em cada cartão. É a tela inicial até o painel chegar (Passo 8).
 - **Leads:** tabela com busca sem acento (nome, e-mail, telefone, empresa, documento), filtros e ordenação. No celular, cartões.
 - **Ficha do lead:** dados editáveis, avisos, botões de contato, etapa, responsável (admin), linha do tempo e registro de interação.
 - **Novo lead.**
 - **Painel** (seção 8).
 - **Notificações:** sino com contador no topo de todas as telas.
 - **Importação** (admin).
-- **Configurações** (admin): usuários, etapas, motivos de perda, campanhas e distribuição.
+- **Configurações** (admin): usuários, etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho), campanhas e distribuição.
 - **Auditoria** (admin).
 
 Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem a lista, a ficha, a mudança de etapa, o registro de interação e as notificações. O visual é neutro, com espaço para o logo da empresa.
@@ -560,7 +568,7 @@ Cada decisão tem um padrão, para o desenvolvimento não parar enquanto ela nã
 | Decisão | Padrão adotado | Quem decide |
 | --- | --- | --- |
 | Rodízio automático ou distribuição pelo admin | Rodízio, configurável | Chefe |
-| Exigir CPF/CNPJ para marcar Ganho | Sim, configurável | Chefe |
+| Exigir CPF/CNPJ para marcar Ganho | Sim, configurável em Configurações › Etapas e motivos | Chefe |
 | Etapas definitivas do funil | As da seção 3.4 | Gama e chefe |
 | Quem é admin | Chefe e Matheus | Chefe |
 | A Gama acessa o painel? | Não; recebe o relatório | Chefe |

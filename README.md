@@ -104,9 +104,21 @@ Em desenvolvimento, a API lê o `.env` da raiz. Uma variável que já exista no 
 2. O sistema pede uma senha nova. Depois disso, a senha do `.env` não vale mais.
 3. Em Configurações › Usuários, crie as atendentes. Para testar, use aliases do seu Gmail, como `matheusbordinhao11+adriana@gmail.com`. A tela gera a senha provisória para você copiar e enviar.
 
+Se o banco não tiver nenhum admin (por exemplo, depois de `docker compose down -v`), a API só sobe com `Admin__Email` e `Admin__SenhaInicial` preenchidos no `.env`: rode de novo o passo 2 da primeira vez. Sem eles, a API para com a mensagem "Nenhum admin cadastrado".
+
 Depois de 5 senhas erradas, o login fica bloqueado por 15 minutos. Um admin libera antes redefinindo a senha na tela de usuários.
 
 O cookie da sessão é `Secure`. Chrome, Edge e Firefox o aceitam em `http://localhost`, mas não pelo IP da máquina: para abrir no celular, é preciso HTTPS, que chega no Passo 5. Até lá, confira as telas de celular com a visão de dispositivo do DevTools.
+
+### Funil e ficha
+
+A tela inicial é o funil: uma coluna por etapa aberta, e Ganho e Perdido como áreas de soltar, com quantos leads foram para lá nos últimos 30 dias.
+
+- Arraste o cartão com o mouse, ou pelo teclado: foque a alça do cartão (⋮⋮), aperte espaço, escolha a etapa com as setas para a direita e para a esquerda e aperte espaço de novo. Esc cancela.
+- Soltar em Perdido pede o motivo; cancelar devolve o cartão. Ganho exige CPF/CNPJ válido na ficha, a não ser que o admin desligue a exigência.
+- No celular (ou na visão de dispositivo do DevTools), o funil vira uma lista por etapa, com um "Mover para" em cada cartão.
+- Na ficha, os botões WhatsApp, Ligar e E-mail abrem o contato e, em seguida, o registro da interação com o tipo já escolhido. A primeira ligação, WhatsApp, e-mail ou reunião grava o primeiro contato, e a linha do tempo mostra quem fez o quê e quando.
+- As etapas, os motivos de perda e a exigência de CPF/CNPJ para Ganho ficam em Configurações › Etapas e motivos (só admin).
 
 ### Leads pela integração
 
@@ -138,7 +150,7 @@ cd web && npm run lint                   # ESLint
 cd web && npm run format                 # Prettier; format:check só confere
 ```
 
-O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros.
+O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras.
 
 ## Banco de dados
 
@@ -155,14 +167,15 @@ docker compose down -v                                            # para o banco
 
 ```
 src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/: Usuarios/ (acesso e cadastro),
-                             Leads/ (leads, entrada, normalização e campanhas), Funil/ (etapas e histórico),
+                             Leads/ (leads, entrada, normalização, campanhas, interações e linha do tempo),
+                             Funil/ (etapas, motivos de perda, mudança de etapa com histórico e quadro),
                              Integracoes/ (chave e rotas do n8n)
-src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações (Configuracao/),
-                             horário de Brasília (Datas/), ProblemDetails, validação e convenções da API (Web/)
+src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
+                             (Configuracao/), horário de Brasília (Datas/), ProblemDetails, validação e convenções da API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite: features/ por módulo, components/ui/ do shadcn/ui,
-                             api/ com o cliente e os tipos gerados
+web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, configuracoes,
+                             usuarios), components/ui/ do shadcn/ui, api/ com o cliente e os tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n
 docs/                        especificação e guia de uso do Claude Code
 ```
