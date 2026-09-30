@@ -1,4 +1,10 @@
-import { ContactRoundIcon, SquareKanbanIcon, UsersIcon, type LucideIcon } from 'lucide-react'
+import {
+  ContactRoundIcon,
+  SlidersHorizontalIcon,
+  SquareKanbanIcon,
+  UsersIcon,
+  type LucideIcon,
+} from 'lucide-react'
 import { NavLink } from 'react-router'
 import type { Perfil } from '@/api/cliente'
 import { cn } from '@/lib/utils'
@@ -19,7 +25,10 @@ function gruposDoMenu(perfil: Perfil): Grupo[] {
   if (perfil === 'Admin') {
     grupos.push({
       titulo: 'Configurações',
-      itens: [{ para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: UsersIcon }],
+      itens: [
+        { para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: UsersIcon },
+        { para: '/configuracoes/funil', rotulo: 'Etapas e motivos', icone: SlidersHorizontalIcon },
+      ],
     })
   }
   return grupos
