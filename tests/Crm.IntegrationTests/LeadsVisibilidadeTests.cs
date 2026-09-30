@@ -107,6 +107,33 @@ public class LeadsVisibilidadeTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Quadro_da_atendente_so_traz_os_leads_dela_mesmo_filtrando_por_outra_pessoa()
+    {
+        var pietraUsuario = await fabrica.CriarUsuarioAsync();
+        using var adriana = await fabrica.LogarComoAsync(Perfil.Atendente);
+        using var pietra = await fabrica.LogarAsync(pietraUsuario);
+        var daAdriana = new[] { await adriana.CriarLeadIdAsync(), await adriana.CriarLeadIdAsync() };
+        await pietra.CriarLeadIdAsync();
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpoTeste = LeadsDeTeste.CorpoIntegracao();
+        corpoTeste["teste"] = true;
+        await n8n.EnviarLeadIdAsync(LeadsDeTeste.CorpoIntegracao());
+        await n8n.EnviarLeadIdAsync(corpoTeste);
+
+        async Task<List<long>> IdsDoQuadroAsync(string query = "")
+        {
+            var quadro = await (await adriana.GetAsync($"/api/funil{query}", Ct)).LerJsonAsync();
+            return [.. quadro.GetProperty("colunas").EnumerateArray()
+                .SelectMany(c => c.GetProperty("leads").EnumerateArray())
+                .Select(l => l.GetProperty("id").GetInt64())];
+        }
+
+        Assert.Equal(daAdriana.Order(), (await IdsDoQuadroAsync()).Order());
+        Assert.Equal(daAdriana.Order(), (await IdsDoQuadroAsync($"?responsavelId={pietraUsuario.Id}")).Order());
+        Assert.Equal(daAdriana.Order(), (await IdsDoQuadroAsync("?semResponsavel=true")).Order());
+    }
+
+    [Fact]
     public async Task Lista_da_atendente_so_traz_os_leads_dela_mesmo_filtrando_por_outra_pessoa()
     {
         var pietraUsuario = await fabrica.CriarUsuarioAsync();

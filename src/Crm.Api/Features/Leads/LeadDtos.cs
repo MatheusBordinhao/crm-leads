@@ -130,7 +130,7 @@ public enum OrdemLeads
 }
 
 /// <summary>Filtros da lista de leads, na query string, com os nomes em camelCase como no resto da API.</summary>
-public sealed class FiltroLeads
+public sealed class FiltroLeads : IFiltroLeads
 {
     public const int TamanhoPadrao = 25;
 

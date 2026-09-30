@@ -213,34 +213,11 @@ public sealed class LeadsController(
 
     private IQueryable<Lead> Filtrar(IQueryable<Lead> consulta, FiltroLeads filtro)
     {
-        if (!string.IsNullOrWhiteSpace(filtro.Busca))
-        {
-            consulta = Buscar(consulta, filtro.Busca);
-        }
+        consulta = FiltrosLeads.Aplicar(consulta, filtro, visibilidade.EhAdmin);
 
         if (filtro.EtapaId is { } etapaId)
         {
             consulta = consulta.Where(l => l.EtapaId == etapaId);
-        }
-
-        if (filtro.Origem is { } origem)
-        {
-            consulta = consulta.Where(l => l.Origem == origem);
-        }
-
-        if (filtro.CampanhaId is { } campanhaId)
-        {
-            consulta = consulta.Where(l => l.CampanhaId == campanhaId);
-        }
-
-        // A atendente já só vê os próprios leads; os filtros de responsável são do admin.
-        if (visibilidade.EhAdmin && filtro.SemResponsavel)
-        {
-            consulta = consulta.Where(l => l.ResponsavelId == null);
-        }
-        else if (visibilidade.EhAdmin && filtro.ResponsavelId is { } responsavelId)
-        {
-            consulta = consulta.Where(l => l.ResponsavelId == responsavelId);
         }
 
         if (filtro.De is { } de)
@@ -257,31 +234,6 @@ public sealed class LeadsController(
 
         return consulta;
     }
-
-    /// <summary>Nome e empresa sem acento, e-mail, e os dígitos no telefone e no CPF/CNPJ.</summary>
-    private static IQueryable<Lead> Buscar(IQueryable<Lead> consulta, string busca)
-    {
-        const int MinimoDeCaracteresNoDocumento = 4;
-        var termo = busca.Trim();
-        var padrao = $"%{EscaparLike(termo)}%";
-        var digitos = string.Concat(termo.Where(char.IsAsciiDigit));
-        var documento = string.Concat(termo.Where(char.IsAsciiLetterOrDigit)).ToUpperInvariant();
-        var buscaTelefone = digitos.Length >= MinimoDeCaracteresNoDocumento;
-        var buscaDocumento = documento.Length >= MinimoDeCaracteresNoDocumento;
-
-        return consulta.Where(l =>
-            EF.Functions.ILike(EF.Functions.Unaccent(l.Nome), EF.Functions.Unaccent(padrao))
-            || (l.Empresa != null && EF.Functions.ILike(EF.Functions.Unaccent(l.Empresa), EF.Functions.Unaccent(padrao)))
-            || (l.Email != null && EF.Functions.ILike(l.Email, padrao))
-            || (buscaTelefone && l.Telefone != null && l.Telefone.Contains(digitos))
-            || (buscaDocumento && l.CpfCnpj != null && l.CpfCnpj.Contains(documento)));
-    }
-
-    /// <summary>A barra invertida é o escape padrão do LIKE no PostgreSQL.</summary>
-    private static string EscaparLike(string texto) =>
-        texto.Replace("\\", "\\\\", StringComparison.Ordinal)
-            .Replace("%", "\\%", StringComparison.Ordinal)
-            .Replace("_", "\\_", StringComparison.Ordinal);
 
     private void ConferirFormatosAlterados(Lead lead, DadosPessoa novos)
     {
