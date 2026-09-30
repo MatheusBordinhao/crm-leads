@@ -10,6 +10,14 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Ainda não há servidor, domínio, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
 - Nos testes, os alertas usam a credencial "Gmail account" do n8n e vão para matheusbordinhao11@gmail.com. Os usuários de teste usam aliases com "+" desse e-mail, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
+- Passos 0 a 3 validados manualmente por mim em 30/09/2026, além dos testes automáticos:
+  - login do admin, troca de senha obrigatória e cadastro da Adriana e da Pietra;
+  - login e troca de senha da Pietra;
+  - cadastro manual de leads, aviso "Sem CPF/CNPJ" e botões de contato conforme os dados do lead;
+  - funil: mudança de etapa, motivo obrigatório em Perdido e recusa de Ganho sem CPF/CNPJ, com o botão "Abrir a ficha";
+  - lead cadastrado à mão fica "Ainda sem contato" até a primeira interação;
+  - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
+- O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
 
 ## Arquitetura
 
@@ -59,6 +67,7 @@ dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 
 ## Convenções
 
+- Converse com o usuário sempre em português do Brasil.
 - Interface, mensagens de erro e commits em português do Brasil.
 - Nomes de domínio em português sem acento (`Lead`, `Etapa`, `Interacao`, `Responsavel`); termos técnicos em inglês (`Controller`, `Service`, `DbContext`).
 - Datas em UTC no banco (`timestamptz`), exibidas em America/Sao_Paulo.
