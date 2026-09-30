@@ -2,6 +2,7 @@ using Crm.Api.Features.Leads;
 using Crm.Api.Features.Leads.Normalizacao;
 using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Eventos;
 using Crm.Api.Infra.Web;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -30,9 +31,10 @@ internal sealed class MudarEtapaRequestValidator : Validador<MudarEtapaRequest>
 
 /// <summary>
 /// Toda mudança de etapa passa por aqui (seção 3.4): a da tela, a reabertura de um lead perdido por uma nova
-/// entrada e a mudança em lote ao desativar uma etapa. Cada mudança grava <c>historico_etapas</c>.
+/// entrada e a mudança em lote ao desativar uma etapa. Cada mudança grava <c>historico_etapas</c> e, quando o tipo
+/// está em <c>N8n__Eventos</c>, o evento <c>lead.etapa_alterada</c>.
 /// </summary>
-public sealed class MudancaEtapa(CrmDbContext db, Configuracoes configuracoes, TimeProvider relogio)
+public sealed class MudancaEtapa(CrmDbContext db, Configuracoes configuracoes, EventosSaida eventos, TimeProvider relogio)
 {
     /// <summary>
     /// Mudança pedida na tela. O lead já precisa estar travado (<see cref="TravasLeads.TravarLeadAsync"/>) e
@@ -63,15 +65,15 @@ public sealed class MudancaEtapa(CrmDbContext db, Configuracoes configuracoes, T
         }
 
         var inicial = await db.Etapas.InicialAsync(ct);
-        Registrar(lead, destino, inicial.Id, motivo, detalhe, usuarioId, relogio.GetUtcNow(), contaComoContato: true);
+        await RegistrarAsync(lead, destino, inicial.Id, motivo, detalhe, usuarioId, relogio.GetUtcNow(), contaComoContato: true, ct);
         return null;
     }
 
     /// <summary>
-    /// Aplica a mudança no lead e grava o histórico, sem conferir as regras de Perdido e Ganho. Serve para a
-    /// reabertura de um lead perdido e para a mudança em lote, que não contam como contato.
+    /// Aplica a mudança no lead e grava o histórico e o evento, sem conferir as regras de Perdido e Ganho. Serve
+    /// também para a reabertura de um lead perdido e para a mudança em lote, que não contam como contato.
     /// </summary>
-    internal void Registrar(
+    internal async Task RegistrarAsync(
         Lead lead,
         Etapa destino,
         int etapaInicialId,
@@ -79,8 +81,18 @@ public sealed class MudancaEtapa(CrmDbContext db, Configuracoes configuracoes, T
         string? detalhe,
         Guid? usuarioId,
         DateTimeOffset agora,
-        bool contaComoContato) =>
+        bool contaComoContato,
+        CancellationToken ct)
+    {
+        var anteriorId = lead.EtapaId;
         db.HistoricoEtapas.Add(RegrasFunil.Aplicar(lead, destino, etapaInicialId, motivo, detalhe, usuarioId, agora, contaComoContato));
+        if (eventos.Grava(TipoEvento.LeadEtapaAlterada, lead))
+        {
+            var motivoPerda = destino.Tipo == TipoEtapa.Perdido ? motivo?.Nome : null;
+            var dados = new DadosEtapaAlterada(await eventos.EtapaAsync(anteriorId, ct), motivoPerda);
+            await eventos.RegistrarAsync(TipoEvento.LeadEtapaAlterada, lead, dados, ct);
+        }
+    }
 }
 
 internal static class FunilExtensions

@@ -4,6 +4,7 @@ using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
+using Crm.Api.Infra.Eventos;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,8 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options)
     public DbSet<Interacao> Interacoes => Set<Interacao>();
 
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
+
+    public DbSet<EventoSaida> EventosSaida => Set<EventoSaida>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

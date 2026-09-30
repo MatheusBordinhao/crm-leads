@@ -79,7 +79,7 @@ public sealed class ReceberEntrada(
         }
         else
         {
-            await avisos.EntradaRepetidaAsync(lead, entrada.UsuarioId, ct);
+            await avisos.EntradaRepetidaAsync(lead, entrada.Origem, campanha?.Nome, entrada.UsuarioId, ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -233,7 +233,7 @@ public sealed class ReceberEntrada(
 
         // Voltar a entrar não é um contato da atendente.
         var inicial = await db.Etapas.InicialAsync(ct);
-        mudancaEtapa.Registrar(lead, inicial, inicial.Id, motivo: null, detalhe: null, usuarioId, agora, contaComoContato: false);
+        await mudancaEtapa.RegistrarAsync(lead, inicial, inicial.Id, motivo: null, detalhe: null, usuarioId, agora, contaComoContato: false, ct);
     }
 
     /// <summary>

@@ -28,6 +28,9 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
     /// <summary>Chave de integração (X-Api-Key) dos testes.</summary>
     public const string ChaveIntegracao = "chave-de-integracao-dos-testes-0123456789";
 
+    /// <summary>Base dos links da ficha nos eventos para o n8n.</summary>
+    public const string UrlPublica = "https://crm.teste";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(ImagemPostgres).Build();
 
     public string ConnectionString => _postgres.GetConnectionString();
@@ -53,6 +56,7 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("Admin:Email", AdminInicialEmail);
         builder.UseSetting("Admin:SenhaInicial", AdminInicialSenha);
         builder.UseSetting("Integracao:Chave", ChaveIntegracao);
+        builder.UseSetting("Crm:UrlPublica", UrlPublica);
 
         // No TestServer, todas as requisições vêm do mesmo "IP", e a integração tem um contador só. Os limites
         // reais são testados em fábricas à parte.

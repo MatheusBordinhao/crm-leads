@@ -243,12 +243,14 @@ A resposta 400 vale só para problemas de estrutura: falta de nome, falta de e-m
 ### 4.3 Saída: eventos do CRM para o n8n
 
 - Tipos: `lead.criado`, `lead.entrada_repetida`, `lead.reatribuido` e `lead.etapa_alterada`.
-- Só são gravados em `eventos_saida` os tipos listados em `N8n__Eventos`, porque cada envio consome uma execução do plano do n8n. Padrão: `lead.criado,lead.reatribuido,lead.entrada_repetida`.
+- Só são gravados em `eventos_saida` os tipos listados em `N8n__Eventos`, porque cada envio consome uma execução do plano do n8n. Padrão: `lead.criado,lead.reatribuido,lead.entrada_repetida`. Um tipo desconhecido na lista impede a API de subir.
+- Lead de teste não gera evento. `lead.criado`, `lead.entrada_repetida` e `lead.reatribuido` também não são gravados quando quem fez a ação é a própria responsável do lead, que já sabe dela. `lead.etapa_alterada`, quando está na lista, é gravado em toda mudança.
 - A entrega é um `POST` para `N8n__WebhookUrl` com os cabeçalhos `X-Crm-Chave` (valor de `N8n__WebhookChave`, conferido pelo Webhook do n8n com Header Auth), `X-Crm-Evento-Id` e `Content-Type: application/json`. O tempo limite é de 10 segundos, e qualquer resposta 2xx conta como entregue.
 - Em caso de falha, o despachante tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h. Depois disso o evento fica como `falhou` e os admins são notificados.
 - A entrega é "pelo menos uma vez", sem garantia de ordem.
 - Sem `N8n__WebhookUrl` configurada, o despachante não envia nada e os eventos ficam pendentes.
 - O evento não leva e-mail, telefone nem CPF/CNPJ do lead. Quem precisa desses dados abre a ficha pelo link.
+- O evento é montado na hora da mudança. `lead.origem`, `lead.campanha` e `lead.idExterno` são os da primeira entrada, e o link usa `Crm__UrlPublica`. `responsavel` vem `null` quando o lead está sem responsável ou a responsável está desativada, e aí o n8n avisa o e-mail de admin.
 
 ```json
 {
@@ -326,7 +328,7 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 | historico_etapas | id, lead_id, etapa_anterior_id, etapa_nova_id, motivo_perda_id, motivo_perda_detalhe, usuario_id, ocorrido_em | O motivo continua aqui depois de o lead sair de Perdido. usuario_id fica nulo quando quem mudou foi o sistema, como na reabertura de um lead perdido por uma nova entrada |
 | interacoes | id, lead_id, usuario_id, tipo, descricao, ocorrido_em, criado_em | |
 | notificacoes | id, usuario_id, tipo, titulo, lead_id, lida_em, criado_em | |
-| eventos_saida | id (uuid), tipo, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em) |
+| eventos_saida | id (uuid), tipo, lead_id, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em). O `lead_id` liga o evento ao lead, para o aviso de falha e para a LGPD. O payload leva nome e empresa do lead, e `ultimo_erro` só o código HTTP ou o tipo da falha |
 | auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui. No login com e-mail desconhecido, usuario_id fica nulo e o e-mail digitado não é gravado |
 | configuracoes | chave, valor | `distribuicao_automatica`, `exigir_documento_para_ganho` |
 
@@ -422,6 +424,8 @@ DOMINIO=                                     # só em produção, usado pelo Cad
 ```
 
 Em desenvolvimento, o Docker Compose e a API leem o mesmo `.env` da raiz, e uma variável que já exista no ambiente tem prioridade sobre o arquivo. Em produção, as variáveis vêm do ambiente.
+
+A API confere na subida o que é obrigatório e para com uma mensagem clara. `Crm__UrlPublica` é obrigatória (em desenvolvimento, o padrão é `http://localhost:5173`); `N8n__WebhookChave`, com 32+ caracteres, é obrigatória quando há `N8n__WebhookUrl`.
 
 ## 10. Passos de entrega
 

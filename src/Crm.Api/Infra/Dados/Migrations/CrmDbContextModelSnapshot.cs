@@ -763,6 +763,66 @@ namespace Crm.Api.Infra.Dados.Migrations
                     b.ToTable("configuracoes", (string)null);
                 });
 
+            modelBuilder.Entity("Crm.Api.Infra.Eventos.EventoSaida", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<DateTimeOffset?>("EntregueEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("entregue_em");
+
+                    b.Property<long?>("LeadId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lead_id");
+
+                    b.Property<JsonDocument>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTimeOffset>("ProximaTentativaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proxima_tentativa_em");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("situacao");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("integer")
+                        .HasColumnName("tentativas");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("UltimoErro")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ultimo_erro");
+
+                    b.HasKey("Id")
+                        .HasName("pk_eventos_saida");
+
+                    b.HasIndex("LeadId")
+                        .HasDatabaseName("ix_eventos_saida_lead_id");
+
+                    b.HasIndex("Situacao", "ProximaTentativaEm")
+                        .HasDatabaseName("ix_eventos_saida_situacao_proxima_tentativa_em");
+
+                    b.ToTable("eventos_saida", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1052,6 +1112,15 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_auditoria_usuarios_usuario_id");
+                });
+
+            modelBuilder.Entity("Crm.Api.Infra.Eventos.EventoSaida", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Leads.Lead", null)
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_eventos_saida_leads_lead_id");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

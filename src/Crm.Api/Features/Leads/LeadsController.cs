@@ -256,7 +256,7 @@ public sealed class LeadsController(
                 EntidadesAuditoria.Lead,
                 id.ToString(CultureInfo.InvariantCulture),
                 new { anteriorId, novoId = requisicao.ResponsavelId });
-            await avisos.ReatribuidoAsync(lead, visibilidade.UsuarioId, ct);
+            await avisos.ReatribuidoAsync(lead, anteriorId, visibilidade.UsuarioId, ct);
             await db.SaveChangesAsync(ct);
         }
 

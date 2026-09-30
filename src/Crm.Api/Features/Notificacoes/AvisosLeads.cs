@@ -2,17 +2,22 @@ using Crm.Api.Features.Leads;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Eventos;
 using Microsoft.EntityFrameworkCore;
 
 namespace Crm.Api.Features.Notificacoes;
 
 /// <summary>
-/// Quem é avisado de cada acontecimento de um lead (seções 3.2 e 3.6), num lugar só. Os avisos entram no
-/// contexto e são gravados na mesma transação do acontecimento. Lead de teste não gera aviso, e o autor da ação
-/// nunca é avisado dela. Uma responsável desativada conta como sem responsável: o aviso vai para os admins.
+/// Quem é avisado de cada acontecimento de um lead, num lugar só: as notificações no sistema (seção 3.6) e o evento
+/// para o n8n, que manda o e-mail (seção 4.3). Tudo entra no contexto e é gravado na mesma transação do
+/// acontecimento. Lead de teste não gera aviso, e o autor da ação nunca é avisado dela: quando quem fez é a própria
+/// responsável, nem o evento é gravado. Uma responsável desativada conta como sem responsável: o aviso vai para os
+/// admins.
 /// </summary>
-public sealed class AvisosLeads(CrmDbContext db, Notificador notificador, Configuracoes configuracoes)
+public sealed class AvisosLeads(CrmDbContext db, Notificador notificador, EventosSaida eventos, Configuracoes configuracoes)
 {
+    private static readonly object SemDados = new { };
+
     /// <summary>Lead novo: avisa a responsável ou, se ele ficou sem responsável, os admins.</summary>
     /// <param name="autorId">Quem cadastrou o lead. Nulo quando ele veio da integração.</param>
     public async Task LeadCriadoAsync(Lead lead, Guid? autorId, CancellationToken ct)
@@ -22,6 +27,7 @@ public sealed class AvisosLeads(CrmDbContext db, Notificador notificador, Config
             return;
         }
 
+        await RegistrarEventoAsync(TipoEvento.LeadCriado, lead, SemDados, autorId, ct);
         var autor = await AutorAsync(autorId, ct);
         if (await ResponsavelAsync(lead, ct) is { Ativo: true } responsavel)
         {
@@ -41,14 +47,17 @@ public sealed class AvisosLeads(CrmDbContext db, Notificador notificador, Config
     /// admins. Quando uma atendente cadastra à mão uma pessoa que é lead de outra pessoa (ela não vê esse lead),
     /// os admins também são avisados (seção 3.2).
     /// </summary>
+    /// <param name="origem">A origem da nova entrada.</param>
+    /// <param name="campanha">O nome da campanha da nova entrada.</param>
     /// <param name="autorId">Quem cadastrou a entrada à mão. Nulo quando ela veio da integração.</param>
-    public async Task EntradaRepetidaAsync(Lead lead, Guid? autorId, CancellationToken ct)
+    public async Task EntradaRepetidaAsync(Lead lead, Origem origem, string? campanha, Guid? autorId, CancellationToken ct)
     {
         if (lead.Teste)
         {
             return;
         }
 
+        await RegistrarEventoAsync(TipoEvento.LeadEntradaRepetida, lead, new DadosEntradaRepetida(origem, campanha), autorId, ct);
         var autor = await AutorAsync(autorId, ct);
         var responsavel = await ResponsavelAsync(lead, ct);
         var cadastroDeOutraPessoa = autor is { EhAdmin: false } && lead.ResponsavelId != autorId;
@@ -82,17 +91,24 @@ public sealed class AvisosLeads(CrmDbContext db, Notificador notificador, Config
     }
 
     /// <summary>Troca de responsável: avisa a nova responsável, a não ser que ela seja quem fez a troca.</summary>
-    public async Task ReatribuidoAsync(Lead lead, Guid? autorId, CancellationToken ct)
+    /// <param name="anteriorId">Quem era a responsável. Nulo quando o lead estava sem responsável.</param>
+    public async Task ReatribuidoAsync(Lead lead, Guid? anteriorId, Guid? autorId, CancellationToken ct)
     {
         if (lead.Teste)
         {
             return;
         }
 
+        var anterior = await db.Users.Where(u => u.Id == anteriorId).Select(u => new PessoaNoEvento(u.Id, u.Nome)).SingleOrDefaultAsync(ct);
+        await RegistrarEventoAsync(TipoEvento.LeadReatribuido, lead, new DadosReatribuido(anterior), autorId, ct);
         var autor = await AutorAsync(autorId, ct);
         var titulo = autor is null ? "Um lead passou para você" : $"{autor.Nome} passou um lead para você";
         notificador.ParaUsuario(lead.ResponsavelId, TipoNotificacao.LeadReatribuido, titulo, lead.Id, autorId);
     }
+
+    /// <summary>O evento para o n8n, a não ser que quem fez a ação seja a própria responsável: ela já sabe.</summary>
+    private Task RegistrarEventoAsync(TipoEvento tipo, Lead lead, object dados, Guid? autorId, CancellationToken ct) =>
+        autorId is not null && autorId == lead.ResponsavelId ? Task.CompletedTask : eventos.RegistrarAsync(tipo, lead, dados, ct);
 
     /// <summary><c>um lead sem responsável</c>, <c>lead de Adriana</c> ou <c>lead de Pietra (usuário desativado)</c>.</summary>
     private static string DeQuemE(Pessoa? responsavel) => responsavel switch

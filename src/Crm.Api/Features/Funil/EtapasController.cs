@@ -171,7 +171,7 @@ public sealed class EtapasController(
             var usuarioId = UsuarioLogado();
             foreach (var lead in leads)
             {
-                mudancaEtapa.Registrar(lead, destino, etapaInicialId: etapa.Id, null, null, usuarioId, agora, contaComoContato: false);
+                await mudancaEtapa.RegistrarAsync(lead, destino, etapaInicialId: etapa.Id, null, null, usuarioId, agora, contaComoContato: false, ct);
             }
         }
 
