@@ -1,6 +1,7 @@
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Integracoes;
 using Crm.Api.Features.Leads;
+using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
@@ -25,6 +26,7 @@ builder.Services.AddAuditoria();
 builder.Services.AddConfiguracoes();
 builder.Services.AddFunil();
 builder.Services.AddLeads();
+builder.Services.AddNotificacoes();
 builder.Services.AddIntegracoes();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 

@@ -531,6 +531,55 @@ namespace Crm.Api.Infra.Dados.Migrations
                     b.ToTable("leads", (string)null);
                 });
 
+            modelBuilder.Entity("Crm.Api.Features.Notificacoes.Notificacao", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<long?>("LeadId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lead_id");
+
+                    b.Property<DateTimeOffset?>("LidaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lida_em");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("titulo");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notificacoes");
+
+                    b.HasIndex("LeadId")
+                        .HasDatabaseName("ix_notificacoes_lead_id");
+
+                    b.HasIndex("UsuarioId", "CriadoEm")
+                        .HasDatabaseName("ix_notificacoes_usuario_id_criado_em");
+
+                    b.ToTable("notificacoes", (string)null);
+                });
+
             modelBuilder.Entity("Crm.Api.Features.Usuarios.Usuario", b =>
                 {
                     b.Property<Guid>("Id")
@@ -978,6 +1027,22 @@ namespace Crm.Api.Infra.Dados.Migrations
                     b.Navigation("MotivoPerda");
 
                     b.Navigation("Responsavel");
+                });
+
+            modelBuilder.Entity("Crm.Api.Features.Notificacoes.Notificacao", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Leads.Lead", null)
+                        .WithMany()
+                        .HasForeignKey("LeadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_notificacoes_leads_lead_id");
+
+                    b.HasOne("Crm.Api.Features.Usuarios.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notificacoes_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Crm.Api.Infra.Auditoria.RegistroAuditoria", b =>

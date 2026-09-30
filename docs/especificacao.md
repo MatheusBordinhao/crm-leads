@@ -120,7 +120,8 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - (admin) uma atendente cadastrou à mão uma pessoa que já é lead de outra (3.2);
   - (admin) lead ficou sem responsável;
   - (admin) evento para o n8n falhou de vez.
-- Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas.
+- Cada notificação é de um usuário. O título não leva dados do lead: a lista mostra o nome atual dele, lido na hora, e só se a pessoa ainda vê o lead. A notificação de um lead que passou para outra atendente some da lista dela, e marcá-la responde 404.
+- Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas. A lista traz as 30 mais recentes, e o contador soma todas as não lidas.
 - Com a aba aberta em segundo plano, o navegador mostra uma notificação nativa. A permissão é pedida uma vez.
 - Até o Passo 7, a lista se atualiza consultando a API a cada 30 segundos.
 - Os e-mails de alerta saem do n8n, a partir dos eventos (seção 4).

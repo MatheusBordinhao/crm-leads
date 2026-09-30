@@ -1,5 +1,6 @@
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
+using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
@@ -29,6 +30,8 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options)
     public DbSet<HistoricoEtapa> HistoricoEtapas => Set<HistoricoEtapa>();
 
     public DbSet<Interacao> Interacoes => Set<Interacao>();
+
+    public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -154,6 +154,33 @@ public class LeadsVisibilidadeTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Atendente_nao_ve_nem_marca_notificacao_de_outra_pessoa_nem_de_lead_que_nao_e_mais_dela()
+    {
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        var pietraUsuario = await fabrica.CriarUsuarioAsync();
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        var passado = await adriana.CriarLeadIdAsync();
+        var mantido = await adriana.CriarLeadIdAsync();
+        await fabrica.NotificarAsync(adrianaUsuario.Id, passado, titulo: "Do lead passado");
+        await fabrica.NotificarAsync(adrianaUsuario.Id, mantido, titulo: "Do lead mantido");
+        await fabrica.NotificarAsync(pietraUsuario.Id, titulo: "Da Pietra");
+        await fabrica.PassarParaAsync(passado, pietraUsuario.Id);
+        var doPassado = (await fabrica.NotificacoesDoUsuarioAsync(adrianaUsuario.Id, passado)).Single().Id;
+        var daPietra = (await fabrica.NotificacoesDoUsuarioAsync(pietraUsuario.Id)).Single().Id;
+
+        var lista = await adriana.NotificacoesAsync();
+        var marcarDoPassado = await adriana.PostAsync($"/api/notificacoes/{doPassado}/lida", null, Ct);
+        var marcarDaPietra = await adriana.PostAsync($"/api/notificacoes/{daPietra}/lida", null, Ct);
+        await adriana.PostAsync("/api/notificacoes/lidas", null, Ct);
+
+        Assert.Equal(["Do lead mantido"], lista.Itens().Select(i => i.GetProperty("titulo").GetString()));
+        Assert.Equal(1, lista.GetProperty("naoLidas").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound, marcarDoPassado.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, marcarDaPietra.StatusCode);
+        Assert.Null((await fabrica.NotificacoesDoUsuarioAsync(pietraUsuario.Id)).Single().LidaEm);
+    }
+
+    [Fact]
     public async Task Admin_ve_e_edita_o_lead_de_qualquer_pessoa()
     {
         using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);
