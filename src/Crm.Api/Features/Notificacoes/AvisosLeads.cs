@@ -81,6 +81,19 @@ public sealed class AvisosLeads(CrmDbContext db, Notificador notificador, Config
         }
     }
 
+    /// <summary>Troca de responsável: avisa a nova responsável, a não ser que ela seja quem fez a troca.</summary>
+    public async Task ReatribuidoAsync(Lead lead, Guid? autorId, CancellationToken ct)
+    {
+        if (lead.Teste)
+        {
+            return;
+        }
+
+        var autor = await AutorAsync(autorId, ct);
+        var titulo = autor is null ? "Um lead passou para você" : $"{autor.Nome} passou um lead para você";
+        notificador.ParaUsuario(lead.ResponsavelId, TipoNotificacao.LeadReatribuido, titulo, lead.Id, autorId);
+    }
+
     /// <summary><c>um lead sem responsável</c>, <c>lead de Adriana</c> ou <c>lead de Pietra (usuário desativado)</c>.</summary>
     private static string DeQuemE(Pessoa? responsavel) => responsavel switch
     {

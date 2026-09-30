@@ -181,6 +181,25 @@ public class LeadsVisibilidadeTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Atendente_recebe_403_ao_trocar_a_responsavel_ate_do_proprio_lead()
+    {
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        var pietraUsuario = await fabrica.CriarUsuarioAsync();
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        var proprio = await adriana.CriarLeadIdAsync();
+        using var pietra = await fabrica.LogarAsync(pietraUsuario);
+        var alheio = await pietra.CriarLeadIdAsync();
+
+        foreach (var id in new[] { proprio, alheio, long.MaxValue })
+        {
+            var resposta = await adriana.PostAsJsonAsync($"/api/leads/{id}/responsavel", new { responsavelId = adrianaUsuario.Id }, Ct);
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+        }
+
+        Assert.Equal(pietraUsuario.Id, (await fabrica.BuscarLeadAsync(alheio)).ResponsavelId);
+    }
+
+    [Fact]
     public async Task Admin_ve_e_edita_o_lead_de_qualquer_pessoa()
     {
         using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);

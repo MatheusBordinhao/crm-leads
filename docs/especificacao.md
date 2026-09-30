@@ -84,7 +84,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - Só o rodízio mexe em `ultimo_lead_atribuido_em`: a escolha do admin no cadastro, a troca de responsável e o lead que a atendente cadastra para si não mudam a vez.
 - Se ninguém participa do rodízio ou a distribuição está desligada, o lead fica sem responsável e os admins são notificados, com o motivo.
 - Lead criado à mão por atendente fica com ela. Lead criado por admin vai para quem o admin escolher, ou para o rodízio. Os leads da integração vão para o rodízio. Lead de teste não passa pelo rodízio.
-- Só admin troca a responsável. A troca notifica a nova responsável, gera `lead.reatribuido` e entra na auditoria.
+- Só admin troca a responsável. A troca notifica a nova responsável, gera `lead.reatribuido` e entra na auditoria. A nova responsável precisa ser um usuário ativo, lead de teste continua sem responsável, e trocar para a mesma pessoa não muda nada.
 - Nas férias ou folgas, o admin desmarca `participa_rodizio` da pessoa.
 
 ### 3.4 Funil
@@ -341,7 +341,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/leads/{id}` | Admin e atendente | Ficha, com os avisos da seção 3.1 |
 | `POST /api/leads`, `PUT /api/leads/{id}` | Admin e atendente | Criar e editar |
 | `POST /api/leads/{id}/etapa` | Admin e atendente | Mudar etapa, com motivo quando for Perdido |
-| `POST /api/leads/{id}/responsavel` | Admin | Trocar responsável |
+| `POST /api/leads/{id}/responsavel` | Admin | Trocar responsável (`{ responsavelId }`) |
 | `GET /api/leads/{id}/linha-do-tempo`, `POST /api/leads/{id}/interacoes` | Admin e atendente | Linha do tempo e interações |
 | `POST /api/importacoes`, `GET /api/importacoes/{id}` | Admin | Importação CSV e resultado |
 | `GET /api/leads/exportacao` | Admin | CSV com os filtros da lista |

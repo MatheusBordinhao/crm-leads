@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 using Crm.Api.Features.Funil;
+using Crm.Api.Features.Notificacoes;
+using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Datas;
@@ -22,10 +24,15 @@ public sealed class LeadsController(
     VisibilidadeLeads visibilidade,
     ReceberEntrada receberEntrada,
     MudancaEtapa mudancaEtapa,
+    AvisosLeads avisos,
     AuditoriaService auditoria,
     TimeProvider relogio) : ControllerBase
 {
     public const string MensagemConflito = "O lead foi alterado por outra pessoa. Recarregue a página para ver a versão atual.";
+
+    public const string MensagemResponsavelInvalido = "Responsável não encontrado ou desativado.";
+
+    public const string MensagemLeadDeTeste = "Lead de teste fica sem responsável.";
 
     /// <summary>Lista com busca, filtros, ordenação e paginação.</summary>
     [HttpGet]
@@ -85,7 +92,7 @@ public sealed class LeadsController(
         {
             if (requisicao.ResponsavelId is { } escolhido && !await db.Users.AnyAsync(u => u.Id == escolhido && u.Ativo, ct))
             {
-                ModelState.AddModelError("responsavelId", "Responsável não encontrado ou desativado.");
+                ModelState.AddModelError("responsavelId", MensagemResponsavelInvalido);
                 return ValidationProblem(ModelState);
             }
 
@@ -207,6 +214,52 @@ public sealed class LeadsController(
         }
 
         await db.SaveChangesAsync(ct);
+        await transacao.CommitAsync(ct);
+        return (await BuscarFichaAsync(id))!;
+    }
+
+    /// <summary>
+    /// Passa o lead para outra pessoa (só admin). A troca entra na auditoria, de onde a linha do tempo a lê, e a
+    /// nova responsável é avisada. Não mexe na vez do rodízio. Trocar para a mesma pessoa não muda nada.
+    /// </summary>
+    [HttpPost("{id:long}/responsavel")]
+    [Authorize(Policy = Politicas.Admin)]
+    public async Task<ActionResult<LeadResponse>> TrocarResponsavel(long id, TrocarResponsavelRequest requisicao)
+    {
+        var ct = HttpContext.RequestAborted;
+        await using var transacao = await db.Database.BeginTransactionAsync(ct);
+        await db.TravarLeadAsync(id, ct);
+        var lead = await visibilidade.Visiveis().SingleOrDefaultAsync(l => l.Id == id, ct);
+        if (lead is null)
+        {
+            return NotFound();
+        }
+
+        if (lead.Teste)
+        {
+            return Problem(detail: MensagemLeadDeTeste, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (!await db.Users.AnyAsync(u => u.Id == requisicao.ResponsavelId && u.Ativo, ct))
+        {
+            ModelState.AddModelError("responsavelId", MensagemResponsavelInvalido);
+            return ValidationProblem(ModelState);
+        }
+
+        if (lead.ResponsavelId != requisicao.ResponsavelId)
+        {
+            var anteriorId = lead.ResponsavelId;
+            lead.ResponsavelId = requisicao.ResponsavelId;
+            lead.AtualizadoEm = relogio.GetUtcNow();
+            auditoria.Registrar(
+                AcoesAuditoria.LeadReatribuido,
+                EntidadesAuditoria.Lead,
+                id.ToString(CultureInfo.InvariantCulture),
+                new { anteriorId, novoId = requisicao.ResponsavelId });
+            await avisos.ReatribuidoAsync(lead, visibilidade.UsuarioId, ct);
+            await db.SaveChangesAsync(ct);
+        }
+
         await transacao.CommitAsync(ct);
         return (await BuscarFichaAsync(id))!;
     }

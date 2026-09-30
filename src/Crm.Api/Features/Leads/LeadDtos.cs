@@ -122,6 +122,12 @@ public sealed record EditarLeadRequest(
     public override string ToString() => $"{nameof(EditarLeadRequest)} {{ Versao = {Versao} }}";
 }
 
+/// <param name="ResponsavelId">A nova responsável: um usuário ativo.</param>
+public sealed record TrocarResponsavelRequest(Guid ResponsavelId)
+{
+    public override string ToString() => $"{nameof(TrocarResponsavelRequest)} {{ ResponsavelId = {ResponsavelId} }}";
+}
+
 public enum OrdemLeads
 {
     Recentes = 1,
