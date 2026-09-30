@@ -2,6 +2,8 @@ namespace Crm.Api.Features.Usuarios;
 
 /// <param name="BloqueadoAte">Fim do bloqueio por tentativas erradas, se ainda estiver bloqueado.</param>
 /// <param name="TrocarSenha">A senha ainda é provisória.</param>
+/// <param name="UltimoLeadAtribuidoEm">A última vez que recebeu um lead pelo rodízio.</param>
+/// <param name="ProximoDaVez">Recebe o próximo lead do rodízio, quando a distribuição automática está ligada.</param>
 public sealed record UsuarioResponse(
     Guid Id,
     string Nome,
@@ -12,6 +14,7 @@ public sealed record UsuarioResponse(
     bool TrocarSenha,
     DateTimeOffset? BloqueadoAte,
     DateTimeOffset? UltimoLeadAtribuidoEm,
+    bool ProximoDaVez,
     DateTimeOffset CriadoEm);
 
 // Os records de requisição não imprimem nome, e-mail nem senha no ToString: o MVC imprime os argumentos da

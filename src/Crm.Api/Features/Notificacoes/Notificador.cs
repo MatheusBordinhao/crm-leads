@@ -22,11 +22,7 @@ public sealed class Notificador(CrmDbContext db, TimeProvider relogio)
     /// <summary>Para cada admin ativo, menos o autor da ação.</summary>
     public async Task ParaAdminsAsync(TipoNotificacao tipo, string titulo, long? leadId, Guid? autorId, CancellationToken ct)
     {
-        var admins = await db.Users
-            .Where(u => u.Ativo && u.Id != autorId && db.UserRoles.Any(up =>
-                up.UserId == u.Id && db.Roles.Any(p => p.Id == up.RoleId && p.Name == nameof(Perfil.Admin))))
-            .Select(u => u.Id)
-            .ToListAsync(ct);
+        var admins = await db.Admins().Where(u => u.Ativo && u.Id != autorId).Select(u => u.Id).ToListAsync(ct);
         db.Notificacoes.AddRange(admins.Select(admin => Nova(admin, tipo, titulo, leadId)));
     }
 
@@ -42,5 +38,6 @@ public sealed class Notificador(CrmDbContext db, TimeProvider relogio)
 
 internal static class NotificacoesExtensions
 {
-    public static IServiceCollection AddNotificacoes(this IServiceCollection services) => services.AddScoped<Notificador>();
+    public static IServiceCollection AddNotificacoes(this IServiceCollection services) =>
+        services.AddScoped<Notificador>().AddScoped<AvisosLeads>();
 }

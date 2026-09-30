@@ -20,7 +20,8 @@ public class UsuariosTests(CrmApiFactory fabrica)
         HttpClient admin, string email, string perfil = "Atendente", string nome = "Adriana", string senha = SenhaProvisoria) =>
         admin.PostAsJsonAsync(
             "/api/usuarios",
-            new { nome, email, perfil, participaRodizio = true, senhaProvisoria = senha },
+            // Fora do rodízio: um usuário ativo no rodízio receberia os leads dos outros testes (veja RodizioTests).
+            new { nome, email, perfil, participaRodizio = false, senhaProvisoria = senha },
             Ct);
 
     private static Task<HttpResponseMessage> EditarAsync(
@@ -46,7 +47,7 @@ public class UsuariosTests(CrmApiFactory fabrica)
         Assert.Equal(email, criado.GetProperty("email").GetString());
         Assert.Equal("Atendente", criado.GetProperty("perfil").GetString());
         Assert.True(criado.GetProperty("ativo").GetBoolean());
-        Assert.True(criado.GetProperty("participaRodizio").GetBoolean());
+        Assert.False(criado.GetProperty("participaRodizio").GetBoolean());
         Assert.True(criado.GetProperty("trocarSenha").GetBoolean());
 
         using var novo = fabrica.CriarClienteHttps();
@@ -163,19 +164,21 @@ public class UsuariosTests(CrmApiFactory fabrica)
     }
 
     [Fact]
-    public async Task Editar_muda_nome_email_perfil_e_rodizio()
+    public async Task Editar_muda_nome_email_perfil_situacao_e_rodizio()
     {
         var usuario = await fabrica.CriarUsuarioAsync(Perfil.Atendente);
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
         var email = EmailNovo();
 
-        var resposta = await EditarAsync(admin, usuario.Id, "Pietra", email, "Admin", ativo: true, participaRodizio: true);
+        // Desativado ao mesmo tempo: um usuário ativo no rodízio receberia os leads dos outros testes.
+        var resposta = await EditarAsync(admin, usuario.Id, "Pietra", email, "Admin", ativo: false, participaRodizio: true);
 
         Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
         var editado = await resposta.LerJsonAsync();
         Assert.Equal("Pietra", editado.GetProperty("nome").GetString());
         Assert.Equal(email, editado.GetProperty("email").GetString());
         Assert.Equal("Admin", editado.GetProperty("perfil").GetString());
+        Assert.False(editado.GetProperty("ativo").GetBoolean());
         Assert.True(editado.GetProperty("participaRodizio").GetBoolean());
 
         await using var escopo = fabrica.Services.CreateAsyncScope();

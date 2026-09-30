@@ -144,7 +144,7 @@ public class LeadsTests(CrmApiFactory fabrica)
     }
 
     [Fact]
-    public async Task Admin_escolhe_a_responsavel_ou_deixa_sem_responsavel()
+    public async Task Admin_escolhe_a_responsavel()
     {
         var atendente = await fabrica.CriarUsuarioAsync();
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
@@ -152,10 +152,9 @@ public class LeadsTests(CrmApiFactory fabrica)
         paraAtendente["responsavelId"] = atendente.Id;
 
         var comResponsavel = await admin.CriarLeadIdAsync(paraAtendente);
-        var semResponsavel = await admin.CriarLeadIdAsync();
 
+        // Sem escolha, o lead vai para o rodízio: RodizioTests.
         Assert.Equal(atendente.Id, (await FichaAsync(admin, comResponsavel)).GetProperty("responsavel").GetProperty("id").GetGuid());
-        Assert.Equal(JsonValueKind.Null, (await FichaAsync(admin, semResponsavel)).GetProperty("responsavel").ValueKind);
     }
 
     [Fact]

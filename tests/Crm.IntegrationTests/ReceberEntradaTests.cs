@@ -59,7 +59,6 @@ public class ReceberEntradaTests(CrmApiFactory fabrica)
         Assert.Equal("Outubro | Serviço Y", lead.Campanha!.Nome);
         Assert.Equal("instagram", lead.UtmSource);
         Assert.Equal("Serviço Y", lead.RespostasExtras!.RootElement.GetProperty("Qual serviço você procura?").GetString());
-        Assert.Null(lead.ResponsavelId);
         Assert.False(lead.Teste);
 
         var registro = Assert.Single(await EntradasDoLeadAsync(lead.Id));

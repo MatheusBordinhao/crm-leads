@@ -96,12 +96,12 @@ public class AuditoriaTests(CrmApiFactory fabrica)
 
         var criacao = await admin.PostAsJsonAsync(
             "/api/usuarios",
-            new { nome = "Nome Auditado", email, perfil = "Atendente", participaRodizio = true, senhaProvisoria = "provisoria-123" },
+            new { nome = "Nome Auditado", email, perfil = "Atendente", participaRodizio = false, senhaProvisoria = "provisoria-123" },
             Ct);
         var id = (await criacao.LerJsonAsync()).GetProperty("id").GetGuid();
         await admin.PutAsJsonAsync(
             $"/api/usuarios/{id}",
-            new { nome = "Nome Alterado", email, perfil = "Atendente", ativo = false, participaRodizio = true },
+            new { nome = "Nome Alterado", email, perfil = "Atendente", ativo = false, participaRodizio = false },
             Ct);
         await admin.PostAsJsonAsync($"/api/usuarios/{id}/redefinir-senha", new { senhaProvisoria = "outra-provisoria" }, Ct);
 

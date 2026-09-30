@@ -55,8 +55,8 @@ public sealed record NovaEntrada
     public JsonDocument? PayloadBruto { get; init; }
 
     /// <summary>
-    /// Responsável de um lead novo, no cadastro manual. Nulo deixa para a distribuição automática (seção 3.3,
-    /// Passo 4); até lá, o lead fica sem responsável. Lead de teste nunca tem responsável.
+    /// Responsável de um lead novo, no cadastro manual. Nulo deixa para o rodízio (seção 3.3). Lead de teste
+    /// nunca tem responsável.
     /// </summary>
     public Guid? ResponsavelId { get; init; }
 

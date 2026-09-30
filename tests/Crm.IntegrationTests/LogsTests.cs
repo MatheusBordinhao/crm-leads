@@ -79,7 +79,7 @@ public class LogsTests(CrmApiFactory fabrica)
         edicao.Remove("responsavelId");
         Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/leads/{id}", edicao, Ct)).StatusCode);
         var emailNovo = $"sigiloso-{marca}@example.com";
-        var usuarioNovo = new { nome = $"Usuária Sigilosa {marca}", email = emailNovo, perfil = "Atendente", participaRodizio = true, senhaProvisoria = $"provisoria-{marca}" };
+        var usuarioNovo = new { nome = $"Usuária Sigilosa {marca}", email = emailNovo, perfil = "Atendente", participaRodizio = false, senhaProvisoria = $"provisoria-{marca}" };
         Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/usuarios", usuarioNovo, Ct)).StatusCode);
 
         AssertSemVazamento(

@@ -83,8 +83,8 @@ public interface IDadosLead
 
 /// <param name="Origem"><c>manual</c>, <c>telefone</c>, <c>whatsapp</c> ou <c>indicacao</c>.</param>
 /// <param name="ResponsavelId">
-/// Só o admin escolhe. Nulo: distribuição automática, que chega no Passo 4 (até lá, o lead fica sem
-/// responsável). A atendente fica com o lead que cadastra.
+/// Só o admin escolhe. Nulo: o lead vai para o rodízio; com a distribuição desligada ou sem ninguém no rodízio,
+/// fica sem responsável. A atendente fica com o lead que cadastra.
 /// </param>
 public sealed record CriarLeadRequest(
     string Nome,

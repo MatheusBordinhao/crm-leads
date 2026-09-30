@@ -72,7 +72,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 6. Tudo acontece numa transação só, incluindo o evento em `eventos_saida`.
 
 - Origens possíveis: `meta_lead_ads`, `google_ads`, `site`, `whatsapp`, `telefone`, `indicacao`, `planilha` e `manual`. A integração aceita apenas as três primeiras, e o cadastro manual, `manual`, `telefone`, `whatsapp` e `indicacao`.
-- No cadastro manual, se a pessoa já é lead de outra atendente, a entrada é vinculada ao lead dela (passo 4), mas a resposta não traz o id do lead, e a tela só mostra "Já existe um lead com esses dados.", sem dizer de quem. A responsável e os admins são avisados pelas notificações do sistema (3.6), que chegam no Passo 4; até lá, a entrada fica registrada no lead e aparece na linha do tempo dele.
+- No cadastro manual, se a pessoa já é lead de outra atendente, a entrada é vinculada ao lead dela (passo 4), mas a resposta não traz o id do lead, e a tela só mostra "Já existe um lead com esses dados.", sem dizer de quem. A entrada fica registrada no lead e aparece na linha do tempo dele. A responsável e os admins são avisados pelas notificações do sistema (3.6), e quem cadastrou não recebe aviso.
 - A origem e a campanha do lead são as da primeira entrada. Cada entrada guarda as suas.
 - **Leads de teste** (`teste = true`) ficam sem responsável e visíveis só para admins. Não geram alerta e ficam fora do painel e dos relatórios. Só esses o admin pode excluir de vez. Uma entrada de teste só é vinculada a um lead de teste, e uma entrada real, a um lead real: o teste da Meta feito com o e-mail de alguém não mexe no lead de verdade dessa pessoa.
 - **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "{origem} · campanha {id}", como "Google Ads · campanha 123", que o admin pode renomear. Um nome que chegue depois só substitui o provisório.
@@ -80,9 +80,10 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 ### 3.3 Distribuição
 
 - A configuração `distribuicao_automatica` vem ligada por padrão.
-- Ligada, o próximo lead vai para o usuário ativo com `participa_rodizio = true` que recebeu lead há mais tempo: menor `ultimo_lead_atribuido_em`, com nulos primeiro e empate decidido pelo id. A escolha roda sob um `pg_advisory_xact_lock` global, para dois leads simultâneos não caírem na mesma pessoa.
-- Se ninguém participa do rodízio ou a distribuição está desligada, o lead fica sem responsável e os admins são notificados.
-- Lead criado à mão por atendente fica com ela. Lead criado por admin vai para quem o admin escolher, ou para o rodízio. Até o rodízio entrar (Passo 4), os leads da integração e os do admin sem escolha ficam sem responsável.
+- Ligada, o próximo lead vai para o usuário ativo com `participa_rodizio = true` que recebeu lead há mais tempo: menor `ultimo_lead_atribuido_em`, com nulos primeiro e empate decidido pelo id. A escolha roda sob um `pg_advisory_xact_lock` global, para dois leads simultâneos não caírem na mesma pessoa, e a hora é lida depois da trava, para a vez andar na ordem certa.
+- Só o rodízio mexe em `ultimo_lead_atribuido_em`: a escolha do admin no cadastro, a troca de responsável e o lead que a atendente cadastra para si não mudam a vez.
+- Se ninguém participa do rodízio ou a distribuição está desligada, o lead fica sem responsável e os admins são notificados, com o motivo.
+- Lead criado à mão por atendente fica com ela. Lead criado por admin vai para quem o admin escolher, ou para o rodízio. Os leads da integração vão para o rodízio. Lead de teste não passa pelo rodízio.
 - Só admin troca a responsável. A troca notifica a nova responsável, gera `lead.reatribuido` e entra na auditoria.
 - Nas férias ou folgas, o admin desmarca `participa_rodizio` da pessoa.
 
@@ -120,6 +121,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - (admin) uma atendente cadastrou à mão uma pessoa que já é lead de outra (3.2);
   - (admin) lead ficou sem responsável;
   - (admin) evento para o n8n falhou de vez.
+- Quem fez a ação nunca recebe a notificação dela, e lead de teste não gera notificação. Uma responsável desativada conta como sem responsável, e a nova entrada de um lead sem responsável avisa os admins.
 - Cada notificação é de um usuário. O título não leva dados do lead: a lista mostra o nome atual dele, lido na hora, e só se a pessoa ainda vê o lead. A notificação de um lead que passou para outra atendente some da lista dela, e marcá-la responde 404.
 - Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas. A lista traz as 30 mais recentes, e o contador soma todas as não lidas.
 - Com a aba aberta em segundo plano, o navegador mostra uma notificação nativa. A permissão é pedida uma vez.

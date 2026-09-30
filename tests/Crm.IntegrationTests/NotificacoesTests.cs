@@ -4,6 +4,7 @@ using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Dados;
 using Crm.IntegrationTests.Infra;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Crm.IntegrationTests;
@@ -89,6 +90,176 @@ public class NotificacoesTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Cadastro_a_mao_de_quem_ja_e_lead_de_outra_avisa_a_responsavel_e_os_admins_e_nao_quem_cadastrou()
+    {
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        var pietraUsuario = await fabrica.CriarUsuarioAsync();
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        using var pietra = await fabrica.LogarAsync(pietraUsuario);
+        var corpo = LeadsDeTeste.CorpoLead();
+        var leadId = await adriana.CriarLeadIdAsync(corpo);
+        var repetido = LeadsDeTeste.CorpoLead("Outro Nome");
+        repetido["email"] = corpo["email"];
+
+        var resposta = await pietra.CriarLeadAsync(repetido);
+
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        var daResponsavel = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(adrianaUsuario.Id, leadId));
+        Assert.Equal(TipoNotificacao.NovaEntrada, daResponsavel.Tipo);
+        Assert.Equal($"{pietraUsuario.Nome} cadastrou à mão uma pessoa que já é um lead seu", daResponsavel.Titulo);
+        var doAdmin = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, leadId));
+        Assert.Equal(TipoNotificacao.CadastroRepetido, doAdmin.Tipo);
+        Assert.Equal($"{pietraUsuario.Nome} cadastrou à mão uma pessoa que já é lead de {adrianaUsuario.Nome}", doAdmin.Titulo);
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(pietraUsuario.Id));
+        Assert.Equal(0, (await pietra.NotificacoesAsync()).GetProperty("naoLidas").GetInt32());
+    }
+
+    [Fact]
+    public async Task Nova_entrada_da_integracao_avisa_a_responsavel()
+    {
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        var corpo = LeadsDeTeste.CorpoLead();
+        var leadId = await adriana.CriarLeadIdAsync(corpo);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var entrada = LeadsDeTeste.CorpoIntegracao();
+        entrada["email"] = corpo["email"];
+
+        await n8n.EnviarLeadIdAsync(entrada);
+
+        var aviso = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(adrianaUsuario.Id, leadId));
+        Assert.Equal(TipoNotificacao.NovaEntrada, aviso.Tipo);
+        Assert.Equal("Nova entrada em um lead seu", aviso.Titulo);
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, leadId));
+    }
+
+    [Fact]
+    public async Task Admin_que_cadastra_para_uma_atendente_avisa_so_ela()
+    {
+        var atendente = await fabrica.CriarUsuarioAsync();
+        var eu = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        var outroAdmin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var admin = await fabrica.LogarAsync(eu);
+        var corpo = LeadsDeTeste.CorpoLead();
+        corpo["responsavelId"] = atendente.Id;
+
+        var leadId = await admin.CriarLeadIdAsync(corpo);
+
+        var aviso = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(atendente.Id, leadId));
+        Assert.Equal(TipoNotificacao.LeadAtribuido, aviso.Tipo);
+        Assert.Equal($"{eu.Nome} cadastrou um lead para você", aviso.Titulo);
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(eu.Id, leadId));
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(outroAdmin.Id, leadId));
+    }
+
+    [Fact]
+    public async Task Ninguem_e_avisado_do_que_a_propria_atendente_cadastra()
+    {
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        var corpo = LeadsDeTeste.CorpoLead();
+
+        var leadId = await adriana.CriarLeadIdAsync(corpo);
+        var repetido = await adriana.CriarLeadAsync(new Dictionary<string, object?>(corpo) { ["nome"] = "De novo" });
+
+        Assert.Equal(HttpStatusCode.OK, repetido.StatusCode);
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(adrianaUsuario.Id));
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, leadId));
+    }
+
+    [Fact]
+    public async Task Entrada_repetida_em_lead_sem_responsavel_avisa_os_admins()
+    {
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);
+        var corpo = LeadsDeTeste.CorpoLead();
+        var leadId = await atendente.CriarLeadIdAsync(corpo);
+        await fabrica.PassarParaAsync(leadId, null);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var entrada = LeadsDeTeste.CorpoIntegracao();
+        entrada["email"] = corpo["email"];
+
+        await n8n.EnviarLeadIdAsync(entrada);
+
+        var aviso = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, leadId));
+        Assert.Equal(TipoNotificacao.NovaEntrada, aviso.Tipo);
+        Assert.Equal("Nova entrada em um lead sem responsável", aviso.Titulo);
+    }
+
+    [Fact]
+    public async Task Responsavel_desativada_conta_como_sem_responsavel()
+    {
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        var corpo = LeadsDeTeste.CorpoLead();
+        var leadId = await adriana.CriarLeadIdAsync(corpo);
+        await using (var escopo = fabrica.Services.CreateAsyncScope())
+        {
+            var db = escopo.ServiceProvider.GetRequiredService<CrmDbContext>();
+            (await db.Users.FindAsync([adrianaUsuario.Id], Ct))!.Ativo = false;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var entrada = LeadsDeTeste.CorpoIntegracao();
+        entrada["email"] = corpo["email"];
+
+        await n8n.EnviarLeadIdAsync(entrada);
+
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(adrianaUsuario.Id));
+        var aviso = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, leadId));
+        Assert.Equal($"Nova entrada no lead de {adrianaUsuario.Nome} (usuário desativado)", aviso.Titulo);
+    }
+
+    [Fact]
+    public async Task Lead_de_teste_nao_gera_notificacao()
+    {
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        corpo["teste"] = true;
+
+        var leadId = await n8n.EnviarLeadIdAsync(corpo);
+        await n8n.EnviarLeadIdAsync(new Dictionary<string, object?>(corpo) { ["origem"] = "site", ["idExterno"] = LeadsDeTeste.IdExternoUnico() });
+
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, leadId));
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        Assert.False(await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Notificacoes.AnyAsync(n => n.LeadId == leadId, Ct));
+    }
+
+    [Fact]
+    public async Task Os_titulos_nao_levam_dados_do_lead()
+    {
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        var adrianaUsuario = await fabrica.CriarUsuarioAsync();
+        await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var adriana = await fabrica.LogarAsync(adrianaUsuario);
+        using var pietra = await fabrica.LogarComoAsync(Perfil.Atendente);
+        var corpo = LeadsDeTeste.CorpoLead($"Nome Sigiloso {marca}");
+        corpo["empresa"] = $"Empresa Sigilosa {marca}";
+        var leadId = await adriana.CriarLeadIdAsync(corpo);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var entrada = LeadsDeTeste.CorpoIntegracao();
+        entrada["email"] = corpo["email"];
+        entrada["nome"] = corpo["nome"];
+        await n8n.EnviarLeadIdAsync(entrada);
+        await pietra.CriarLeadAsync(corpo);
+
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        var titulos = await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Notificacoes
+            .Where(n => n.LeadId == leadId)
+            .Select(n => n.Titulo)
+            .ToListAsync(Ct);
+        Assert.NotEmpty(titulos);
+        Assert.All(titulos, t => Assert.DoesNotContain(marca, t, StringComparison.Ordinal));
+        Assert.All(titulos, t => Assert.DoesNotContain((string)corpo["email"]!, t, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Os_admins_ativos_sao_avisados_menos_o_autor_da_acao()
     {
         var autor = await fabrica.CriarUsuarioAsync(Perfil.Admin);
@@ -96,16 +267,20 @@ public class NotificacoesTests(CrmApiFactory fabrica)
         var adminDesativado = await fabrica.CriarUsuarioAsync(Perfil.Admin, ativo: false);
         var atendente = await fabrica.CriarUsuarioAsync();
 
+        // Um título só deste teste: os admins ativos também recebem os avisos dos testes que rodam junto.
+        var titulo = $"Falha no envio ao n8n {Guid.NewGuid():N}";
         await using (var escopo = fabrica.Services.CreateAsyncScope())
         {
             await escopo.ServiceProvider.GetRequiredService<Notificador>()
-                .ParaAdminsAsync(TipoNotificacao.EventoFalhou, "Falha no envio ao n8n", leadId: null, autorId: autor.Id, Ct);
+                .ParaAdminsAsync(TipoNotificacao.EventoFalhou, titulo, leadId: null, autorId: autor.Id, Ct);
             await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().SaveChangesAsync(Ct);
         }
 
-        Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(outroAdmin.Id));
-        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(autor.Id));
-        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(adminDesativado.Id));
-        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(atendente.Id));
+        async Task<int> QuantasAsync(Guid usuarioId) =>
+            (await fabrica.NotificacoesDoUsuarioAsync(usuarioId)).Count(n => n.Titulo == titulo);
+        Assert.Equal(1, await QuantasAsync(outroAdmin.Id));
+        Assert.Equal(0, await QuantasAsync(autor.Id));
+        Assert.Equal(0, await QuantasAsync(adminDesativado.Id));
+        Assert.Equal(0, await QuantasAsync(atendente.Id));
     }
 }

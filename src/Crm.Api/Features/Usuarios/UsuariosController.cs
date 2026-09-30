@@ -167,6 +167,7 @@ public sealed class UsuariosController(
     private IQueryable<UsuarioResponse> Projetar(IQueryable<Usuario> consulta)
     {
         var agora = relogio.GetUtcNow();
+        var proximoDaVez = db.Users.NaOrdemDaVez().Select(u => u.Id).Take(1);
         return consulta.Select(u => new UsuarioResponse(
             u.Id,
             u.Nome,
@@ -179,6 +180,7 @@ public sealed class UsuariosController(
             u.TrocarSenha,
             u.LockoutEnd > agora ? u.LockoutEnd : null,
             u.UltimoLeadAtribuidoEm,
+            proximoDaVez.Contains(u.Id),
             u.CriadoEm));
     }
 

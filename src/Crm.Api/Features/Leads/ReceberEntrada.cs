@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads.Normalizacao;
+using Crm.Api.Features.Notificacoes;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +11,15 @@ namespace Crm.Api.Features.Leads;
 
 /// <summary>
 /// Porta de entrada de todo lead (seção 3.2): integração, cadastro manual e importação. Numa transação só,
-/// confere se a entrada já foi recebida, procura a pessoa entre os leads, vincula ou cria e grava a entrada.
+/// confere se a entrada já foi recebida, procura a pessoa entre os leads, vincula ou cria (distribuindo pelo
+/// rodízio), grava a entrada e os avisos.
 /// </summary>
 public sealed class ReceberEntrada(
     CrmDbContext db,
     AuditoriaService auditoria,
     MudancaEtapa mudancaEtapa,
+    Distribuicao distribuicao,
+    AvisosLeads avisos,
     TimeProvider relogio,
     ILogger<ReceberEntrada> logger)
 {
@@ -64,6 +68,18 @@ public sealed class ReceberEntrada(
                 lead.Id.ToString(CultureInfo.InvariantCulture),
                 new { origem = EnumTexto<Origem>.Nome(entrada.Origem) },
                 entrada.UsuarioId);
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        // Depois de gravar a entrada: os avisos leem o lead e as entradas como ficaram.
+        if (resultado == ResultadoEntrada.Criado)
+        {
+            await avisos.LeadCriadoAsync(lead, entrada.UsuarioId, ct);
+        }
+        else
+        {
+            await avisos.EntradaRepetidaAsync(lead, entrada.UsuarioId, ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -220,9 +236,15 @@ public sealed class ReceberEntrada(
         mudancaEtapa.Registrar(lead, inicial, inicial.Id, motivo: null, detalhe: null, usuarioId, agora, contaComoContato: false);
     }
 
+    /// <summary>
+    /// Lead novo, na etapa inicial. Fica com a responsável escolhida no cadastro ou, sem escolha, com a próxima do
+    /// rodízio. Lead de teste fica sem responsável e não passa pelo rodízio.
+    /// </summary>
     private async Task<Lead> CriarLeadAsync(
         NovaEntrada entrada, DadosPessoa pessoa, Campanha? campanha, DateTimeOffset agora, CancellationToken ct)
     {
+        var etapaInicial = await db.Etapas.InicialAsync(ct);
+        var responsavelId = entrada.Teste ? null : entrada.ResponsavelId ?? await distribuicao.EscolherPeloRodizioAsync(ct);
         var lead = new Lead
         {
             Nome = pessoa.Nome,
@@ -231,8 +253,8 @@ public sealed class ReceberEntrada(
             CpfCnpj = pessoa.CpfCnpj,
             Uf = pessoa.Uf,
             Empresa = pessoa.Empresa,
-            EtapaId = (await db.Etapas.InicialAsync(ct)).Id,
-            ResponsavelId = entrada.Teste ? null : entrada.ResponsavelId,
+            EtapaId = etapaInicial.Id,
+            ResponsavelId = responsavelId,
             Origem = entrada.Origem,
             Plataforma = Textos.LimparECortar(entrada.Plataforma, Lead.TamanhoMaximoPlataforma)?.ToLowerInvariant(),
             CampanhaId = campanha?.Id,
@@ -295,5 +317,5 @@ public sealed class ReceberEntrada(
 internal static class LeadsExtensions
 {
     public static IServiceCollection AddLeads(this IServiceCollection services) =>
-        services.AddScoped<ReceberEntrada>().AddScoped<VisibilidadeLeads>();
+        services.AddScoped<ReceberEntrada>().AddScoped<VisibilidadeLeads>().AddScoped<Distribuicao>();
 }
