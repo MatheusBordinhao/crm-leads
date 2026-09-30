@@ -138,7 +138,10 @@ public class EtapasConfigTests(CrmApiFactory fabrica)
         var lead = await admin.CriarLeadIdAsync();
         await ColocarNaEtapaAsync(lead, IdDe(etapa));
 
-        foreach (var destino in new[] { IdDe(etapa), IdDe(desativada), (await fabrica.EtapaAsync("Ganho")).Id, int.MaxValue })
+        // Nem Ganho nem Perdido: mover em lote para Perdido pularia o motivo, e para Ganho, o documento.
+        var ganho = (await fabrica.EtapaAsync("Ganho")).Id;
+        var perdido = (await fabrica.EtapaAsync("Perdido")).Id;
+        foreach (var destino in new[] { IdDe(etapa), IdDe(desativada), ganho, perdido, int.MaxValue })
         {
             var resposta = await DesativarAsync(admin, IdDe(etapa), destino);
 
