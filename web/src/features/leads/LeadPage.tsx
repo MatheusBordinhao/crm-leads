@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { ErroApi, type LeadResponse } from '@/api/cliente'
+import { ErroApi, type LeadResponse, type TipoInteracao } from '@/api/cliente'
 import { Carregando } from '@/components/Carregando'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -14,9 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useEu } from '@/features/acesso/sessao'
 import { formatarDataHora } from '@/lib/datas'
 import { aplicarErrosDaApi } from '@/lib/formularios'
+import { BotoesContato } from './BotoesContato'
 import { CamposDadosLead } from './CamposDadosLead'
 import { useEditarLead, useLead } from './dados'
+import { EtapaDoLead } from './EtapaDoLead'
 import { CAMPOS_DADOS, camposDados, dadosIniciais, dadosParaApi, validarDados } from './esquema'
+import { InteracaoDialog } from './InteracaoDialog'
+import { LinhaDoTempo } from './LinhaDoTempo'
 import { ROTULOS_ORIGEM, rotuloPlataforma } from './rotulos'
 import { SeloEtapa } from './SeloEtapa'
 
@@ -56,11 +60,20 @@ export function LeadPage() {
 
 type Editar = ReturnType<typeof useEditarLead>
 
+/**
+ * Chave do formulário de dados: muda quando os dados pessoais mudam (salvos agora ou recarregados), e não
+ * quando só a etapa ou o primeiro contato mudam. Assim, mudar a etapa não apaga o que a pessoa digitou.
+ */
+function chaveDosDados(lead: LeadResponse) {
+  return [lead.nome, lead.email, lead.telefone, lead.cpfCnpj, lead.uf, lead.empresa].join('\u001f')
+}
+
 function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: () => void }) {
   const { data: eu } = useEu()
-  // Fica aqui, e não no formulário, porque o formulário é recriado a cada versão salva: os callbacks da
+  // Fica aqui, e não no formulário, porque o formulário é recriado quando os dados mudam: os callbacks da
   // edição (o aviso de "salvo") se perderiam se o componente que a disparou sumisse.
   const editar = useEditarLead(lead.id)
+  const [registrando, setRegistrando] = useState<TipoInteracao | null>(null)
 
   return (
     <section className="flex flex-col gap-4">
@@ -83,6 +96,11 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
           Entrou em {formatarDataHora(lead.criadoEm)} · {ROTULOS_ORIGEM[lead.origem]}
           {lead.campanha && ` · ${lead.campanha.nome}`}
         </p>
+        <p className="text-sm text-muted-foreground">
+          {lead.primeiroContatoEm
+            ? `Primeiro contato em ${formatarDataHora(lead.primeiroContatoEm)}`
+            : 'Ainda sem contato'}
+        </p>
         {eu?.perfil === 'Admin' && (
           <p className="text-sm">
             Responsável:{' '}
@@ -93,22 +111,34 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
         )}
       </header>
 
+      <BotoesContato lead={lead} aoContatar={setRegistrando} />
+
+      {/* No celular, uma coluna: etapa, dados, linha do tempo e origem. No computador, dados e linha do
+          tempo à esquerda; etapa e origem à direita. */}
       <div className="grid items-start gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card>
+        <EtapaDoLead lead={lead} className="lg:col-start-2 lg:row-start-1" />
+        <Card className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <CardHeader>
             <CardTitle>Dados</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* A chave recria o formulário a cada versão salva, com os valores novos. */}
             <FormularioDados
-              key={lead.versao}
+              key={chaveDosDados(lead)}
               lead={lead}
               editar={editar}
               aoRecarregar={aoRecarregar}
             />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-start-1 lg:row-start-3">
+          <CardHeader>
+            <CardTitle>Linha do tempo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LinhaDoTempo leadId={lead.id} />
+          </CardContent>
+        </Card>
+        <Card className="lg:col-start-2 lg:row-start-2">
           <CardHeader>
             <CardTitle>Origem</CardTitle>
           </CardHeader>
@@ -117,6 +147,14 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
           </CardContent>
         </Card>
       </div>
+
+      {registrando && (
+        <InteracaoDialog
+          leadId={lead.id}
+          tipoInicial={registrando}
+          aoFechar={() => setRegistrando(null)}
+        />
+      )}
     </section>
   )
 }
@@ -152,6 +190,7 @@ function FormularioDados({
   const salvar = handleSubmit((dados) => {
     setErroGeral(null)
     editar.mutate(
+      // A versão mais recente da ficha: uma mudança de etapa feita aqui mesmo não conta como conflito.
       { ...dadosParaApi(dados), versao: lead.versao },
       {
         onSuccess: () => toast.success('Dados salvos.'),
@@ -172,7 +211,16 @@ function FormularioDados({
         <Alert variant="destructive">
           <AlertDescription className="flex flex-col items-start gap-2">
             {conflito}
-            <Button type="button" variant="outline" size="sm" onClick={aoRecarregar}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Se só a etapa mudou, os dados continuam iguais e o formulário não é recriado.
+                setConflito(null)
+                aoRecarregar()
+              }}
+            >
               Recarregar
             </Button>
           </AlertDescription>

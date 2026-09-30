@@ -1,9 +1,10 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
-import type { LeadResponse } from '@/api/cliente'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { ItemLinhaDoTempo, LeadResponse } from '@/api/cliente'
+import { paraCampoDataHora } from '@/lib/datas'
 import { admin, atendente, comSessao, problema } from '@/test/api'
-import { fichaLead } from '@/test/leads'
+import { comCadastros, etapas, fichaLead, itemLinhaDoTempo } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -15,11 +16,13 @@ const comTelefoneNaoReconhecido = fichaLead({
   ],
 })
 
-/** Ficha simulada. Devolve os corpos das edições recebidas. */
-function comFicha(lead: LeadResponse = comTelefoneNaoReconhecido) {
+/** Ficha simulada, com a linha do tempo e os cadastros. Devolve os corpos das edições recebidas. */
+function comFicha(lead: LeadResponse = comTelefoneNaoReconhecido, linha: ItemLinhaDoTempo[] = []) {
   const edicoes: Record<string, unknown>[] = []
+  comCadastros()
   servidor.use(
     http.get('*/api/leads/:id', () => HttpResponse.json(lead)),
+    http.get('*/api/leads/:id/linha-do-tempo', () => HttpResponse.json(linha)),
     http.put('*/api/leads/:id', async ({ request }) => {
       const corpo = (await request.json()) as Record<string, unknown>
       edicoes.push(corpo)
@@ -28,6 +31,57 @@ function comFicha(lead: LeadResponse = comTelefoneNaoReconhecido) {
   )
   return edicoes
 }
+
+/** Mudanças de etapa simuladas: devolve a ficha na etapa pedida, com a versão seguinte. */
+function comMudancaDeEtapa(lead: LeadResponse = comTelefoneNaoReconhecido) {
+  const pedidos: Record<string, unknown>[] = []
+  servidor.use(
+    http.post('*/api/leads/:id/etapa', async ({ request }) => {
+      const corpo = (await request.json()) as { etapaId: number }
+      pedidos.push(corpo)
+      const etapa = etapas.find((e) => e.id === corpo.etapaId)!
+      return HttpResponse.json({
+        ...lead,
+        etapa: { id: etapa.id, nome: etapa.nome, tipo: etapa.tipo },
+        versao: lead.versao + 1,
+      })
+    }),
+  )
+  return pedidos
+}
+
+/** Interações simuladas. Devolve os corpos recebidos. */
+function comRegistroDeInteracao() {
+  const registros: Record<string, unknown>[] = []
+  servidor.use(
+    http.post('*/api/leads/:id/interacoes', async ({ request }) => {
+      const corpo = (await request.json()) as Record<string, unknown>
+      registros.push(corpo)
+      return HttpResponse.json(
+        itemLinhaDoTempo({ tipo: 'interacao', usuario: { id: atendente.id, nome: 'Adriana' } }),
+        { status: 201 },
+      )
+    }),
+  )
+  return registros
+}
+
+/** A seleção de etapa, depois que as etapas carregaram. */
+async function seletorDeEtapa() {
+  await screen.findByRole('option', { name: 'Perdido' })
+  return screen.getByLabelText('Mudar para')
+}
+
+// Os botões de contato são links de tel:, mailto: e wa.me, que o jsdom não sabe abrir.
+const naoNavegar = (evento: MouseEvent) => {
+  if (
+    (evento.target as Element).closest('a[href^="tel:"], a[href^="mailto:"], a[href^="https:"]')
+  ) {
+    evento.preventDefault()
+  }
+}
+beforeEach(() => document.addEventListener('click', naoNavegar))
+afterEach(() => document.removeEventListener('click', naoNavegar))
 
 describe('ficha do lead', () => {
   it('mostra os dados, os avisos embaixo dos campos e a origem', async () => {
@@ -169,5 +223,175 @@ describe('ficha do lead', () => {
     renderizarApp('/leads/abc')
 
     expect(await screen.findByRole('heading', { name: 'Lead não encontrado' })).toBeInTheDocument()
+  })
+})
+
+describe('etapa, contato e interações na ficha', () => {
+  const comEmail = fichaLead()
+
+  it('o histórico mostra quem mudou e quando', async () => {
+    comSessao(atendente)
+    comFicha(comEmail, [
+      itemLinhaDoTempo({
+        tipo: 'etapa',
+        ocorridoEm: '2026-10-06T12:30:00Z',
+        usuario: { id: atendente.id, nome: 'Adriana' },
+        etapa: {
+          anterior: { id: 1, nome: 'Novo', tipo: 'aberta' },
+          nova: { id: 2, nome: 'Em contato', tipo: 'aberta' },
+          motivoPerda: null,
+          motivoPerdaDetalhe: null,
+        },
+      }),
+      itemLinhaDoTempo({
+        tipo: 'entrada',
+        entrada: {
+          origem: 'meta_lead_ads',
+          campanha: { id: 10, nome: 'Outubro | Serviço Y' },
+          situacao: 'criado',
+          teste: false,
+        },
+      }),
+    ])
+
+    renderizarApp('/leads/1024')
+
+    const linha = within(await screen.findByRole('list', { name: 'Linha do tempo' }))
+    const itens = linha.getAllByRole('listitem')
+    expect(itens[0]).toHaveTextContent('Adriana moveu de Novo para Em contato')
+    expect(itens[0]).toHaveTextContent('06/10/2026, 09:30')
+    expect(itens[1]).toHaveTextContent(
+      'Entrou por Meta (Facebook e Instagram) · Outubro | Serviço Y',
+    )
+    expect(screen.getByText('Ainda sem contato')).toBeInTheDocument()
+  })
+
+  it('muda a etapa sem perder o que foi digitado nos dados', async () => {
+    comSessao(atendente)
+    const edicoes = comFicha(comEmail)
+    const mudancas = comMudancaDeEtapa(comEmail)
+    const { usuario } = renderizarApp('/leads/1024')
+
+    await usuario.type(await screen.findByLabelText('Empresa'), ' Ltda')
+    await usuario.selectOptions(await seletorDeEtapa(), 'Em contato')
+
+    expect(await screen.findByText('Lead movido para Em contato.')).toBeInTheDocument()
+    expect(mudancas).toEqual([{ etapaId: 2, motivoPerdaId: null, motivoPerdaDetalhe: null }])
+    expect(screen.getByLabelText('Empresa')).toHaveValue('Empresa X Ltda')
+    await usuario.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(await screen.findByText('Dados salvos.')).toBeInTheDocument()
+    expect(edicoes).toEqual([expect.objectContaining({ empresa: 'Empresa X Ltda', versao: 778 })])
+  })
+
+  it('Perdido pede o motivo, e cancelar deixa o lead onde estava', async () => {
+    comSessao(atendente)
+    comFicha(comEmail)
+    const mudancas = comMudancaDeEtapa(comEmail)
+    const { usuario } = renderizarApp('/leads/1024')
+
+    const etapa = await seletorDeEtapa()
+    await usuario.selectOptions(etapa, 'Perdido')
+    const dialogo = within(await screen.findByRole('dialog', { name: 'Motivo da perda' }))
+    expect(dialogo.queryByRole('option', { name: 'Motivo antigo' })).not.toBeInTheDocument()
+    await usuario.click(dialogo.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(etapa).toHaveValue('1')
+    expect(mudancas).toEqual([])
+
+    await usuario.selectOptions(etapa, 'Perdido')
+    const outro = within(await screen.findByRole('dialog', { name: 'Motivo da perda' }))
+    await usuario.click(outro.getByRole('button', { name: 'Marcar como perdido' }))
+    expect(await outro.findByText('Escolha o motivo da perda.')).toBeInTheDocument()
+    await usuario.selectOptions(outro.getByLabelText('Motivo'), 'Preço')
+    await usuario.type(outro.getByLabelText('Detalhe (opcional)'), 'Achou caro')
+    await usuario.click(outro.getByRole('button', { name: 'Marcar como perdido' }))
+
+    expect(await screen.findByText('Lead movido para Perdido.')).toBeInTheDocument()
+    expect(mudancas).toEqual([{ etapaId: 6, motivoPerdaId: 3, motivoPerdaDetalhe: 'Achou caro' }])
+  })
+
+  it('Ganho recusado mostra a mensagem da API e o lead fica onde estava', async () => {
+    comSessao(atendente)
+    comFicha(comEmail)
+    servidor.use(
+      http.post('*/api/leads/:id/etapa', () =>
+        problema(400, {
+          detail: 'Para marcar como Ganho, informe um CPF ou CNPJ válido na ficha do lead.',
+        }),
+      ),
+    )
+    const { usuario } = renderizarApp('/leads/1024')
+
+    const etapa = await seletorDeEtapa()
+    await usuario.selectOptions(etapa, 'Ganho')
+
+    expect(
+      await screen.findByText(
+        'Para marcar como Ganho, informe um CPF ou CNPJ válido na ficha do lead.',
+      ),
+    ).toBeInTheDocument()
+    expect(etapa).toHaveValue('1')
+  })
+
+  it('os botões de contato abrem o registro com o tipo já escolhido', async () => {
+    comSessao(atendente)
+    comFicha(comEmail)
+    const registros = comRegistroDeInteracao()
+    const { usuario } = renderizarApp('/leads/1024')
+
+    const whatsapp = await screen.findByRole('link', { name: 'WhatsApp' })
+    expect(whatsapp).toHaveAttribute('href', 'https://wa.me/5551999998888')
+    expect(screen.getByRole('link', { name: 'Ligar' })).toHaveAttribute(
+      'href',
+      'tel:+5551999998888',
+    )
+    expect(screen.getByRole('link', { name: 'E-mail' })).toHaveAttribute(
+      'href',
+      'mailto:maria@empresax.com.br',
+    )
+    await usuario.click(whatsapp)
+    const dialogo = within(await screen.findByRole('dialog', { name: 'Registrar interação' }))
+    expect(dialogo.getByLabelText('Tipo')).toHaveValue('whatsapp')
+    await usuario.type(dialogo.getByLabelText('Descrição'), 'Mandei o orçamento')
+    await usuario.click(dialogo.getByRole('button', { name: 'Registrar' }))
+
+    expect(await screen.findByText('Interação registrada.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(registros).toHaveLength(1)
+    expect(registros[0]).toMatchObject({ tipo: 'whatsapp', descricao: 'Mandei o orçamento' })
+    const ocorridoEm = new Date(registros[0].ocorridoEm as string)
+    expect(ocorridoEm.getTime()).toBeLessThanOrEqual(Date.now())
+    expect(Date.now() - ocorridoEm.getTime()).toBeLessThan(2 * 60_000)
+  })
+
+  it('telefone com aviso de formato não vira botão de WhatsApp nem de ligação', async () => {
+    comSessao(atendente)
+    comFicha()
+
+    renderizarApp('/leads/1024')
+
+    expect(await screen.findByRole('link', { name: 'E-mail' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'WhatsApp' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Ligar' })).not.toBeInTheDocument()
+  })
+
+  it('a nota exige texto e a data não pode estar no futuro', async () => {
+    comSessao(atendente)
+    comFicha(comEmail)
+    const registros = comRegistroDeInteracao()
+    const { usuario } = renderizarApp('/leads/1024')
+
+    await usuario.click(await screen.findByRole('button', { name: 'Registrar interação' }))
+    const dialogo = within(await screen.findByRole('dialog', { name: 'Registrar interação' }))
+    expect(dialogo.getByLabelText('Tipo')).toHaveValue('nota')
+    fireEvent.change(dialogo.getByLabelText('Quando'), {
+      target: { value: paraCampoDataHora(new Date(Date.now() + 2 * 86_400_000)) },
+    })
+    await usuario.click(dialogo.getByRole('button', { name: 'Registrar' }))
+
+    expect(await dialogo.findByText('Escreva a nota.')).toBeInTheDocument()
+    expect(dialogo.getByText('A data não pode estar no futuro.')).toBeInTheDocument()
+    expect(registros).toEqual([])
   })
 })

@@ -2,8 +2,10 @@ import { http, HttpResponse } from 'msw'
 import type {
   CampanhaResponse,
   EtapaResponse,
+  ItemLinhaDoTempo,
   LeadResponse,
   LeadResumoResponse,
+  MotivoPerdaResponse,
   UsuarioResponse,
 } from '@/api/cliente'
 import { admin, atendente } from './api'
@@ -16,6 +18,13 @@ export const etapas: EtapaResponse[] = [
   { id: 4, nome: 'Proposta enviada', ordem: 4, tipo: 'aberta', ativa: true },
   { id: 5, nome: 'Ganho', ordem: 5, tipo: 'ganho', ativa: true },
   { id: 6, nome: 'Perdido', ordem: 6, tipo: 'perdido', ativa: true },
+]
+
+export const motivos: MotivoPerdaResponse[] = [
+  { id: 1, nome: 'Sem resposta', ativo: true },
+  { id: 2, nome: 'Sem interesse', ativo: true },
+  { id: 3, nome: 'Preço', ativo: true },
+  { id: 7, nome: 'Motivo antigo', ativo: false },
 ]
 
 export const campanhas: CampanhaResponse[] = [
@@ -110,6 +119,8 @@ export function fichaLead(parcial: Partial<LeadResponse> = {}): LeadResponse {
     primeiroContatoEm: null,
     convertidoEm: null,
     perdidoEm: null,
+    motivoPerda: null,
+    motivoPerdaDetalhe: null,
     anonimizadoEm: null,
     avisos: [{ campo: 'cpfCnpj', mensagem: 'Sem CPF/CNPJ' }],
     versao: 777,
@@ -117,10 +128,26 @@ export function fichaLead(parcial: Partial<LeadResponse> = {}): LeadResponse {
   }
 }
 
-/** Etapas, campanhas e usuários, que a lista e os formulários usam. */
+/** Um item da linha do tempo; só o objeto do tipo vem preenchido. */
+export function itemLinhaDoTempo(
+  parcial: Partial<ItemLinhaDoTempo> & Pick<ItemLinhaDoTempo, 'tipo'>,
+): ItemLinhaDoTempo {
+  return {
+    ocorridoEm: '2026-10-05T17:03:00Z',
+    usuario: null,
+    entrada: null,
+    interacao: null,
+    etapa: null,
+    responsavel: null,
+    ...parcial,
+  }
+}
+
+/** Etapas, motivos de perda, campanhas e usuários, que a lista, a ficha e os formulários usam. */
 export function comCadastros() {
   servidor.use(
     http.get('*/api/etapas', () => HttpResponse.json(etapas)),
+    http.get('*/api/motivos-perda', () => HttpResponse.json(motivos)),
     http.get('*/api/campanhas', () => HttpResponse.json(campanhas)),
     http.get('*/api/usuarios', () => HttpResponse.json(usuarios)),
   )

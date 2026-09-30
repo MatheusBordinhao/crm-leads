@@ -1,6 +1,19 @@
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form'
 import { ErroApi } from '@/api/cliente'
 
+const SEM_CONEXAO = 'Não foi possível falar com o servidor. Confira a conexão e tente de novo.'
+
+/**
+ * Mensagem de uma falha fora de formulário (um aviso, uma ação num botão): a primeira mensagem de campo que a
+ * API devolveu, ou o detalhe do erro.
+ */
+export function mensagemDoErro(erro: unknown): string {
+  if (!(erro instanceof ErroApi)) {
+    return SEM_CONEXAO
+  }
+  return Object.values(erro.errosDosCampos).flat()[0] ?? erro.message
+}
+
 /**
  * Mostra nos campos do formulário os erros de validação que a API devolveu (400). Devolve a mensagem
  * geral para exibir fora dos campos, ou `null` se todos os erros couberam em algum campo.
@@ -11,7 +24,7 @@ export function aplicarErrosDaApi<T extends FieldValues>(
   campos: readonly Path<T>[],
 ): string | null {
   if (!(erro instanceof ErroApi)) {
-    return 'Não foi possível falar com o servidor. Confira a conexão e tente de novo.'
+    return SEM_CONEXAO
   }
 
   const foraDosCampos: string[] = []

@@ -4,6 +4,90 @@
  */
 
 export interface paths {
+    "/api/configuracoes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ConfiguracoesResponse"];
+                        "application/json": components["schemas"]["ConfiguracoesResponse"];
+                        "text/json": components["schemas"]["ConfiguracoesResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditarConfiguracoesRequest"];
+                    "text/json": components["schemas"]["EditarConfiguracoesRequest"];
+                    "application/*+json": components["schemas"]["EditarConfiguracoesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ConfiguracoesResponse"];
+                        "application/json": components["schemas"]["ConfiguracoesResponse"];
+                        "text/json": components["schemas"]["ConfiguracoesResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -661,6 +745,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/leads/{id}/etapa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MudarEtapaRequest"];
+                    "text/json": components["schemas"]["MudarEtapaRequest"];
+                    "application/*+json": components["schemas"]["MudarEtapaRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LeadResponse"];
+                        "application/json": components["schemas"]["LeadResponse"];
+                        "text/json": components["schemas"]["LeadResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leads/{id}/linha-do-tempo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ItemLinhaDoTempo"][];
+                        "application/json": components["schemas"]["ItemLinhaDoTempo"][];
+                        "text/json": components["schemas"]["ItemLinhaDoTempo"][];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leads/{id}/interacoes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RegistrarInteracaoRequest"];
+                    "text/json": components["schemas"]["RegistrarInteracaoRequest"];
+                    "application/*+json": components["schemas"]["RegistrarInteracaoRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ItemLinhaDoTempo"];
+                        "application/json": components["schemas"]["ItemLinhaDoTempo"];
+                        "text/json": components["schemas"]["ItemLinhaDoTempo"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integracoes/leads": {
         parameters: {
             query?: never;
@@ -765,6 +1008,447 @@ export interface paths {
             };
         };
         put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CriarEtapaRequest"];
+                    "text/json": components["schemas"]["CriarEtapaRequest"];
+                    "application/*+json": components["schemas"]["CriarEtapaRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["EtapaResponse"];
+                        "application/json": components["schemas"]["EtapaResponse"];
+                        "text/json": components["schemas"]["EtapaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/etapas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenomearEtapaRequest"];
+                    "text/json": components["schemas"]["RenomearEtapaRequest"];
+                    "application/*+json": components["schemas"]["RenomearEtapaRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["EtapaResponse"];
+                        "application/json": components["schemas"]["EtapaResponse"];
+                        "text/json": components["schemas"]["EtapaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/etapas/ordem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReordenarEtapasRequest"];
+                    "text/json": components["schemas"]["ReordenarEtapasRequest"];
+                    "application/*+json": components["schemas"]["ReordenarEtapasRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["EtapaResponse"][];
+                        "application/json": components["schemas"]["EtapaResponse"][];
+                        "text/json": components["schemas"]["EtapaResponse"][];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/etapas/{id}/desativar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DesativarEtapaRequest"];
+                    "text/json": components["schemas"]["DesativarEtapaRequest"];
+                    "application/*+json": components["schemas"]["DesativarEtapaRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["EtapaResponse"];
+                        "application/json": components["schemas"]["EtapaResponse"];
+                        "text/json": components["schemas"]["EtapaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/etapas/{id}/reativar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["EtapaResponse"];
+                        "application/json": components["schemas"]["EtapaResponse"];
+                        "text/json": components["schemas"]["EtapaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/funil": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    busca?: string;
+                    origem?: components["schemas"]["Origem"];
+                    campanhaId?: number;
+                    responsavelId?: string;
+                    semResponsavel?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["QuadroFunilResponse"];
+                        "application/json": components["schemas"]["QuadroFunilResponse"];
+                        "text/json": components["schemas"]["QuadroFunilResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/motivos-perda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["MotivoPerdaResponse"][];
+                        "application/json": components["schemas"]["MotivoPerdaResponse"][];
+                        "text/json": components["schemas"]["MotivoPerdaResponse"][];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CriarMotivoPerdaRequest"];
+                    "text/json": components["schemas"]["CriarMotivoPerdaRequest"];
+                    "application/*+json": components["schemas"]["CriarMotivoPerdaRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["MotivoPerdaResponse"];
+                        "application/json": components["schemas"]["MotivoPerdaResponse"];
+                        "text/json": components["schemas"]["MotivoPerdaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/motivos-perda/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EditarMotivoPerdaRequest"];
+                    "text/json": components["schemas"]["EditarMotivoPerdaRequest"];
+                    "application/*+json": components["schemas"]["EditarMotivoPerdaRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["MotivoPerdaResponse"];
+                        "application/json": components["schemas"]["MotivoPerdaResponse"];
+                        "text/json": components["schemas"]["MotivoPerdaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -793,6 +1477,29 @@ export interface components {
             id: number;
             nome: string;
         };
+        CartaoFunilResponse: {
+            /** Format: int64 */
+            id: number;
+            nome: string;
+            empresa: null | string;
+            origem: components["schemas"]["Origem"];
+            responsavel: null | components["schemas"]["ResponsavelResumo"];
+            teste: boolean;
+            /** Format: date-time */
+            criadoEm: string;
+        };
+        ColunaFunilResponse: {
+            etapa: components["schemas"]["EtapaResumo"];
+            /** Format: int32 */
+            total: number;
+            leads: components["schemas"]["CartaoFunilResponse"][];
+        };
+        ConfiguracoesResponse: {
+            exigirDocumentoParaGanho: boolean;
+        };
+        CriarEtapaRequest: {
+            nome: string;
+        };
         CriarLeadRequest: {
             nome: string;
             email: null | string;
@@ -810,12 +1517,22 @@ export interface components {
             situacao: components["schemas"]["ResultadoEntrada"];
             podeAbrir: boolean;
         };
+        CriarMotivoPerdaRequest: {
+            nome: string;
+        };
         CriarUsuarioRequest: {
             nome: string;
             email: string;
             perfil: components["schemas"]["Perfil"];
             participaRodizio: boolean;
             senhaProvisoria: string;
+        };
+        DesativarEtapaRequest: {
+            /** Format: int32 */
+            moverLeadsParaId: null | number;
+        };
+        EditarConfiguracoesRequest: {
+            exigirDocumentoParaGanho: boolean;
         };
         EditarLeadRequest: {
             nome: string;
@@ -826,6 +1543,10 @@ export interface components {
             empresa: null | string;
             /** Format: uint32 */
             versao: number;
+        };
+        EditarMotivoPerdaRequest: {
+            nome: string;
+            ativo: boolean;
         };
         EditarUsuarioRequest: {
             nome: string;
@@ -860,6 +1581,12 @@ export interface components {
             leadId: number;
             situacao: components["schemas"]["ResultadoEntrada"];
         };
+        EntradaNaLinhaDoTempo: {
+            origem: components["schemas"]["Origem"];
+            campanha: null | components["schemas"]["CampanhaResumo"];
+            situacao: components["schemas"]["SituacaoEntrada"];
+            teste: boolean;
+        };
         EtapaResponse: {
             /** Format: int32 */
             id: number;
@@ -882,6 +1609,29 @@ export interface components {
             email: string;
             perfil: components["schemas"]["Perfil"];
             trocarSenha: boolean;
+        };
+        FechamentoFunilResponse: {
+            etapa: components["schemas"]["EtapaResumo"];
+            /** Format: int32 */
+            periodo: number;
+        };
+        InteracaoNaLinhaDoTempo: {
+            /** Format: int64 */
+            id: number;
+            tipo: components["schemas"]["TipoInteracao"];
+            descricao: null | string;
+            /** Format: date-time */
+            criadoEm: string;
+        };
+        ItemLinhaDoTempo: {
+            tipo: components["schemas"]["TipoItemLinhaDoTempo"];
+            /** Format: date-time */
+            ocorridoEm: string;
+            usuario: null | components["schemas"]["UsuarioResumo"];
+            entrada: null | components["schemas"]["EntradaNaLinhaDoTempo"];
+            interacao: null | components["schemas"]["InteracaoNaLinhaDoTempo"];
+            etapa: null | components["schemas"]["MudancaEtapaNaLinhaDoTempo"];
+            responsavel: null | components["schemas"]["TrocaResponsavelNaLinhaDoTempo"];
         };
         LeadResponse: {
             /** Format: int64 */
@@ -915,6 +1665,8 @@ export interface components {
             convertidoEm: null | string;
             /** Format: date-time */
             perdidoEm: null | string;
+            motivoPerda: null | components["schemas"]["MotivoPerdaResumo"];
+            motivoPerdaDetalhe: null | string;
             /** Format: date-time */
             anonimizadoEm: null | string;
             avisos: components["schemas"]["AvisoLead"][];
@@ -949,6 +1701,30 @@ export interface components {
             email: string;
             senha: string;
         };
+        MotivoPerdaResponse: {
+            /** Format: int32 */
+            id: number;
+            nome: string;
+            ativo: boolean;
+        };
+        MotivoPerdaResumo: {
+            /** Format: int32 */
+            id: number;
+            nome: string;
+        };
+        MudancaEtapaNaLinhaDoTempo: {
+            anterior: components["schemas"]["EtapaResumo"];
+            nova: components["schemas"]["EtapaResumo"];
+            motivoPerda: null | components["schemas"]["MotivoPerdaResumo"];
+            motivoPerdaDetalhe: null | string;
+        };
+        MudarEtapaRequest: {
+            /** Format: int32 */
+            etapaId: number;
+            /** Format: int32 */
+            motivoPerdaId: null | number;
+            motivoPerdaDetalhe: null | string;
+        };
         /** @enum {unknown} */
         OrdemLeads: "Recentes" | "Antigos" | "Nome";
         /** @enum {unknown} */
@@ -963,12 +1739,31 @@ export interface components {
             detail?: null | string;
             instance?: null | string;
         };
+        QuadroFunilResponse: {
+            colunas: components["schemas"]["ColunaFunilResponse"][];
+            ganho: components["schemas"]["FechamentoFunilResponse"];
+            perdido: components["schemas"]["FechamentoFunilResponse"];
+            /** Format: date */
+            desde: string;
+        };
         RedefinirSenhaRequest: {
             senhaProvisoria: string;
         };
         ReferenciaExterna: {
             id?: null | string;
             nome?: null | string;
+        };
+        RegistrarInteracaoRequest: {
+            tipo: components["schemas"]["TipoInteracao"];
+            descricao: null | string;
+            /** Format: date-time */
+            ocorridoEm: string;
+        };
+        RenomearEtapaRequest: {
+            nome: string;
+        };
+        ReordenarEtapasRequest: {
+            ids: number[];
         };
         ResponsavelResumo: {
             /** Format: uuid */
@@ -982,7 +1777,17 @@ export interface components {
         /** @enum {unknown} */
         ResultadoEntrada: "criado" | "vinculado" | "ja_recebido";
         /** @enum {unknown} */
+        SituacaoEntrada: "criado" | "vinculado" | "erro";
+        /** @enum {unknown} */
         TipoEtapa: "aberta" | "ganho" | "perdido";
+        /** @enum {unknown} */
+        TipoInteracao: "nota" | "ligacao" | "whatsapp" | "email" | "reuniao";
+        /** @enum {unknown} */
+        TipoItemLinhaDoTempo: "entrada" | "interacao" | "etapa" | "responsavel";
+        TrocaResponsavelNaLinhaDoTempo: {
+            anterior: null | components["schemas"]["UsuarioResumo"];
+            nova: null | components["schemas"]["UsuarioResumo"];
+        };
         TrocarSenhaRequest: {
             senhaAtual: string;
             novaSenha: string;
@@ -1002,6 +1807,11 @@ export interface components {
             ultimoLeadAtribuidoEm: null | string;
             /** Format: date-time */
             criadoEm: string;
+        };
+        UsuarioResumo: {
+            /** Format: uuid */
+            id: string;
+            nome: string;
         };
         Utm: {
             source?: null | string;

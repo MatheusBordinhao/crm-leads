@@ -20,6 +20,17 @@ export type CriarLeadRequest = Schemas['CriarLeadRequest']
 export type CriarLeadResponse = Schemas['CriarLeadResponse']
 export type EditarLeadRequest = Schemas['EditarLeadRequest']
 export type FiltrosLeads = NonNullable<paths['/api/leads']['get']['parameters']['query']>
+export type EtapaResumo = Schemas['EtapaResumo']
+export type MotivoPerdaResponse = Schemas['MotivoPerdaResponse']
+export type MudarEtapaRequest = Schemas['MudarEtapaRequest']
+export type TipoInteracao = Schemas['TipoInteracao']
+export type RegistrarInteracaoRequest = Schemas['RegistrarInteracaoRequest']
+export type ItemLinhaDoTempo = Schemas['ItemLinhaDoTempo']
+export type QuadroFunilResponse = Schemas['QuadroFunilResponse']
+export type ColunaFunilResponse = Schemas['ColunaFunilResponse']
+export type CartaoFunilResponse = Schemas['CartaoFunilResponse']
+export type FiltrosFunil = NonNullable<paths['/api/funil']['get']['parameters']['query']>
+export type ConfiguracoesResponse = Schemas['ConfiguracoesResponse']
 
 /** ProblemDetails da API. Nas respostas 400, `errors` traz as mensagens de cada campo. */
 export type Problema = Schemas['ProblemDetails'] & { errors?: Record<string, string[]> }
