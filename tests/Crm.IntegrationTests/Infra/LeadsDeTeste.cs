@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
+using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -169,6 +170,26 @@ public static class LeadsDeTeste
             .Where(m => m.Nome == nome)
             .Select(m => m.Id)
             .SingleAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Cria uma etapa aberta com nome único e devolve a resposta (id, nome, ordem, tipo, ativa).</summary>
+    public static async Task<JsonElement> CriarEtapaAsync(this HttpClient admin, string? nome = null)
+    {
+        var resposta = await admin.PostAsJsonAsync(
+            "/api/etapas", new { nome = nome ?? $"Etapa {Guid.NewGuid():N}"[..30] }, TestContext.Current.CancellationToken);
+        resposta.EnsureSuccessStatusCode();
+        return await resposta.LerJsonAsync();
+    }
+
+    /// <summary>Os registros da auditoria de uma entidade, do mais antigo para o mais recente.</summary>
+    public static async Task<List<RegistroAuditoria>> AuditoriaAsync(this WebApplicationFactory<Program> fabrica, string entidade, string entidadeId)
+    {
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        return await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Auditoria
+            .AsNoTracking()
+            .Where(r => r.Entidade == entidade && r.EntidadeId == entidadeId)
+            .OrderBy(r => r.Id)
+            .ToListAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>As mudanças de etapa do lead, da primeira para a última.</summary>

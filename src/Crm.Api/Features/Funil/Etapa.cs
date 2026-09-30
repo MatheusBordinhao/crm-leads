@@ -43,11 +43,27 @@ internal static class ConsultasEtapas
     /// A etapa aberta ativa de menor ordem, onde os leads novos e os reabertos entram. A leitura trava a etapa
     /// (<c>FOR SHARE</c>) até o fim da transação, para ela não ser desativada enquanto um lead entra nela.
     /// </summary>
-    public static async Task<Etapa> InicialAsync(this DbSet<Etapa> etapas, CancellationToken ct) =>
-        (await etapas
-            .FromSql($"SELECT * FROM etapas WHERE ativa AND tipo = 'aberta' ORDER BY ordem, id LIMIT 1 FOR SHARE")
-            .ToListAsync(ct))
-        .Single();
+    /// <remarks>
+    /// Se a etapa encontrada for desativada enquanto a consulta espera a trava, ela sai do resultado. Se nada
+    /// sobrar, a consulta é repetida e já enxerga a nova etapa inicial.
+    /// </remarks>
+    public static async Task<Etapa> InicialAsync(this DbSet<Etapa> etapas, CancellationToken ct)
+    {
+        const int Tentativas = 3;
+        for (var tentativa = 1; tentativa <= Tentativas; tentativa++)
+        {
+            var inicial = (await etapas
+                .FromSql($"SELECT * FROM etapas WHERE ativa AND tipo = 'aberta' ORDER BY ordem, id LIMIT 1 FOR SHARE")
+                .ToListAsync(ct))
+                .SingleOrDefault();
+            if (inicial is not null)
+            {
+                return inicial;
+            }
+        }
+
+        throw new InvalidOperationException("O funil não tem nenhuma etapa aberta ativa para ser a etapa inicial.");
+    }
 
     /// <summary>
     /// A etapa ativa com o id, travada (<c>FOR SHARE</c>) até o fim da transação: quem a desativa espera, e um

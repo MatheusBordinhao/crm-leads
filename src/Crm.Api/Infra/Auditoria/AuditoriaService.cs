@@ -18,12 +18,24 @@ internal static class AcoesAuditoria
 
     /// <summary>Troca de responsável, com <c>detalhes { anteriorId, novoId }</c>. A linha do tempo lê daqui.</summary>
     public const string LeadReatribuido = "lead.reatribuido";
+
+    public const string EtapaCriada = "etapa.criada";
+    public const string EtapaEditada = "etapa.editada";
+    public const string EtapasReordenadas = "etapas.reordenadas";
+    public const string EtapaDesativada = "etapa.desativada";
+    public const string EtapaReativada = "etapa.reativada";
+    public const string MotivoPerdaCriado = "motivo_perda.criado";
+    public const string MotivoPerdaEditado = "motivo_perda.editado";
+    public const string ConfiguracaoAlterada = "configuracao.alterada";
 }
 
 internal static class EntidadesAuditoria
 {
     public const string Usuario = "usuario";
     public const string Lead = "lead";
+    public const string Etapa = "etapa";
+    public const string MotivoPerda = "motivo_perda";
+    public const string Configuracao = "configuracao";
 }
 
 /// <summary>
