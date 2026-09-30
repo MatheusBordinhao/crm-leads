@@ -14,7 +14,6 @@ import {
   type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
-  type KeyboardCoordinateGetter,
   type Over,
 } from '@dnd-kit/core'
 import { GripVerticalIcon } from 'lucide-react'
@@ -29,6 +28,7 @@ import type {
 } from '@/api/cliente'
 import { cn } from '@/lib/utils'
 import { CartaoLead } from './CartaoLead'
+import { criarNavegacaoPorTeclado } from './navegacaoPorTeclado'
 import { useMovimento } from './useMovimento'
 
 type DadosDoCartao = { cartao: CartaoFunilResponse; etapaId: number }
@@ -41,37 +41,6 @@ const etapaDe = (area: Over) => (area.data.current as DadosDaArea).etapa
 const deteccao: CollisionDetection = (argumentos) => {
   const embaixoDoPonteiro = pointerWithin(argumentos)
   return embaixoDoPonteiro.length > 0 ? embaixoDoPonteiro : closestCenter(argumentos)
-}
-
-const DIRECOES: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
-
-/**
- * Pelo teclado, cada seta leva o cartão para a etapa seguinte ou anterior (da esquerda para a direita, de
- * cima para baixo), em vez de andar alguns pixels.
- */
-const pularEntreEtapas: KeyboardCoordinateGetter = (evento, { context }) => {
-  const direcao = DIRECOES[evento.code]
-  const { collisionRect, droppableRects, droppableContainers, over } = context
-  if (!direcao || !collisionRect) {
-    return undefined
-  }
-  evento.preventDefault()
-  const areas = droppableContainers
-    .getEnabled()
-    .flatMap((area) => {
-      const retangulo = droppableRects.get(area.id)
-      return retangulo ? [{ id: area.id, retangulo }] : []
-    })
-    .sort((a, b) => a.retangulo.left - b.retangulo.left || a.retangulo.top - b.retangulo.top)
-  const atual = areas.findIndex((area) => area.id === over?.id)
-  const alvo = areas[atual + direcao]?.retangulo
-  if (!alvo) {
-    return undefined
-  }
-  return {
-    x: alvo.left + alvo.width / 2 - collisionRect.width / 2,
-    y: alvo.top + alvo.height / 2 - collisionRect.height / 2,
-  }
 }
 
 const anuncios: Announcements = {
@@ -88,8 +57,8 @@ const anuncios: Announcements = {
 }
 
 const INSTRUCOES =
-  'Para mover o lead, aperte espaço ou enter, use as setas para escolher a etapa e aperte espaço ou ' +
-  'enter de novo para soltar. Esc cancela.'
+  'Para mover o lead, aperte espaço ou enter, use as setas para a direita e para a esquerda para ' +
+  'escolher a etapa e aperte espaço ou enter de novo para soltar. Esc cancela.'
 
 type Props = {
   quadro: QuadroFunilResponse
@@ -104,19 +73,33 @@ type Props = {
 export function QuadroFunil({ quadro, filtros, mostrarResponsavel }: Props) {
   const { soltar, pendenteId, dialogo } = useMovimento(filtros)
   const [arrastando, setArrastando] = useState<CartaoFunilResponse | null>(null)
+  const [teclado] = useState(criarNavegacaoPorTeclado)
   const sensores = useSensors(
     // Uma distância mínima, para o clique no nome ainda abrir a ficha.
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: pularEntreEtapas }),
+    useSensor(KeyboardSensor, { coordinateGetter: teclado.pular }),
   )
 
-  const aoComecar = ({ active }: DragStartEvent) => setArrastando(cartaoDe(active))
+  const aoComecar = ({ active }: DragStartEvent) => {
+    teclado.reiniciar()
+    setArrastando(cartaoDe(active))
+  }
+
+  const areas = [
+    ...quadro.colunas.map((coluna) => coluna.etapa),
+    quadro.ganho.etapa,
+    quadro.perdido.etapa,
+  ]
 
   const aoSoltar = ({ active, over }: DragEndEvent) => {
     setArrastando(null)
-    if (over) {
+    // Pelo teclado, vale a etapa escolhida com as setas (veja criarNavegacaoPorTeclado); com o mouse, a de
+    // baixo do ponteiro.
+    const destinoId = teclado.destino() ?? over?.id
+    const destino = areas.find((etapa) => etapa.id === destinoId)
+    if (destino) {
       const { cartao, etapaId } = active.data.current as DadosDoCartao
-      soltar(cartao, etapaId, etapaDe(over))
+      soltar(cartao, etapaId, destino)
     }
   }
 
@@ -133,7 +116,9 @@ export function QuadroFunil({ quadro, filtros, mostrarResponsavel }: Props) {
         onDragEnd={aoSoltar}
         onDragCancel={() => setArrastando(null)}
       >
-        <div className="flex items-start gap-3 overflow-x-auto pb-2">
+        {/* As colunas dividem a largura e passam para a linha de baixo quando não cabem: o quadro não
+            rola para o lado (veja pularEntreEtapas). */}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] items-start gap-3">
           {quadro.colunas.map((coluna) => (
             <Coluna
               key={coluna.etapa.id}
@@ -142,7 +127,7 @@ export function QuadroFunil({ quadro, filtros, mostrarResponsavel }: Props) {
               mostrarResponsavel={mostrarResponsavel}
             />
           ))}
-          <div className="flex w-56 shrink-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3">
             <AreaDeFechamento area={quadro.ganho} />
             <AreaDeFechamento area={quadro.perdido} />
           </div>
@@ -185,7 +170,7 @@ function Coluna({
       role="group"
       aria-labelledby={titulo}
       className={cn(
-        'flex w-64 shrink-0 flex-col gap-2 rounded-xl bg-muted/50 p-2 transition-colors',
+        'flex min-w-0 flex-col gap-2 rounded-xl bg-muted/50 p-2 transition-colors',
         isOver && 'bg-accent ring-2 ring-ring/40',
       )}
     >
