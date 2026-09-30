@@ -360,9 +360,31 @@ describe('etapa, contato e interações na ficha', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(registros).toHaveLength(1)
     expect(registros[0]).toMatchObject({ tipo: 'whatsapp', descricao: 'Mandei o orçamento' })
+    // Sem mudar o campo (que só tem minutos), vai a hora do registro, com os segundos.
     const ocorridoEm = new Date(registros[0].ocorridoEm as string)
     expect(ocorridoEm.getTime()).toBeLessThanOrEqual(Date.now())
-    expect(Date.now() - ocorridoEm.getTime()).toBeLessThan(2 * 60_000)
+    expect(Date.now() - ocorridoEm.getTime()).toBeLessThan(5_000)
+  })
+
+  it('uma data passada escolhida no campo vai como foi escolhida', async () => {
+    comSessao(atendente)
+    comFicha(comEmail)
+    const registros = comRegistroDeInteracao()
+    const { usuario } = renderizarApp('/leads/1024')
+
+    await usuario.click(await screen.findByRole('link', { name: 'Ligar' }))
+    const dialogo = within(await screen.findByRole('dialog', { name: 'Registrar interação' }))
+    fireEvent.change(dialogo.getByLabelText('Quando'), { target: { value: '2026-09-29T10:15' } })
+    await usuario.click(dialogo.getByRole('button', { name: 'Registrar' }))
+
+    expect(await screen.findByText('Interação registrada.')).toBeInTheDocument()
+    expect(registros).toEqual([
+      {
+        tipo: 'ligacao',
+        descricao: null,
+        ocorridoEm: new Date('2026-09-29T10:15').toISOString(),
+      },
+    ])
   })
 
   it('telefone com aviso de formato não vira botão de WhatsApp nem de ligação', async () => {

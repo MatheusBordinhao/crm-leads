@@ -79,8 +79,11 @@ export function InteracaoDialog({ leadId, tipoInicial, aoFechar }: Props) {
 
   const salvar = handleSubmit(({ tipo, ocorridoEm, descricao }) => {
     setErroGeral(null)
+    // O campo só guarda os minutos. Sem mudar a data, vale a hora do registro, com os segundos: senão a
+    // interação ficaria antes do que aconteceu no mesmo minuto, como a entrada do lead, na linha do tempo.
+    const quando = ocorridoEm === agora ? new Date() : new Date(ocorridoEm)
     registrar.mutate(
-      { tipo, descricao: descricao || null, ocorridoEm: new Date(ocorridoEm).toISOString() },
+      { tipo, descricao: descricao || null, ocorridoEm: quando.toISOString() },
       {
         onSuccess: () => {
           toast.success('Interação registrada.')
