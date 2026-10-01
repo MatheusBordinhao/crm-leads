@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
-import { atendente, comSessao } from '@/test/api'
-import { comCadastros, comQuadro, fichaLead } from '@/test/leads'
+import { admin, atendente, comSessao } from '@/test/api'
+import { comImportacao } from '@/test/importacao'
+import { comCadastros, comLista, comQuadro, fichaLead, leadResumo } from '@/test/leads'
 import { comNotificacoes, notificacao } from '@/test/notificacoes'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
@@ -82,6 +83,50 @@ describe('sino de notificações', () => {
       'aria-disabled',
       'true',
     )
+  })
+
+  it('o resumo da importação abre o resultado dela', async () => {
+    comSessao(admin)
+    comQuadro()
+    comImportacao()
+    const { marcadas } = comNotificacoes([
+      notificacao({
+        id: 9,
+        tipo: 'importacao_concluida',
+        titulo: 'Importação concluída: 3 leads novos, 1 vinculado, 0 já importados e 1 com erro',
+        lead: null,
+        importacaoId: 12,
+      }),
+    ])
+    const { usuario, router } = renderizarApp('/')
+
+    await usuario.click(await screen.findByRole('button', { name: 'Notificações: 1 não lida' }))
+    await usuario.click(await screen.findByRole('menuitem', { name: /Importação concluída/ }))
+
+    expect(await screen.findByRole('heading', { name: 'leads-meta.csv' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/importacao/12')
+    expect(marcadas).toEqual(['9'])
+  })
+
+  it('os leads que uma importação deixou com a pessoa abrem a lista de leads', async () => {
+    comSessao(atendente)
+    comQuadro()
+    comLista([leadResumo()])
+    comNotificacoes([
+      notificacao({
+        tipo: 'leads_importados',
+        titulo: 'Você recebeu 3 leads da importação',
+        lead: null,
+      }),
+    ])
+    const { usuario, router } = renderizarApp('/')
+
+    await usuario.click(await screen.findByRole('button', { name: 'Notificações: 1 não lida' }))
+    await usuario.click(
+      await screen.findByRole('menuitem', { name: /Você recebeu 3 leads da importação/ }),
+    )
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/leads'))
   })
 
   it('consulta a lista de novo a cada 30 segundos', async () => {

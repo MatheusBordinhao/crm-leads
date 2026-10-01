@@ -16,7 +16,8 @@ import { useMarcarLida, useMarcarTodasLidas, useNotificacoes } from './dados'
 
 /**
  * Sino do topo (seção 3.6): o contador de não lidas e as notificações mais recentes. Clicar numa notificação a
- * marca como lida e abre a ficha do lead. A lista é consultada a cada 30 segundos.
+ * marca como lida e abre a ficha do lead, o resultado da importação (no resumo, para quem importou) ou a lista de
+ * leads (nos leads que uma importação deixou com a pessoa). A lista é consultada a cada 30 segundos.
  */
 export function Sino() {
   const { data } = useNotificacoes()
@@ -32,6 +33,10 @@ export function Sino() {
     }
     if (notificacao.lead) {
       navigate(`/leads/${notificacao.lead.id}`)
+    } else if (notificacao.importacaoId) {
+      navigate(`/importacao/${notificacao.importacaoId}`)
+    } else if (notificacao.tipo === 'leads_importados') {
+      navigate('/leads')
     }
   }
 
