@@ -60,8 +60,17 @@ public sealed record NovaEntrada
     /// </summary>
     public Guid? ResponsavelId { get; init; }
 
-    /// <summary>Quem registrou a entrada, no cadastro manual. Nulo na integração.</summary>
+    /// <summary>Quem registrou a entrada, no cadastro manual e na importação. Nulo na integração.</summary>
     public Guid? UsuarioId { get; init; }
+
+    /// <summary>
+    /// Avisa a responsável (ou os admins) e grava o evento para o n8n. A importação desliga: ela não avisa lead a
+    /// lead, e cada responsável recebe no fim quantos leads ganhou (seção 3.7).
+    /// </summary>
+    public bool Avisar { get; init; } = true;
+
+    /// <summary>A importação de CSV que trouxe a entrada.</summary>
+    public long? ImportacaoId { get; init; }
 
     /// <summary>Sem dados pessoais nem o payload, para a entrada nunca ir inteira para um log.</summary>
     public override string ToString() => $"{nameof(NovaEntrada)} {{ Origem = {Origem}, IdExterno = {IdExterno} }}";

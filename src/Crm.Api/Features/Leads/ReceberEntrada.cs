@@ -72,12 +72,13 @@ public sealed class ReceberEntrada(
 
         await db.SaveChangesAsync(ct);
 
-        // Depois de gravar a entrada: os avisos leem o lead e as entradas como ficaram.
-        if (resultado == ResultadoEntrada.Criado)
+        // Depois de gravar a entrada: os avisos leem o lead e as entradas como ficaram. A importação não avisa lead a
+        // lead; no fim, cada responsável recebe o total.
+        if (entrada.Avisar && resultado == ResultadoEntrada.Criado)
         {
             await avisos.LeadCriadoAsync(lead, entrada.UsuarioId, ct);
         }
-        else
+        else if (entrada.Avisar)
         {
             await avisos.EntradaRepetidaAsync(lead, entrada.Origem, campanha?.Nome, entrada.UsuarioId, ct);
         }
@@ -296,6 +297,7 @@ public sealed class ReceberEntrada(
             Teste = entrada.Teste,
             RecebidoEm = entrada.RecebidoEm.ToUniversalTime(),
             ProcessadoEm = agora,
+            ImportacaoId = entrada.ImportacaoId,
         };
 
     private static ReferenciaExterna? Normalizar(ReferenciaExterna? referencia)

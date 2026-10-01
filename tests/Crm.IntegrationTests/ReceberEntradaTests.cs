@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
+using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
 using Crm.IntegrationTests.Infra;
@@ -304,6 +305,26 @@ public class ReceberEntradaTests(CrmApiFactory fabrica)
         var detalhes = registro.Detalhes!.RootElement;
         Assert.Equal("site", detalhes.GetProperty("origem").GetString());
         Assert.Single(detalhes.EnumerateObject());
+    }
+
+    [Fact]
+    public async Task Entrada_sem_avisos_nao_notifica_ninguem_nem_grava_evento()
+    {
+        var atendente = await fabrica.CriarUsuarioAsync();
+        var admin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        var entrada = LeadsDeTeste.Entrada() with { ResponsavelId = atendente.Id, Avisar = false };
+
+        var criado = await fabrica.ReceberAsync(entrada);
+        var vinculado = await fabrica.ReceberAsync(entrada with { IdExterno = LeadsDeTeste.IdExternoUnico() });
+        var semResponsavel = await fabrica.ReceberAsync(LeadsDeTeste.Entrada() with { Avisar = false });
+
+        Assert.Equal(ResultadoEntrada.Criado, criado.Resultado);
+        Assert.Equal(ResultadoEntrada.Vinculado, vinculado.Resultado);
+        Assert.Equal(2, (await EntradasDoLeadAsync(criado.LeadId)).Count);
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(atendente.Id));
+        Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(admin.Id, semResponsavel.LeadId));
+        Assert.Empty(await fabrica.EventosDoLeadAsync(criado.LeadId));
+        Assert.Empty(await fabrica.EventosDoLeadAsync(semResponsavel.LeadId));
     }
 
     [Fact]
