@@ -75,7 +75,7 @@ GET {{host}}/api/leads?busca=maria&ordem=Recentes&pagina=1&tamanho=25
 # @prompt id
 GET {{host}}/api/leads/{{id}}
 
-### Novo lead (a atendente fica com ele; o admin pode mandar "responsavelId")
+### Novo lead (a atendente fica com ele; o admin manda "responsavelId", ou null para o rodízio)
 POST {{host}}/api/leads
 Content-Type: application/json
 
@@ -89,6 +89,29 @@ Content-Type: application/json
   "origem": "whatsapp",
   "responsavelId": null
 }
+
+### Passar o lead para outra pessoa (admin)
+# @prompt id
+# @prompt responsavelId
+POST {{host}}/api/leads/{{id}}/responsavel
+Content-Type: application/json
+
+{ "responsavelId": "{{responsavelId}}" }
+
+### Notificações do usuário logado (as 30 mais recentes e quantas não foram lidas)
+GET {{host}}/api/notificacoes
+
+### Marcar todas as notificações como lidas
+POST {{host}}/api/notificacoes/lidas
+
+### Configurações (admin)
+GET {{host}}/api/configuracoes
+
+### Ligar ou desligar o rodízio (admin); o PUT leva as duas configurações
+PUT {{host}}/api/configuracoes
+Content-Type: application/json
+
+{ "exigirDocumentoParaGanho": true, "distribuicaoAutomatica": true }
 
 ### Etapas, para os filtros
 GET {{host}}/api/etapas
@@ -122,4 +145,32 @@ X-Api-Key: {{chave}}
   "utm": { "source": "instagram", "medium": "paid", "campaign": "outubro-servico-y", "content": null, "term": null },
   "gclid": null,
   "respostasExtras": { "Qual serviço você procura?": "Serviço Y" }
+}
+
+### Lead real pela integração: vai para o rodízio, avisa a responsável no sino e gera o alerta por e-mail
+# Troque o idExterno e o e-mail a cada envio: repetidos, a entrada responde "ja_recebido" ou "vinculado".
+# @prompt chave
+POST {{host}}/api/integracoes/leads
+Content-Type: application/json
+X-Api-Key: {{chave}}
+
+{
+  "origem": "site",
+  "idExterno": "alerta-0001",
+  "recebidoEm": "2026-10-05T14:03:00Z",
+  "teste": false,
+  "nome": "Joana Alves",
+  "email": "joana.alves@example.com",
+  "telefone": null,
+  "cpfCnpj": null,
+  "uf": "RS",
+  "empresa": "Empresa Y",
+  "plataforma": "site",
+  "campanha": { "id": "site-outubro", "nome": "Site | Outubro" },
+  "conjunto": null,
+  "anuncio": null,
+  "formulario": null,
+  "utm": null,
+  "gclid": null,
+  "respostasExtras": null
 }
