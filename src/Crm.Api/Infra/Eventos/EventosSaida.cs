@@ -73,13 +73,20 @@ public sealed class EventosSaida(CrmDbContext db, IOptions<N8nOptions> n8n, IOpt
 
 internal static class EventosExtensions
 {
-    /// <summary>Configuração do n8n e do endereço do CRM, conferidas na subida, e a gravação dos eventos.</summary>
+    /// <summary>
+    /// Configuração do n8n e do endereço do CRM, conferidas na subida, a gravação dos eventos e o despachante em
+    /// segundo plano, com o HttpClient do n8n e o tempo limite do envio.
+    /// </summary>
     public static IServiceCollection AddEventos(this IServiceCollection services)
     {
         services.AddOptions<CrmOptions>().BindConfiguration(CrmOptions.Secao).ValidateOnStart();
         services.AddSingleton<IValidateOptions<CrmOptions>, ValidacaoCrmOptions>();
         services.AddOptions<N8nOptions>().BindConfiguration(N8nOptions.Secao).ValidateOnStart();
         services.AddSingleton<IValidateOptions<N8nOptions>, ValidacaoN8nOptions>();
-        return services.AddScoped<EventosSaida>();
+
+        services.AddHttpClient(DespachanteEventos.NomeCliente, (provedor, cliente) =>
+            cliente.Timeout = TimeSpan.FromSeconds(provedor.GetRequiredService<IOptions<N8nOptions>>().Value.TempoLimiteSegundos));
+        services.AddHostedService<ServicoDespacho>();
+        return services.AddScoped<EventosSaida>().AddScoped<DespachanteEventos>();
     }
 }
