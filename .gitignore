@@ -15,6 +15,9 @@ node_modules/
 web/dist/
 web/coverage/
 
+# Backups do Compose de produção (BACKUP_PASTA)
+backups/
+
 # Claude Code: configurações pessoais
 .claude/settings.local.json
 

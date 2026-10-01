@@ -17,6 +17,10 @@ indent_size = 2
 [*.md]
 trim_trailing_whitespace = false
 
+# O caddy fmt usa tab
+[Caddyfile]
+indent_style = tab
+
 # Código gerado pelo EF Core
 [**/Migrations/*.cs]
 generated_code = true

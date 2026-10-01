@@ -1,0 +1,19 @@
+# HTTPS automático (Let's Encrypt) no domínio do CRM, com HSTS e os cabeçalhos de segurança (seção 9).
+# Com DOMINIO=localhost, o Caddy usa uma autoridade local, para testar no próprio computador.
+{$DOMINIO} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# O style-src aceita estilos inline porque o sonner (avisos) e o Radix (diálogos) põem <style> na página.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+
+	# O X-Forwarded-For que chega de fora é trocado pelo IP de quem conectou: a API só confia no do Caddy.
+	reverse_proxy api:8080
+}

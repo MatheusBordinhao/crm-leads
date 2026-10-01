@@ -1,0 +1,20 @@
+# Fora da imagem: segredos, o que o build gera e o que a API não usa.
+.env
+.env.*
+.git
+.github
+.claude
+.vs
+.vscode
+**/bin
+**/obj
+**/*.user
+**/TestResults
+web/node_modules
+web/dist
+web/coverage
+tests
+docs
+n8n
+deploy
+backups

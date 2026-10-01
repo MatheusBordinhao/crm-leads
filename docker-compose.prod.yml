@@ -1,0 +1,117 @@
+# Produção (seção 9 da especificação e README › Publicação): o Caddy com HTTPS na frente da API, que serve o build
+# do React; o PostgreSQL; as migrations, que rodam antes da API; e o backup diário. Só o Caddy expõe portas.
+# As variáveis vêm do .env do servidor: docker compose -f docker-compose.prod.yml up -d --build
+name: crm
+
+x-logs: &logs
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (veja o README)}
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *logs
+
+  # Aplica as migrations pendentes e termina. A API só sobe depois dele, a cada "up".
+  migracoes:
+    image: crm-api
+    build: .
+    entrypoint: ["/app/efbundle"]
+    environment:
+      ConnectionStrings__Crm: Host=db;Port=5432;Database=crm;Username=crm;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *logs
+
+  api:
+    image: crm-api
+    build: .
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__Crm: Host=db;Port=5432;Database=crm;Username=crm;Password=${POSTGRES_PASSWORD}
+      Crm__UrlPublica: https://${DOMINIO:?defina DOMINIO no .env (veja o README)}
+      Admin__Email: ${Admin__Email:-}
+      Admin__SenhaInicial: ${Admin__SenhaInicial:-}
+      Integracao__Chave: ${Integracao__Chave:-}
+      N8n__WebhookUrl: ${N8n__WebhookUrl:-}
+      N8n__WebhookChave: ${N8n__WebhookChave:-}
+      N8n__Eventos: ${N8n__Eventos:-}
+      # Só do Caddy a API aceita os cabeçalhos com o IP de quem acessa.
+      Proxy__Ip: ${CADDY_IP:-172.30.0.10}
+      DataProtection__Pasta: /dados/chaves
+    volumes:
+      # As chaves que protegem o cookie da sessão: recriar o contêiner não encerra as sessões.
+      - chaves-sessao:/dados/chaves
+    depends_on:
+      migracoes:
+        condition: service_completed_successfully
+    logging: *logs
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "${PORTA_HTTP:-80}:80"
+      - "${PORTA_HTTPS:-443}:443"
+      - "${PORTA_HTTPS:-443}:443/udp"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-dados:/data
+      - caddy-config:/config
+    networks:
+      default:
+        ipv4_address: ${CADDY_IP:-172.30.0.10}
+    depends_on:
+      - api
+    logging: *logs
+
+  # pg_dump diário às 03:00 (horário de Brasília), com 14 dias guardados numa pasta do servidor.
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    entrypoint: ["sh", "/backup/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: crm
+      PGDATABASE: crm
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./deploy/backup:/backup:ro
+      - ${BACKUP_PASTA:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logs
+
+# Rede com a faixa fixa, para o Caddy ter sempre o mesmo IP (Proxy__Ip). Se ela colidir com outra rede do
+# servidor, troque REDE_SUBNET e CADDY_IP no .env.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${REDE_SUBNET:-172.30.0.0/24}
+
+volumes:
+  dados-postgres:
+  chaves-sessao:
+  caddy-dados:
+  caddy-config:
