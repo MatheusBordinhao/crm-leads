@@ -51,18 +51,45 @@ public class FrontTests(CrmApiFactory fabrica)
             using var api = fabrica.WithWebHostBuilder(builder => builder.UseSetting(WebHostDefaults.WebRootKey, pasta.FullName));
             using var cliente = api.CriarClienteHttps();
 
-            foreach (var rota in new[] { "/api/nao-existe", "/api/leads/abc", "/hubs/nao-existe" })
+            var casos = new (HttpMethod Metodo, string Rota, HttpStatusCode Esperado)[]
             {
-                var resposta = await cliente.GetAsync(rota, Ct);
-                Assert.True(resposta.StatusCode == HttpStatusCode.NotFound, $"{rota} respondeu {(int)resposta.StatusCode}");
+                (HttpMethod.Get, "/api/nao-existe", HttpStatusCode.NotFound),
+                (HttpMethod.Get, "/API/nao-existe", HttpStatusCode.NotFound),
+                (HttpMethod.Get, "/api", HttpStatusCode.NotFound),
+                (HttpMethod.Get, "/api/leads/abc", HttpStatusCode.NotFound),
+                (HttpMethod.Get, "/hubs/nao-existe", HttpStatusCode.NotFound),
+                (HttpMethod.Post, "/api/nao-existe", HttpStatusCode.NotFound),
+
+                // Uma rota que existe, com o método errado, continua respondendo 405, como sem o front.
+                (HttpMethod.Delete, "/api/leads/1", HttpStatusCode.MethodNotAllowed),
+                (HttpMethod.Get, "/api/auth/login", HttpStatusCode.MethodNotAllowed),
+            };
+
+            foreach (var (metodo, rota, esperado) in casos)
+            {
+                using var requisicao = new HttpRequestMessage(metodo, rota);
+                var resposta = await cliente.SendAsync(requisicao, Ct);
+                Assert.True(resposta.StatusCode == esperado, $"{metodo} {rota} respondeu {(int)resposta.StatusCode}");
                 Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType?.MediaType);
             }
 
             Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/health", Ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync("/apis-e-hubs", Ct)).StatusCode);
         }
         finally
         {
             pasta.Delete(recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Sem_o_build_do_front_como_em_desenvolvimento_as_rotas_do_front_respondem_404()
+    {
+        using var cliente = fabrica.CriarClienteHttps();
+
+        var resposta = await cliente.GetAsync("/funil", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, resposta.StatusCode);
+        Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType?.MediaType);
     }
 }

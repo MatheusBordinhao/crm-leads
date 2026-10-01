@@ -55,13 +55,12 @@ if (app.Environment.IsDevelopment())
 await app.InicializarAcessoAsync();
 
 // O build do React, antes da autenticação: a página e os arquivos dela são públicos.
-app.UsarArquivosDoFront();
+app.UsarFront();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
 app.MapControllers();
-app.MapearFront();
 
 app.Run();

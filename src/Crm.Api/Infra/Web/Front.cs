@@ -14,28 +14,36 @@ internal static class FrontExtensions
     /// <summary>O index.html é conferido a cada acesso, para a versão nova chegar assim que for publicada.</summary>
     public const string SemCache = "no-cache";
 
-    public static WebApplication UsarArquivosDoFront(this WebApplication app)
-    {
-        app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = DefinirCache });
-        return app;
-    }
-
     /// <summary>
-    /// As rotas do React Router (<c>/funil</c>, <c>/leads/12</c>) devolvem o index.html. Um endereço de /api ou /hubs
-    /// que não existe responde 404 em ProblemDetails, e não com a página do front.
+    /// Os arquivos do build e, nos endereços do React Router (<c>/funil</c>, <c>/leads/12</c>), o index.html. A página
+    /// fica fora do roteamento, como último recurso de um GET que nenhuma rota atendeu: uma rota que aceita qualquer
+    /// método (como o <c>MapFallbackToFile</c>) faria um método errado numa rota da API responder 404 em vez de 405.
+    /// Assim, um endereço de /api ou /hubs que não existe responde 404, e um método errado, 405, os dois em
+    /// ProblemDetails. Precisa ficar depois do roteamento, que o WebApplication põe no início.
     /// </summary>
-    public static WebApplication MapearFront(this WebApplication app)
+    public static WebApplication UsarFront(this WebApplication app)
     {
-        app.MapFallback("/api/{**caminho}", NaoEncontrado);
-        app.MapFallback("/hubs/{**caminho}", NaoEncontrado);
-        app.MapFallbackToFile("index.html", new StaticFileOptions { OnPrepareResponse = DefinirCache });
+        var opcoes = new StaticFileOptions { OnPrepareResponse = DefinirCache };
+        app.UseStaticFiles(opcoes);
+        app.UseWhen(EnderecoDoFront, pagina => pagina
+            .Use((contexto, proximo) =>
+            {
+                contexto.Request.Path = "/index.html";
+                return proximo(contexto);
+            })
+            .UseStaticFiles(opcoes));
         return app;
     }
 
-    private static Task NaoEncontrado(HttpContext contexto)
+    /// <summary>Um GET que nenhuma rota atendeu, fora de /api e /hubs, num endereço que não é de arquivo.</summary>
+    private static bool EnderecoDoFront(HttpContext contexto)
     {
-        contexto.Response.StatusCode = StatusCodes.Status404NotFound;
-        return Task.CompletedTask;
+        var requisicao = contexto.Request;
+        return contexto.GetEndpoint() is null
+            && (HttpMethods.IsGet(requisicao.Method) || HttpMethods.IsHead(requisicao.Method))
+            && !requisicao.Path.StartsWithSegments("/api")
+            && !requisicao.Path.StartsWithSegments("/hubs")
+            && !Path.HasExtension(requisicao.Path.Value);
     }
 
     private static void DefinirCache(StaticFileResponseContext contexto) =>
