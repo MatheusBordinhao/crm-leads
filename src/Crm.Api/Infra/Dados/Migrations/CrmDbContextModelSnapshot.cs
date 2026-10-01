@@ -232,6 +232,10 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("id_externo");
 
+                    b.Property<long?>("ImportacaoId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("importacao_id");
+
                     b.Property<long?>("LeadId")
                         .HasColumnType("bigint")
                         .HasColumnName("lead_id");
@@ -298,6 +302,9 @@ namespace Crm.Api.Infra.Dados.Migrations
 
                     b.HasIndex("CampanhaId")
                         .HasDatabaseName("ix_entradas_recebidas_campanha_id");
+
+                    b.HasIndex("ImportacaoId")
+                        .HasDatabaseName("ix_entradas_recebidas_importacao_id");
 
                     b.HasIndex("LeadId")
                         .HasDatabaseName("ix_entradas_recebidas_lead_id");
@@ -823,6 +830,163 @@ namespace Crm.Api.Infra.Dados.Migrations
                     b.ToTable("eventos_saida", (string)null);
                 });
 
+            modelBuilder.Entity("Crm.Api.Infra.Importacoes.ErroImportacao", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("ImportacaoId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("importacao_id");
+
+                    b.Property<int>("Linha")
+                        .HasColumnType("integer")
+                        .HasColumnName("linha");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("motivo");
+
+                    b.HasKey("Id")
+                        .HasName("pk_importacoes_erros");
+
+                    b.HasIndex("ImportacaoId", "Linha")
+                        .HasDatabaseName("ix_importacoes_erros_importacao_id_linha");
+
+                    b.ToTable("importacoes_erros", (string)null);
+                });
+
+            modelBuilder.Entity("Crm.Api.Infra.Importacoes.Importacao", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<byte[]>("Arquivo")
+                        .HasColumnType("bytea")
+                        .HasColumnName("arquivo");
+
+                    b.Property<string>("CampanhaPadraoId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("campanha_padrao_id");
+
+                    b.Property<string>("CampanhaPadraoNome")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("campanha_padrao_nome");
+
+                    b.PrimitiveCollection<string[]>("Campos")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("campos");
+
+                    b.Property<string>("Codificacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("codificacao");
+
+                    b.Property<int?>("ColunaIdExterno")
+                        .HasColumnType("integer")
+                        .HasColumnName("coluna_id_externo");
+
+                    b.Property<int>("ComErro")
+                        .HasColumnType("integer")
+                        .HasColumnName("com_erro");
+
+                    b.Property<DateTimeOffset?>("ConcluidoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("concluido_em");
+
+                    b.Property<DateTimeOffset>("CriadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("criado_em");
+
+                    b.Property<int>("Criados")
+                        .HasColumnType("integer")
+                        .HasColumnName("criados");
+
+                    b.Property<int>("JaImportados")
+                        .HasColumnType("integer")
+                        .HasColumnName("ja_importados");
+
+                    b.Property<int>("LinhasProcessadas")
+                        .HasColumnType("integer")
+                        .HasColumnName("linhas_processadas");
+
+                    b.Property<string>("NomeArquivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origem");
+
+                    b.Property<DateTimeOffset>("ReservadaAte")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reservada_ate");
+
+                    b.Property<Guid?>("ResponsavelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsavel_id");
+
+                    b.Property<int>("SemResponsavel")
+                        .HasColumnType("integer")
+                        .HasColumnName("sem_responsavel");
+
+                    b.Property<string>("Separador")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("separador");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("situacao");
+
+                    b.Property<int>("TotalLinhas")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_linhas");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<int>("Vinculados")
+                        .HasColumnType("integer")
+                        .HasColumnName("vinculados");
+
+                    b.HasKey("Id")
+                        .HasName("pk_importacoes");
+
+                    b.HasIndex("ResponsavelId")
+                        .HasDatabaseName("ix_importacoes_responsavel_id");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_importacoes_usuario_id");
+
+                    b.HasIndex("Situacao", "ReservadaAte")
+                        .HasDatabaseName("ix_importacoes_situacao_reservada_ate");
+
+                    b.ToTable("importacoes", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1029,6 +1193,12 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_entradas_recebidas_campanhas_campanha_id");
 
+                    b.HasOne("Crm.Api.Infra.Importacoes.Importacao", null)
+                        .WithMany()
+                        .HasForeignKey("ImportacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_entradas_recebidas_importacoes_importacao_id");
+
                     b.HasOne("Crm.Api.Features.Leads.Lead", null)
                         .WithMany()
                         .HasForeignKey("LeadId")
@@ -1121,6 +1291,32 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasForeignKey("LeadId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .HasConstraintName("fk_eventos_saida_leads_lead_id");
+                });
+
+            modelBuilder.Entity("Crm.Api.Infra.Importacoes.ErroImportacao", b =>
+                {
+                    b.HasOne("Crm.Api.Infra.Importacoes.Importacao", null)
+                        .WithMany()
+                        .HasForeignKey("ImportacaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_importacoes_erros_importacoes_importacao_id");
+                });
+
+            modelBuilder.Entity("Crm.Api.Infra.Importacoes.Importacao", b =>
+                {
+                    b.HasOne("Crm.Api.Features.Usuarios.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("ResponsavelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_importacoes_usuarios_responsavel_id");
+
+                    b.HasOne("Crm.Api.Features.Usuarios.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_importacoes_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

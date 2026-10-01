@@ -5,6 +5,7 @@ using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Eventos;
+using Crm.Api.Infra.Importacoes;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,10 @@ public class CrmDbContext(DbContextOptions<CrmDbContext> options)
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
 
     public DbSet<EventoSaida> EventosSaida => Set<EventoSaida>();
+
+    public DbSet<Importacao> Importacoes => Set<Importacao>();
+
+    public DbSet<ErroImportacao> ErrosImportacao => Set<ErroImportacao>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

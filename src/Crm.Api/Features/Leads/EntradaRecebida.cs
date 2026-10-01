@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Importacoes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -60,6 +61,9 @@ public class EntradaRecebida
 
     /// <summary>Quando o CRM processou a entrada.</summary>
     public DateTimeOffset ProcessadoEm { get; set; }
+
+    /// <summary>A importação de CSV que trouxe a entrada. Nulo nas outras origens.</summary>
+    public long? ImportacaoId { get; set; }
 }
 
 internal sealed class EntradaRecebidaConfiguracao : IEntityTypeConfiguration<EntradaRecebida>
@@ -81,6 +85,8 @@ internal sealed class EntradaRecebidaConfiguracao : IEntityTypeConfiguration<Ent
         // Excluir um lead de teste leva junto as entradas dele.
         builder.HasOne<Lead>().WithMany().HasForeignKey(e => e.LeadId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Campanha>().WithMany().HasForeignKey(e => e.CampanhaId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Importacao>().WithMany().HasForeignKey(e => e.ImportacaoId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => e.ImportacaoId);
 
         // Idempotência: a mesma origem e o mesmo id externo só entram uma vez, a não ser que a primeira tenha dado erro.
         builder.HasIndex(e => new { e.Origem, e.IdExterno }).IsUnique().HasFilter("situacao <> 'erro'");
