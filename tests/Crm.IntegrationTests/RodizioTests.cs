@@ -209,7 +209,7 @@ public class RodizioTests(CrmApiFactory fabrica)
     }
 
     [Fact]
-    public async Task Entrada_repetida_fica_com_o_lead_que_existe_sem_passar_a_vez()
+    public async Task Entrada_repetida_e_reenvio_ficam_com_o_lead_que_existe_sem_passar_a_vez()
     {
         await using var rodizio = await RodizioIsolado.PrepararAsync(fabrica);
         var agora = DateTimeOffset.UtcNow;
@@ -221,9 +221,11 @@ public class RodizioTests(CrmApiFactory fabrica)
         var repetido = new Dictionary<string, object?>(corpo) { ["origem"] = "site", ["idExterno"] = LeadsDeTeste.IdExternoUnico() };
 
         var vinculado = await n8n.EnviarLeadIdAsync(repetido);
+        var jaRecebido = await n8n.EnviarLeadIdAsync(corpo);
         var proximo = await EnviarAsync(n8n);
 
         Assert.Equal(primeiro, vinculado);
+        Assert.Equal(primeiro, jaRecebido);
         Assert.Equal(a.Id, await ResponsavelAsync(primeiro));
         Assert.Equal(b.Id, await ResponsavelAsync(proximo));
     }

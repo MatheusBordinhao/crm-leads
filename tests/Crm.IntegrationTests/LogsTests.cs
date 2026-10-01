@@ -125,6 +125,29 @@ public class LogsTests(CrmApiFactory fabrica)
         AssertSemVazamento(captura, [detalhe, descricao]);
     }
 
+    [Fact]
+    public async Task Troca_de_responsavel_e_notificacoes_nunca_poem_dados_pessoais_no_log_nem_no_nivel_trace()
+    {
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        var atendenteUsuario = await api.CriarUsuarioAsync();
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        using var atendente = await api.LogarAsync(atendenteUsuario);
+        var corpo = LeadsDeTeste.CorpoLead($"Nome Sigiloso {marca}");
+        corpo["empresa"] = $"Empresa Sigilosa {marca}";
+        var id = await admin.CriarLeadIdAsync(corpo);
+
+        var troca = await admin.PostAsJsonAsync($"/api/leads/{id}/responsavel", new { responsavelId = atendenteUsuario.Id }, Ct);
+        var lista = await atendente.NotificacoesAsync();
+        await atendente.PostAsync("/api/notificacoes/lidas", null, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, troca.StatusCode);
+        Assert.Contains(lista.Itens(), n => n.GetProperty("lead").GetProperty("nome").GetString() == (string)corpo["nome"]!);
+        AssertSemVazamento(captura, [(string)corpo["nome"]!, (string)corpo["email"]!, $"Empresa Sigilosa {marca}"]);
+    }
+
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)
     {
         var registros = captura.Registros.ToList();
