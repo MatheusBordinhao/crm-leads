@@ -329,6 +329,7 @@ docker compose -f docker-compose.prod.yml start api
 - Logs, sem dados pessoais: `docker compose -f docker-compose.prod.yml logs -f api`. Cada contêiner guarda até 5 arquivos de 10 MB.
 - A rede do Compose usa a faixa `172.30.0.0/24`, e o Caddy, o IP `172.30.0.10`: a API só aceita o IP de quem acessa (`X-Forwarded-For`) vindo dele. Se a faixa colidir com outra rede do servidor, defina `REDE_SUBNET` e `CADDY_IP` no `.env`.
 - O Caddy manda HSTS de um ano: depois do primeiro acesso por HTTPS, o navegador não aceita mais o domínio sem HTTPS.
+- Na subida, o log da API avisa que as chaves da sessão ficam sem criptografia (`No XML encryptor configured`). É esperado: elas ficam no volume `chaves-sessao`, que só quem acessa o servidor lê, e quem acessa o servidor já acessa o banco.
 
 ### Testar a publicação no próprio computador
 
