@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApi();
 builder.Services.AddProxyReverso();
+builder.Services.AddChavesDaSessao();
 builder.Services.AddProblemDetailsPtBr();
 builder.Services.AddOpenApi(opcoes => opcoes.AddDocumentTransformer((documento, _, _) =>
 {
