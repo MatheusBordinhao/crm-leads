@@ -438,13 +438,19 @@ N8n__WebhookUrl=                             # URL de produção do Webhook do f
 N8n__WebhookChave=                           # CRM → n8n (Header Auth), 32+ caracteres aleatórios
 N8n__Eventos=lead.criado,lead.reatribuido,lead.entrada_repetida
 DOMINIO=                                     # só em produção, usado pelo Caddy
+# Só em produção, opcionais (veja o README › Publicação):
+# BACKUP_PASTA=/var/backups/crm              # pasta do servidor com os backups diários (padrão: ./backups)
+# REDE_SUBNET=172.30.0.0/24                  # faixa da rede do Compose, se colidir com outra rede do servidor
+# CADDY_IP=172.30.0.10                       # IP do Caddy nessa faixa: só dele a API aceita o IP de quem acessa
+# PORTA_HTTP=80                              # portas do Caddy no servidor
+# PORTA_HTTPS=443
 ```
 
-Em desenvolvimento, o Docker Compose e a API leem o mesmo `.env` da raiz, e uma variável que já exista no ambiente tem prioridade sobre o arquivo. Em produção, as variáveis vêm do ambiente.
+Em desenvolvimento, o Docker Compose e a API leem o mesmo `.env` da raiz, e uma variável que já exista no ambiente tem prioridade sobre o arquivo. Em produção, as variáveis vêm do ambiente: o `docker-compose.prod.yml` lê o `.env` do servidor e passa para a API só as que ela usa, com a connection string e o `Crm__UrlPublica` (`https://` + `DOMINIO`) montados por ele.
 
-O `docker-compose.prod.yml` define mais estas, sem passar pelo `.env`:
+O `docker-compose.prod.yml` define também estas:
 
-- `Proxy__Ip`: o IP do Caddy na rede do Docker. Só dele a API aceita os cabeçalhos `X-Forwarded-For` e `X-Forwarded-Proto`, e assim o limite de logins por IP e a auditoria veem o IP de quem acessa. Vazio, nenhum cabeçalho encaminhado vale.
+- `Proxy__Ip`: o IP do Caddy na rede do Docker (`CADDY_IP`). Só dele a API aceita os cabeçalhos `X-Forwarded-For` e `X-Forwarded-Proto`, e assim o limite de logins por IP e a auditoria veem o IP de quem acessa. Vazio, nenhum cabeçalho encaminhado vale.
 - `DataProtection__Pasta`: a pasta das chaves do Data Protection, que protegem o cookie da sessão, num volume do Docker. Assim, recriar o contêiner da API não encerra as sessões. Vazia, valem as chaves padrão do ASP.NET Core, como em desenvolvimento.
 
 A API confere na subida o que é obrigatório e para com uma mensagem clara. `Crm__UrlPublica` é obrigatória (em desenvolvimento, o padrão é `http://localhost:5173`); `N8n__WebhookChave`, com 32+ caracteres, é obrigatória quando há `N8n__WebhookUrl`.
