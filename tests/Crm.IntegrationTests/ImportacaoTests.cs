@@ -7,8 +7,11 @@ using Crm.Api.Features.Leads;
 using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
+using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Importacoes;
 using Crm.IntegrationTests.Infra;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Crm.IntegrationTests;
 
@@ -387,6 +390,23 @@ public class ImportacaoTests(CrmApiFactory fabrica)
         Assert.Equal([CriarImportacaoRequestValidator.MensagemOrigem], await origemManual.LerErrosDoCampoAsync("origem"));
         Assert.Equal([CriarImportacaoRequestValidator.MensagemCampanha], await duasCampanhas.LerErrosDoCampoAsync("novaCampanha"));
         Assert.Equal([LeadsController.MensagemResponsavelInvalido], await responsavelInexistente.LerErrosDoCampoAsync("responsavelId"));
+    }
+
+    [Fact]
+    public async Task A_analise_le_o_arquivo_sem_gravar_nada()
+    {
+        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+        var email = LeadsDeTeste.EmailUnico();
+        var nomeArquivo = $"analise-{Guid.NewGuid():N}.csv";
+
+        var analise = await admin.AnalisarAsync(
+            ImportacoesDeTeste.ArquivoDoExcel(ImportacoesDeTeste.LinhaExcel("Maria Souza", email: email)), nomeArquivo);
+
+        Assert.Equal(nomeArquivo, analise.GetProperty("nomeArquivo").GetString());
+        Assert.Equal(1, analise.GetProperty("totalLinhas").GetInt32());
+        Assert.Empty(await fabrica.LeadsComEmailAsync(email));
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        Assert.False(await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Importacoes.AnyAsync(i => i.NomeArquivo == nomeArquivo, Ct));
     }
 
     [Fact]
