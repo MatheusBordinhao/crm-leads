@@ -16,6 +16,7 @@ ArquivoEnv.CarregarEmDesenvolvimento();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApi();
+builder.Services.AddProxyReverso();
 builder.Services.AddProblemDetailsPtBr();
 builder.Services.AddOpenApi(opcoes => opcoes.AddDocumentTransformer((documento, _, _) =>
 {
@@ -38,6 +39,8 @@ var app = builder.Build();
 
 app.Configuration.ExigirConnectionString();
 
+// Primeiro: o resto do pipeline já vê o IP e o esquema de quem acessa, e não os do Caddy.
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
