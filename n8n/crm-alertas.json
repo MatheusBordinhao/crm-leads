@@ -11,9 +11,16 @@
         "httpMethod": "POST",
         "path": "crm-alertas",
         "authentication": "headerAuth",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "options": {}
       },
-      "webhookId": "7e3e50fd-f439-4d09-bd94-d8c33987c10b"
+      "webhookId": "7e3e50fd-f439-4d09-bd94-d8c33987c10b",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QMW3XZTZ3hwidhps",
+          "name": "Header Auth account"
+        }
+      }
     },
     {
       "id": "7364c7f2-312e-4fbe-ba16-5f5534f0b71e",
@@ -22,8 +29,6 @@
       "typeVersion": 3.5,
       "position": [224, 80],
       "parameters": {
-        "mode": "manual",
-        "includeOtherFields": true,
         "assignments": {
           "assignments": [
             {
@@ -33,7 +38,9 @@
               "type": "string"
             }
           ]
-        }
+        },
+        "includeOtherFields": true,
+        "options": {}
       }
     },
     {
@@ -44,7 +51,6 @@
       "position": [448, 80],
       "parameters": {
         "mode": "runOnceForEachItem",
-        "language": "javaScript",
         "jsCode": "// Monta o e-mail do evento (seção 4.3 da especificação). Sem responsável, o aviso vai para o e-mail de admin.\nconst evento = $json.body || {};\nconst lead = evento.lead || {};\nconst responsavel = evento.responsavel || null;\nconst dados = evento.dados || {};\nconst emailAdmin = $json.emailAdmin;\n\nconst origens = { meta_lead_ads: 'Meta', google_ads: 'Google Ads', site: 'Site', whatsapp: 'WhatsApp', telefone: 'Telefone', indicacao: 'Indicação', planilha: 'Planilha', manual: 'Cadastro manual' };\nconst plataformas = { facebook: 'Facebook', instagram: 'Instagram', google: 'Google' };\nfunction nomeDaOrigem(origem, plataforma) {\n  const nome = origens[origem] || origem || 'não informada';\n  const onde = plataformas[plataforma];\n  return onde ? nome + ' (' + onde + ')' : nome;\n}\n\nconst nome = lead.nome || 'Lead sem nome';\nconst ficha = [\n  ['Nome', lead.nome],\n  ['Empresa', lead.empresa],\n  ['UF', lead.uf],\n  ['Origem', nomeDaOrigem(lead.origem, lead.plataforma)],\n  ['Campanha', lead.campanha],\n  ['Etapa', lead.etapa && lead.etapa.nome],\n].filter(function (par) { return par[1]; }).map(function (par) { return par[0] + ': ' + par[1]; }).join('\\n');\n\nlet assunto;\nlet abertura;\nif (evento.tipo === 'lead.criado') {\n  assunto = responsavel ? 'Novo lead para você: ' + nome : 'Lead novo sem responsável: ' + nome;\n  abertura = responsavel\n    ? 'Você recebeu um lead novo no CRM.'\n    : 'Chegou um lead novo e ele ficou sem responsável. Escolha quem vai atendê-lo na ficha.';\n} else if (evento.tipo === 'lead.entrada_repetida') {\n  assunto = responsavel ? 'Nova entrada de um lead seu: ' + nome : 'Nova entrada de um lead sem responsável: ' + nome;\n  abertura = 'Este lead entrou em contato de novo, pela origem ' + nomeDaOrigem(dados.origem) + (dados.campanha ? ', na campanha ' + dados.campanha : '') + '.';\n} else if (evento.tipo === 'lead.reatribuido') {\n  assunto = responsavel ? 'Lead passado para você: ' + nome : 'Lead sem responsável ativo: ' + nome;\n  abertura = dados.responsavelAnterior\n    ? 'Este lead estava com ' + dados.responsavelAnterior.nome + ' e foi passado para ' + (responsavel ? 'você' : 'um usuário desativado') + '.'\n    : 'Este lead estava sem responsável e foi passado para ' + (responsavel ? 'você' : 'um usuário desativado') + '.';\n} else {\n  // Os outros tipos (como lead.etapa_alterada) não geram e-mail.\n  return { json: { enviar: false, tipo: evento.tipo || null } };\n}\n\nconst saudacao = responsavel ? 'Olá, ' + responsavel.nome + '.' : 'Olá.';\nreturn {\n  json: {\n    enviar: true,\n    tipo: evento.tipo,\n    destinatario: (responsavel && responsavel.email) || emailAdmin,\n    assunto: assunto,\n    mensagem: saudacao + '\\n\\n' + abertura + '\\n\\n' + ficha + '\\n\\nAbrir a ficha: ' + lead.url + '\\n',\n  },\n};"
       }
     },
@@ -70,7 +76,8 @@
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       }
     },
     {
@@ -80,8 +87,6 @@
       "typeVersion": 2.2,
       "position": [896, 0],
       "parameters": {
-        "resource": "message",
-        "operation": "send",
         "sendTo": "={{ $json.destinatario }}",
         "subject": "={{ $json.assunto }}",
         "emailType": "text",
@@ -116,12 +121,12 @@
       "name": "Sobre o fluxo",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-40, -260],
+      "position": [-48, -256],
       "parameters": {
         "content": "## CRM - Alertas\nRecebe os eventos do CRM (seção 4.3) e manda o e-mail para a responsável, com o link da ficha. Sem responsável, avisa o e-mail de admin do nó \"Configuração\". Só responde ao CRM depois de enviar: se o Gmail falhar, o CRM tenta de novo.",
-        "color": 7,
+        "height": 200,
         "width": 720,
-        "height": 200
+        "color": 7
       }
     }
   ],
@@ -148,6 +153,8 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "America/Sao_Paulo",
-    "saveDataSuccessExecution": "none"
+    "saveDataSuccessExecution": "none",
+    "binaryMode": "separate",
+    "errorWorkflow": "zqvER5UUTkTxFM4G"
   }
 }
