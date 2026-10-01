@@ -300,6 +300,7 @@ Usa a mesma chave da entrada. Devolve uma linha por campanha com origem, campanh
 | `CRM - Reenvio de pendentes` | Schedule de hora em hora, das 8h às 20h, de segunda a sexta | Reenvia o que está na Data Table `crm_entradas_pendentes` e apaga a linha quando dá certo | 6 |
 | `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o relatório da semana anterior (4.4) e envia para a Gama por e-mail ou planilha | 9 |
 
+- **Alertas:** o Webhook (`/webhook/crm-alertas`) confere o `X-Crm-Chave` por uma credencial Header Auth e só responde ao CRM depois de mandar o e-mail: se o Gmail falhar, o n8n responde com erro e o CRM tenta de novo. O e-mail vai em texto simples, para nenhum dado do lead virar HTML. Só `lead.criado`, `lead.entrada_repetida` e `lead.reatribuido` geram e-mail; os outros tipos recebem 200 sem e-mail.
 - **Chave do CRM:** fica numa credencial Header Auth (`X-Api-Key`) usada pelo HTTP Request.
 - **Falhas no envio ao CRM:** o HTTP Request tenta 3 vezes, a cada 5 segundos. Se ainda falhar com 429, 5xx ou tempo esgotado, o payload vai para `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em). Erros 400 e 401 não vão para a fila; disparam o `CRM - Erros`.
 - **Meta:**

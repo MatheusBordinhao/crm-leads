@@ -1,0 +1,62 @@
+{
+  "name": "CRM - Erros",
+  "nodes": [
+    {
+      "id": "23ebb3bb-0025-418d-bd6e-879c47b18e2e",
+      "name": "Erro num fluxo do CRM",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "dd77aea8-c8a1-4cc9-808a-7fb08ea8c05e",
+      "name": "Avisar o admin",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [224, 0],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "matheusbordinhao11@gmail.com",
+        "subject": "=[CRM] Falha no fluxo {{ $json.workflow.name }}",
+        "emailType": "text",
+        "message": "=O fluxo {{ $json.workflow.name }} falhou.\n\nNó: {{ $json.execution.lastNodeExecuted ?? \"não informado\" }}\nErro: {{ $json.execution.error?.message ?? \"sem mensagem\" }}\n\nExecução: {{ $json.execution.url ?? \"sem link\" }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "CRM de Leads"
+        }
+      },
+      "webhookId": "83516fae-4ffa-420a-9880-dbb0c29d745c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KTxmmwgea3SYSApB",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "id": "81d12647-e300-49f9-9300-698f33cb7fe9",
+      "name": "Sobre o fluxo",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -240],
+      "parameters": {
+        "content": "## CRM - Erros\nÉ o fluxo de erro de todos os fluxos `CRM - `. Manda um e-mail ao admin com o nome do fluxo, o nó, a mensagem e o link da execução. Para mudar quem recebe, troque o endereço no nó \"Avisar o admin\".",
+        "color": 7,
+        "width": 480,
+        "height": 180
+      }
+    }
+  ],
+  "connections": {
+    "Erro num fluxo do CRM": {
+      "main": [[{ "node": "Avisar o admin", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "saveDataSuccessExecution": "none"
+  }
+}
