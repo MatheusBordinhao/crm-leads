@@ -503,6 +503,141 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notificacoes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["NotificacoesResponse"];
+                        "application/json": components["schemas"]["NotificacoesResponse"];
+                        "text/json": components["schemas"]["NotificacoesResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notificacoes/{id}/lida": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notificacoes/lidas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/campanhas": {
         parameters: {
             query?: never;
@@ -768,6 +903,61 @@ export interface paths {
                     "application/json": components["schemas"]["MudarEtapaRequest"];
                     "text/json": components["schemas"]["MudarEtapaRequest"];
                     "application/*+json": components["schemas"]["MudarEtapaRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LeadResponse"];
+                        "application/json": components["schemas"]["LeadResponse"];
+                        "text/json": components["schemas"]["LeadResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leads/{id}/responsavel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TrocarResponsavelRequest"];
+                    "text/json": components["schemas"]["TrocarResponsavelRequest"];
+                    "application/*+json": components["schemas"]["TrocarResponsavelRequest"];
                 };
             };
             responses: {
@@ -1635,6 +1825,11 @@ export interface components {
             etapa: null | components["schemas"]["MudancaEtapaNaLinhaDoTempo"];
             responsavel: null | components["schemas"]["TrocaResponsavelNaLinhaDoTempo"];
         };
+        LeadDaNotificacao: {
+            /** Format: int64 */
+            id: number;
+            nome: string;
+        };
         LeadResponse: {
             /** Format: int64 */
             id: number;
@@ -1727,6 +1922,22 @@ export interface components {
             motivoPerdaId: null | number;
             motivoPerdaDetalhe: null | string;
         };
+        NotificacaoResponse: {
+            /** Format: int64 */
+            id: number;
+            tipo: components["schemas"]["TipoNotificacao"];
+            titulo: string;
+            lead: null | components["schemas"]["LeadDaNotificacao"];
+            /** Format: date-time */
+            criadoEm: string;
+            /** Format: date-time */
+            lidaEm: null | string;
+        };
+        NotificacoesResponse: {
+            /** Format: int32 */
+            naoLidas: number;
+            itens: components["schemas"]["NotificacaoResponse"][];
+        };
         /** @enum {unknown} */
         OrdemLeads: "Recentes" | "Antigos" | "Nome";
         /** @enum {unknown} */
@@ -1786,9 +1997,15 @@ export interface components {
         TipoInteracao: "nota" | "ligacao" | "whatsapp" | "email" | "reuniao";
         /** @enum {unknown} */
         TipoItemLinhaDoTempo: "entrada" | "interacao" | "etapa" | "responsavel";
+        /** @enum {unknown} */
+        TipoNotificacao: "lead_atribuido" | "lead_reatribuido" | "nova_entrada" | "cadastro_repetido" | "lead_sem_responsavel" | "evento_falhou";
         TrocaResponsavelNaLinhaDoTempo: {
             anterior: null | components["schemas"]["UsuarioResumo"];
             nova: null | components["schemas"]["UsuarioResumo"];
+        };
+        TrocarResponsavelRequest: {
+            /** Format: uuid */
+            responsavelId: string;
         };
         TrocarSenhaRequest: {
             senhaAtual: string;
@@ -1807,6 +2024,7 @@ export interface components {
             bloqueadoAte: null | string;
             /** Format: date-time */
             ultimoLeadAtribuidoEm: null | string;
+            proximoDaVez: boolean;
             /** Format: date-time */
             criadoEm: string;
         };

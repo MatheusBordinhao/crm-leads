@@ -121,6 +121,22 @@ describe('novo lead', () => {
     expect(recebidos[0].responsavelId).toBe(atendente.id)
   })
 
+  it('sem escolha do admin, o lead vai para o rodízio', async () => {
+    comSessao(admin)
+    comCadastros()
+    const recebidos = comCadastro({ leadId: 9, situacao: 'criado', podeAbrir: true })
+    const { usuario } = renderizarApp('/leads/novo')
+
+    const responsavel = await screen.findByLabelText('Responsável')
+    expect(responsavel).toHaveDisplayValue('Rodízio')
+    await usuario.type(screen.getByLabelText('Nome'), 'Maria')
+    await usuario.type(screen.getByLabelText('E-mail'), 'maria@empresax.com.br')
+    await usuario.click(screen.getByRole('button', { name: 'Cadastrar lead' }))
+
+    await screen.findByText('Lead cadastrado.')
+    expect(recebidos[0].responsavelId).toBeNull()
+  })
+
   it('a atendente não escolhe a responsável', async () => {
     comSessao(atendente)
 

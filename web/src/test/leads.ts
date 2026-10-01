@@ -50,6 +50,7 @@ function usuario(eu: typeof admin, parcial: Partial<UsuarioResponse> = {}): Usua
     trocarSenha: false,
     bloqueadoAte: null,
     ultimoLeadAtribuidoEm: null,
+    proximoDaVez: false,
     criadoEm: '2026-09-28T12:00:00Z',
     ...parcial,
   }

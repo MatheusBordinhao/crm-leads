@@ -79,7 +79,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 
 ### 3.3 Distribuição
 
-- A configuração `distribuicao_automatica` vem ligada por padrão.
+- A configuração `distribuicao_automatica` vem ligada por padrão. O admin a liga e desliga no cartão Rodízio, em Configurações › Usuários, que também mostra para quem vai o próximo lead.
 - Ligada, o próximo lead vai para o usuário ativo com `participa_rodizio = true` que recebeu lead há mais tempo: menor `ultimo_lead_atribuido_em`, com nulos primeiro e empate decidido pelo id. A escolha roda sob um `pg_advisory_xact_lock` global, para dois leads simultâneos não caírem na mesma pessoa, e a hora é lida depois da trava, para a vez andar na ordem certa.
 - Só o rodízio mexe em `ultimo_lead_atribuido_em`: a escolha do admin no cadastro, a troca de responsável e o lead que a atendente cadastra para si não mudam a vez.
 - Se ninguém participa do rodízio ou a distribuição está desligada, o lead fica sem responsável e os admins são notificados, com o motivo.
@@ -350,7 +350,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/leads/exportacao` | Admin | CSV com os filtros da lista |
 | `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD |
 | `DELETE /api/leads/{id}` | Admin | Só para leads de teste |
-| `GET /api/usuarios`, `GET /api/usuarios/{id}`, `POST /api/usuarios`, `PUT /api/usuarios/{id}`, `POST /api/usuarios/{id}/redefinir-senha` | Admin | Criar, editar, desativar (`ativo = false`) e redefinir a senha provisória, o que também tira o bloqueio. O admin não pode desativar a si mesmo nem tirar o próprio perfil de Admin |
+| `GET /api/usuarios`, `GET /api/usuarios/{id}`, `POST /api/usuarios`, `PUT /api/usuarios/{id}`, `POST /api/usuarios/{id}/redefinir-senha` | Admin | Criar, editar, desativar (`ativo = false`) e redefinir a senha provisória, o que também tira o bloqueio. O admin não pode desativar a si mesmo nem tirar o próprio perfil de Admin. A lista diz quem recebe o próximo lead do rodízio (`proximoDaVez`) |
 | `GET /api/funil` | Admin e atendente | Quadro do funil: as colunas abertas, com até 100 leads cada e o total, e quantos leads foram para Ganho e para Perdido nos últimos 30 dias. Filtros da lista: busca, origem, campanha e responsável (admin) |
 | `GET /api/etapas`, `GET /api/motivos-perda`, `GET /api/campanhas` | Admin e atendente | Leitura, para os filtros, o quadro e o motivo da perda |
 | `POST /api/etapas`, `PUT /api/etapas/{id}`, `PUT /api/etapas/ordem`, `POST /api/etapas/{id}/desativar`, `POST /api/etapas/{id}/reativar` | Admin | Criar, renomear, reordenar as abertas, desativar (com `moverLeadsParaId`) e reativar |
@@ -370,12 +370,12 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 - **Login e troca de senha.**
 - **Funil:** quadro com uma coluna por etapa aberta e Ganho e Perdido como áreas de soltar. As colunas mostram todos os leads em andamento, de qualquer data, para nenhum lead parado sumir (até 100 por coluna, com um link para a lista); Ganho e Perdido mostram quantos leads foram para lá nos últimos 30 dias, no horário de Brasília (hoje incluído). Cada cartão mostra nome, empresa, origem, tempo desde a entrada e, para o admin, a responsável. Tem filtros por responsável (admin), origem, campanha e busca. Soltar em Perdido pede o motivo, e cancelar devolve o cartão; um Ganho recusado devolve o cartão e mostra a mensagem. O teclado também arrasta, pela alça do cartão: espaço pega, as setas para a direita e para a esquerda escolhem a etapa e espaço solta. O quadro não rola para o lado: as colunas dividem a largura e passam para a linha de baixo quando não cabem. No celular, vira uma lista por etapa com seletor, sem arrastar, e um "Mover para" em cada cartão. É a tela inicial até o painel chegar (Passo 8).
 - **Leads:** tabela com busca sem acento (nome, e-mail, telefone, empresa, documento), filtros e ordenação. No celular, cartões.
-- **Ficha do lead:** dados editáveis, avisos, botões de contato, etapa, responsável (admin), linha do tempo e registro de interação.
-- **Novo lead.**
+- **Ficha do lead:** dados editáveis, avisos, botões de contato, etapa, responsável (o admin troca por uma seleção de usuários ativos), linha do tempo e registro de interação.
+- **Novo lead:** o admin escolhe a responsável ou deixa com o rodízio.
 - **Painel** (seção 8).
-- **Notificações:** sino com contador no topo de todas as telas.
+- **Notificações:** sino com contador no topo de todas as telas. Clicar numa notificação a marca como lida e abre a ficha do lead.
 - **Importação** (admin).
-- **Configurações** (admin): usuários, etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho), campanhas e distribuição.
+- **Configurações** (admin): usuários (com o cartão Rodízio, que liga e desliga a distribuição automática), etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho) e campanhas.
 - **Auditoria** (admin).
 
 Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem a lista, a ficha, a mudança de etapa, o registro de interação e as notificações. O visual é neutro, com espaço para o logo da empresa.
@@ -575,7 +575,7 @@ Cada decisão tem um padrão, para o desenvolvimento não parar enquanto ela nã
 
 | Decisão | Padrão adotado | Quem decide |
 | --- | --- | --- |
-| Rodízio automático ou distribuição pelo admin | Rodízio, configurável | Chefe |
+| Rodízio automático ou distribuição pelo admin | Rodízio, configurável no cartão Rodízio de Configurações › Usuários | Chefe |
 | Exigir CPF/CNPJ para marcar Ganho | Sim, configurável em Configurações › Etapas e motivos | Chefe |
 | Etapas definitivas do funil | As da seção 3.4 | Gama e chefe |
 | Quem é admin | Chefe e Matheus | Chefe |

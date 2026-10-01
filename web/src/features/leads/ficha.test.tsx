@@ -99,16 +99,52 @@ describe('ficha do lead', () => {
     expect(screen.getByText('Qual serviço você procura?')).toBeInTheDocument()
     expect(screen.getByText('Serviço Y')).toBeInTheDocument()
     expect(screen.getByText(/Entrou em 05\/10\/2026, 14:03/)).toBeInTheDocument()
-    expect(screen.queryByText(/Responsável:/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Passar para')).not.toBeInTheDocument()
   })
 
-  it('o admin vê a responsável', async () => {
+  it('o admin passa o lead para outra pessoa ativa', async () => {
+    comSessao(admin)
+    const lead = fichaLead()
+    comFicha(lead)
+    const trocas: unknown[] = []
+    servidor.use(
+      http.post('*/api/leads/:id/responsavel', async ({ request }) => {
+        trocas.push(await request.json())
+        return HttpResponse.json({ ...lead, responsavel: { id: admin.id, nome: admin.nome } })
+      }),
+    )
+    const { usuario } = renderizarApp('/leads/1024')
+
+    const responsavel = await screen.findByLabelText('Passar para')
+    await within(responsavel).findByRole('option', { name: admin.nome })
+    expect(responsavel).toHaveValue(atendente.id)
+    expect(within(responsavel).queryByRole('option', { name: 'Pietra' })).not.toBeInTheDocument()
+    await usuario.selectOptions(responsavel, admin.nome)
+
+    expect(await screen.findByText(`Lead passado para ${admin.nome}.`)).toBeInTheDocument()
+    expect(trocas).toEqual([{ responsavelId: admin.id }])
+    expect(responsavel).toHaveValue(admin.id)
+  })
+
+  it('o admin vê quando o lead está sem responsável', async () => {
     comSessao(admin)
     comFicha(fichaLead({ responsavel: null }))
 
     renderizarApp('/leads/1024')
 
-    expect(await screen.findByText('Sem responsável')).toBeInTheDocument()
+    const responsavel = await screen.findByLabelText('Passar para')
+    expect(within(responsavel).getByRole('option', { name: 'Sem responsável' })).toBeDisabled()
+    expect(responsavel).toHaveValue('')
+  })
+
+  it('lead de teste não troca de responsável', async () => {
+    comSessao(admin)
+    comFicha(fichaLead({ responsavel: null, teste: true }))
+
+    renderizarApp('/leads/1024')
+
+    expect(await screen.findByText(/Lead de teste fica sem responsável/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Passar para')).not.toBeInTheDocument()
   })
 
   it('salva com a versão, mesmo com o telefone inválido que veio da integração', async () => {

@@ -55,7 +55,7 @@ export function NovoLeadPage() {
       {
         ...dadosParaApi(dados),
         origem,
-        // Só o admin escolhe; a atendente fica com o lead que cadastra.
+        // Só o admin escolhe (sem escolha, o rodízio decide); a atendente fica com o lead que cadastra.
         responsavelId: ehAdmin && responsavelId ? responsavelId : null,
       },
       {
@@ -117,11 +117,11 @@ export function NovoLeadPage() {
                 <CampoSelecao
                   id="responsavelId"
                   rotulo="Responsável"
-                  descricao="Sem responsável, só os admins veem o lead."
+                  descricao="No rodízio, o lead vai para a próxima pessoa da vez. Se ninguém estiver no rodízio, ou a distribuição estiver desligada, ele fica sem responsável e só os admins o veem."
                   registro={register('responsavelId')}
                   erro={errors.responsavelId}
                 >
-                  <option value="">Sem responsável</option>
+                  <option value="">Rodízio</option>
                   {usuarios
                     ?.filter((usuario) => usuario.ativo)
                     .map((usuario) => (

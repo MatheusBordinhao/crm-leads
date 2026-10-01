@@ -115,6 +115,28 @@ export function useMudarEtapa() {
   })
 }
 
+/** Passa o lead para outra pessoa (só admin). A troca aparece na linha do tempo, na lista e no quadro. */
+export function useTrocarResponsavel(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (responsavelId: string) =>
+      exigirSucesso(
+        api.POST('/api/leads/{id}/responsavel', {
+          params: { path: { id } },
+          body: { responsavelId },
+        }),
+      ),
+    onSuccess: (lead) => {
+      queryClient.setQueryData(chaveFicha(id), lead)
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: chaveLista }),
+        queryClient.invalidateQueries({ queryKey: chaveLinhaDoTempo(id) }),
+        queryClient.invalidateQueries({ queryKey: chaveFunil }),
+      ])
+    },
+  })
+}
+
 export function useLinhaDoTempo(id: number) {
   return useQuery({
     queryKey: chaveLinhaDoTempo(id),

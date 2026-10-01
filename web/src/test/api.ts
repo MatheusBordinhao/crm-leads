@@ -26,7 +26,13 @@ export function problema(status: number, corpo: Record<string, unknown> = {}) {
   )
 }
 
-/** Define quem está logado; `null` simula a falta de sessão (401). */
+/**
+ * Define quem está logado; `null` simula a falta de sessão (401). Com sessão, o sino do topo começa sem
+ * notificações (`comNotificacoes` troca a lista).
+ */
 export function comSessao(eu: EuResponse | null) {
-  servidor.use(http.get('*/api/auth/eu', () => (eu ? HttpResponse.json(eu) : problema(401))))
+  servidor.use(
+    http.get('*/api/auth/eu', () => (eu ? HttpResponse.json(eu) : problema(401))),
+    http.get('*/api/notificacoes', () => HttpResponse.json({ naoLidas: 0, itens: [] })),
+  )
 }

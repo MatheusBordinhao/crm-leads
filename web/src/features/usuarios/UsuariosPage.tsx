@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table'
 import { useEu } from '@/features/acesso/sessao'
 import { formatarHora } from '@/lib/datas'
+import { CartaoRodizio } from './CartaoRodizio'
 import { useEditarUsuario, useUsuarios } from './dados'
 import { RedefinirSenhaDialog } from './RedefinirSenhaDialog'
 import { UsuarioDialog } from './UsuarioDialog'
@@ -86,6 +87,8 @@ export function UsuariosPage() {
 
       {usuarios && (
         <>
+          <CartaoRodizio usuarios={usuarios} />
+
           {/* Computador: tabela */}
           <div className="hidden rounded-lg border md:block">
             <Table>

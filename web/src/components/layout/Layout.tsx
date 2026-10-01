@@ -4,6 +4,7 @@ import { Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useEu } from '@/features/acesso/sessao'
+import { Sino } from '@/features/notificacoes/Sino'
 import { Marca } from './Marca'
 import { Menu } from './Menu'
 import { MenuUsuario } from './MenuUsuario'
@@ -48,7 +49,8 @@ export function Layout() {
             </SheetContent>
           </Sheet>
           <Marca className="md:hidden" />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <Sino />
             <MenuUsuario eu={eu} />
           </div>
         </header>

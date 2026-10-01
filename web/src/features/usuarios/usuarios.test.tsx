@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { UsuarioResponse } from '@/api/cliente'
@@ -17,6 +17,7 @@ const eu: UsuarioResponse = {
   trocarSenha: false,
   bloqueadoAte: null,
   ultimoLeadAtribuidoEm: null,
+  proximoDaVez: false,
   criadoEm: '2026-09-28T12:00:00Z',
 }
 
@@ -30,12 +31,17 @@ const adriana: UsuarioResponse = {
   trocarSenha: true,
   bloqueadoAte: '2026-10-05T17:32:00Z',
   ultimoLeadAtribuidoEm: null,
+  proximoDaVez: true,
   criadoEm: '2026-09-28T12:00:00Z',
 }
 
-/** Admin logado vendo a lista. Devolve as requisições de escrita recebidas pela API simulada. */
+/**
+ * Admin logado vendo a lista, com o rodízio ligado. Devolve as requisições de escrita recebidas pela API
+ * simulada.
+ */
 function comLista(usuarios: UsuarioResponse[] = [eu, adriana]) {
   comSessao(admin)
+  let configuracoes = { exigirDocumentoParaGanho: true, distribuicaoAutomatica: true }
   const recebidas: { metodo: string; caminho: string; corpo: unknown }[] = []
   const registrar = async ({ request }: { request: Request }) => {
     recebidas.push({
@@ -46,6 +52,12 @@ function comLista(usuarios: UsuarioResponse[] = [eu, adriana]) {
   }
   servidor.use(
     http.get('*/api/usuarios', () => HttpResponse.json(usuarios)),
+    http.get('*/api/configuracoes', () => HttpResponse.json(configuracoes)),
+    http.put('*/api/configuracoes', async ({ request }) => {
+      configuracoes = (await request.clone().json()) as typeof configuracoes
+      await registrar({ request })
+      return HttpResponse.json(configuracoes)
+    }),
     http.put('*/api/usuarios/:id', async (info) => {
       await registrar(info)
       return HttpResponse.json(adriana)
@@ -71,6 +83,51 @@ describe('usuários', () => {
 
     expect(await screen.findByRole('heading', { name: 'Funil' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/funil')
+  })
+
+  it('mostra para quem vai o próximo lead do rodízio', async () => {
+    comLista()
+
+    renderizarApp('/configuracoes/usuarios')
+
+    expect(await screen.findByText(/O próximo lead vai para/)).toHaveTextContent(
+      'O próximo lead vai para Adriana.',
+    )
+    expect(
+      screen.getByRole('switch', { name: 'Distribuir os leads novos pelo rodízio' }),
+    ).toBeChecked()
+  })
+
+  it('sem ninguém no rodízio, avisa que os leads ficam sem responsável', async () => {
+    comLista([eu, { ...adriana, participaRodizio: false, proximoDaVez: false }])
+
+    renderizarApp('/configuracoes/usuarios')
+
+    expect(await screen.findByText(/Ninguém está no rodízio/)).toBeInTheDocument()
+  })
+
+  it('desliga a distribuição automática mandando as duas configurações', async () => {
+    const recebidas = comLista()
+    const { usuario } = renderizarApp('/configuracoes/usuarios')
+
+    const interruptor = await screen.findByRole('switch', {
+      name: 'Distribuir os leads novos pelo rodízio',
+    })
+    await waitFor(() => expect(interruptor).toBeEnabled())
+    await usuario.click(interruptor)
+
+    expect(
+      await screen.findByText('Rodízio desligado: os leads novos ficam sem responsável.'),
+    ).toBeInTheDocument()
+    expect(interruptor).not.toBeChecked()
+    expect(screen.queryByText(/O próximo lead vai para/)).not.toBeInTheDocument()
+    expect(recebidas).toEqual([
+      {
+        metodo: 'PUT',
+        caminho: '/api/configuracoes',
+        corpo: { exigirDocumentoParaGanho: true, distribuicaoAutomatica: false },
+      },
+    ])
   })
 
   it('lista perfil, bloqueio e senha provisória', async () => {

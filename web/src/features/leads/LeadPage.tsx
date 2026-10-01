@@ -21,6 +21,7 @@ import { EtapaDoLead } from './EtapaDoLead'
 import { CAMPOS_DADOS, camposDados, dadosIniciais, dadosParaApi, validarDados } from './esquema'
 import { InteracaoDialog } from './InteracaoDialog'
 import { LinhaDoTempo } from './LinhaDoTempo'
+import { ResponsavelDoLead } from './ResponsavelDoLead'
 import { ROTULOS_ORIGEM, rotuloPlataforma } from './rotulos'
 import { SeloEtapa } from './SeloEtapa'
 
@@ -101,22 +102,17 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
             ? `Primeiro contato em ${formatarDataHora(lead.primeiroContatoEm)}`
             : 'Ainda sem contato'}
         </p>
-        {eu?.perfil === 'Admin' && (
-          <p className="text-sm">
-            Responsável:{' '}
-            {lead.responsavel?.nome ?? (
-              <span className="text-muted-foreground">Sem responsável</span>
-            )}
-          </p>
-        )}
       </header>
 
       <BotoesContato lead={lead} aoContatar={setRegistrando} />
 
-      {/* No celular, uma coluna: etapa, dados, linha do tempo e origem. No computador, dados e linha do
-          tempo à esquerda; etapa e origem à direita. */}
+      {/* No celular, uma coluna: etapa (e responsável, para o admin), dados, linha do tempo e origem. No
+          computador, dados e linha do tempo à esquerda; etapa, responsável e origem à direita. */}
       <div className="grid items-start gap-4 lg:grid-cols-[2fr_1fr]">
-        <EtapaDoLead lead={lead} className="lg:col-start-2 lg:row-start-1" />
+        <div className="flex flex-col gap-4 lg:col-start-2 lg:row-start-1">
+          <EtapaDoLead lead={lead} />
+          {eu?.perfil === 'Admin' && <ResponsavelDoLead lead={lead} />}
+        </div>
         <Card className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <CardHeader>
             <CardTitle>Dados</CardTitle>
