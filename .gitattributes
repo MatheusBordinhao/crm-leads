@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# Os CSVs de exemplo ficam como a Meta e o Excel os salvam (UTF-16, CRLF)
+*.csv -text
