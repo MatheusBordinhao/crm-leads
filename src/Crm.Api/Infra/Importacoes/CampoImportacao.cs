@@ -79,3 +79,13 @@ public enum CampoImportacao
     [JsonStringEnumMemberName("resposta_extra")]
     RespostaExtra = 23,
 }
+
+internal static class CamposImportacao
+{
+    /// <summary>
+    /// Os campos que aceitam uma coluna só. O nome aceita várias (nome e sobrenome, juntados nessa ordem), e as
+    /// respostas extras e as colunas não importadas podem ser quantas forem.
+    /// </summary>
+    public static bool UmaColunaSo(CampoImportacao campo) =>
+        campo is not (CampoImportacao.NaoImportar or CampoImportacao.Nome or CampoImportacao.RespostaExtra);
+}
