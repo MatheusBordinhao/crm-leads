@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Crm.Api.Features.Leads;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Importacoes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -33,6 +34,14 @@ public enum TipoNotificacao
     /// <summary>Para os admins: um evento para o n8n falhou de vez.</summary>
     [JsonStringEnumMemberName("evento_falhou")]
     EventoFalhou = 6,
+
+    /// <summary>Para o admin que importou um CSV: o resumo da importação, com o link para o resultado.</summary>
+    [JsonStringEnumMemberName("importacao_concluida")]
+    ImportacaoConcluida = 7,
+
+    /// <summary>Quantos leads novos uma importação deixou com você.</summary>
+    [JsonStringEnumMemberName("leads_importados")]
+    LeadsImportados = 8,
 }
 
 /// <summary>
@@ -53,6 +62,9 @@ public class Notificacao
 
     public long? LeadId { get; set; }
 
+    /// <summary>A importação do resumo, que a notificação abre. Só no resumo para o admin que importou.</summary>
+    public long? ImportacaoId { get; set; }
+
     public DateTimeOffset? LidaEm { get; set; }
 
     public DateTimeOffset CriadoEm { get; set; }
@@ -70,6 +82,7 @@ internal sealed class NotificacaoConfiguracao : IEntityTypeConfiguration<Notific
 
         // Excluir um lead de teste leva junto as notificações dele.
         builder.HasOne<Lead>().WithMany().HasForeignKey(n => n.LeadId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Importacao>().WithMany().HasForeignKey(n => n.ImportacaoId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(n => new { n.UsuarioId, n.CriadoEm });
     }
 }

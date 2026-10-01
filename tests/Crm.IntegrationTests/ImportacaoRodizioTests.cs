@@ -27,6 +27,8 @@ public class ImportacaoRodizioTests(CrmApiFactory fabrica)
         Assert.Equal([a.Id, b.Id, a.Id], leads.Select(l => l.ResponsavelId));
         Assert.Equal(0, resultado.GetProperty("semResponsavel").GetInt32());
         Assert.True((await fabrica.BuscarUsuarioAsync(b.Id)).UltimoLeadAtribuidoEm > agora);
+        Assert.Equal("Você recebeu 2 leads da importação", Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(a.Id)).Titulo);
+        Assert.Equal("Você recebeu 1 lead da importação", Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(b.Id)).Titulo);
     }
 
     [Fact]
@@ -34,12 +36,15 @@ public class ImportacaoRodizioTests(CrmApiFactory fabrica)
     {
         await using var rodizio = await RodizioIsolado.PrepararAsync(fabrica);
         var outroAdmin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
-        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+        var eu = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var admin = await fabrica.LogarAsync(eu);
         var arquivo = ImportacoesDeTeste.ArquivoDoExcel(ImportacoesDeTeste.LinhaExcel("Lead Um"), ImportacoesDeTeste.LinhaExcel("Lead Dois"));
 
         var resultado = await admin.ImportarAsync(arquivo);
 
         Assert.Equal(2, resultado.GetProperty("semResponsavel").GetInt32());
+        var resumo = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(eu.Id), n => n.ImportacaoId == resultado.GetProperty("id").GetInt64());
+        Assert.Equal("Importação concluída: 2 leads novos (2 sem responsável), 0 vinculados, 0 já importados e 0 com erro", resumo.Titulo);
         foreach (var lead in await fabrica.LeadsDaImportacaoAsync(resultado.GetProperty("id").GetInt64()))
         {
             Assert.Null(lead.ResponsavelId);

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
+using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Importacoes;
@@ -177,6 +178,61 @@ public class ImportacaoTests(CrmApiFactory fabrica)
             Assert.Empty(await fabrica.EventosDoLeadAsync(lead.Id));
             Assert.Empty(await fabrica.NotificacoesDoUsuarioAsync(atendente.Id, lead.Id));
         }
+    }
+
+    [Fact]
+    public async Task No_fim_quem_importou_recebe_o_resumo_e_cada_responsavel_quantos_leads_ganhou()
+    {
+        var eu = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        var outroAdmin = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        var atendenteUsuario = await fabrica.CriarUsuarioAsync();
+        using var admin = await fabrica.LogarAsync(eu);
+        using var atendente = await fabrica.LogarAsync(atendenteUsuario);
+        var existente = await fabrica.ReceberAsync(LeadsDeTeste.Entrada() with { Avisar = false });
+        var email = (await fabrica.BuscarLeadAsync(existente.LeadId)).Email;
+        var arquivo = ImportacoesDeTeste.ArquivoDoExcel(
+            ImportacoesDeTeste.LinhaExcel("Lead Um"),
+            ImportacoesDeTeste.LinhaExcel("Lead Dois"),
+            ImportacoesDeTeste.LinhaExcel("Já Existe", email: email),
+            ImportacoesDeTeste.LinhaExcel(string.Empty));
+
+        var resultado = await admin.ImportarAsync(arquivo, corpo => corpo["responsavelId"] = atendenteUsuario.Id);
+        var id = resultado.GetProperty("id").GetInt64();
+
+        var resumo = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(eu.Id), n => n.ImportacaoId == id);
+        Assert.Equal(TipoNotificacao.ImportacaoConcluida, resumo.Tipo);
+        Assert.Equal("Importação concluída: 2 leads novos, 1 vinculado, 0 já importados e 1 com erro", resumo.Titulo);
+        Assert.Null(resumo.LeadId);
+        var ganhos = Assert.Single(await fabrica.NotificacoesDoUsuarioAsync(atendenteUsuario.Id));
+        Assert.Equal(TipoNotificacao.LeadsImportados, ganhos.Tipo);
+        Assert.Equal("Você recebeu 2 leads da importação", ganhos.Titulo);
+        Assert.Null(ganhos.LeadId);
+        Assert.Null(ganhos.ImportacaoId);
+        Assert.DoesNotContain(await fabrica.NotificacoesDoUsuarioAsync(outroAdmin.Id), n => n.ImportacaoId == id);
+
+        // Na API, o resumo abre a importação; a notificação da atendente não leva a nenhuma tela de admin.
+        Assert.Contains(
+            (await admin.NotificacoesAsync()).Itens(),
+            n => n.GetProperty("importacaoId").ValueKind == JsonValueKind.Number && n.GetProperty("importacaoId").GetInt64() == id);
+        var daAtendente = Assert.Single((await atendente.NotificacoesAsync()).Itens());
+        Assert.Equal(JsonValueKind.Null, daAtendente.GetProperty("importacaoId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, daAtendente.GetProperty("lead").ValueKind);
+    }
+
+    [Fact]
+    public async Task Admin_que_importa_para_si_recebe_so_o_resumo()
+    {
+        var eu = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var admin = await fabrica.LogarAsync(eu);
+
+        var resultado = await admin.ImportarAsync(
+            ImportacoesDeTeste.ArquivoDoExcel(ImportacoesDeTeste.LinhaExcel("Lead Um")), corpo => corpo["responsavelId"] = eu.Id);
+
+        var daImportacao = (await fabrica.NotificacoesDoUsuarioAsync(eu.Id))
+            .Where(n => n.Tipo is TipoNotificacao.ImportacaoConcluida or TipoNotificacao.LeadsImportados);
+        var resumo = Assert.Single(daImportacao);
+        Assert.Equal(resultado.GetProperty("id").GetInt64(), resumo.ImportacaoId);
+        Assert.Equal("Importação concluída: 1 lead novo, 0 vinculados, 0 já importados e 0 com erro", resumo.Titulo);
     }
 
     [Fact]

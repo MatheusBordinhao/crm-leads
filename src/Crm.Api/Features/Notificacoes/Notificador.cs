@@ -11,11 +11,12 @@ namespace Crm.Api.Features.Notificacoes;
 public sealed class Notificador(CrmDbContext db, TimeProvider relogio)
 {
     /// <summary>Para uma pessoa. Não faz nada sem destinatário ou quando o destinatário é o autor da ação.</summary>
-    public void ParaUsuario(Guid? usuarioId, TipoNotificacao tipo, string titulo, long? leadId, Guid? autorId)
+    /// <param name="importacaoId">A importação que a notificação abre, no resumo para quem importou.</param>
+    public void ParaUsuario(Guid? usuarioId, TipoNotificacao tipo, string titulo, long? leadId, Guid? autorId, long? importacaoId = null)
     {
         if (usuarioId is { } destinatario && destinatario != autorId)
         {
-            db.Notificacoes.Add(Nova(destinatario, tipo, titulo, leadId));
+            db.Notificacoes.Add(Nova(destinatario, tipo, titulo, leadId, importacaoId));
         }
     }
 
@@ -26,12 +27,13 @@ public sealed class Notificador(CrmDbContext db, TimeProvider relogio)
         db.Notificacoes.AddRange(admins.Select(admin => Nova(admin, tipo, titulo, leadId)));
     }
 
-    private Notificacao Nova(Guid usuarioId, TipoNotificacao tipo, string titulo, long? leadId) => new()
+    private Notificacao Nova(Guid usuarioId, TipoNotificacao tipo, string titulo, long? leadId, long? importacaoId = null) => new()
     {
         UsuarioId = usuarioId,
         Tipo = tipo,
         Titulo = titulo.Length > Notificacao.TamanhoMaximoTitulo ? titulo[..Notificacao.TamanhoMaximoTitulo] : titulo,
         LeadId = leadId,
+        ImportacaoId = importacaoId,
         CriadoEm = relogio.GetUtcNow(),
     };
 }

@@ -551,6 +551,10 @@ namespace Crm.Api.Infra.Dados.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("criado_em");
 
+                    b.Property<long?>("ImportacaoId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("importacao_id");
+
                     b.Property<long?>("LeadId")
                         .HasColumnType("bigint")
                         .HasColumnName("lead_id");
@@ -577,6 +581,9 @@ namespace Crm.Api.Infra.Dados.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_notificacoes");
+
+                    b.HasIndex("ImportacaoId")
+                        .HasDatabaseName("ix_notificacoes_importacao_id");
 
                     b.HasIndex("LeadId")
                         .HasDatabaseName("ix_notificacoes_lead_id");
@@ -1261,6 +1268,12 @@ namespace Crm.Api.Infra.Dados.Migrations
 
             modelBuilder.Entity("Crm.Api.Features.Notificacoes.Notificacao", b =>
                 {
+                    b.HasOne("Crm.Api.Infra.Importacoes.Importacao", null)
+                        .WithMany()
+                        .HasForeignKey("ImportacaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_notificacoes_importacoes_importacao_id");
+
                     b.HasOne("Crm.Api.Features.Leads.Lead", null)
                         .WithMany()
                         .HasForeignKey("LeadId")

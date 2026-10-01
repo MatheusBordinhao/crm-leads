@@ -35,6 +35,7 @@ public sealed class NotificacoesController(CrmDbContext db, VisibilidadeLeads vi
                 n.Tipo,
                 n.Titulo,
                 leads.Where(l => l.Id == n.LeadId).Select(l => new LeadDaNotificacao(l.Id, l.Nome)).FirstOrDefault(),
+                n.ImportacaoId,
                 n.CriadoEm,
                 n.LidaEm))
             .ToListAsync(ct);

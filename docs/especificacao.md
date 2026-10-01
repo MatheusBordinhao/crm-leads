@@ -120,8 +120,10 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - um lead seu recebeu nova entrada;
   - (admin) uma atendente cadastrou à mão uma pessoa que já é lead de outra (3.2);
   - (admin) lead ficou sem responsável;
-  - (admin) evento para o n8n falhou de vez.
-- Quem fez a ação nunca recebe a notificação dela, e lead de teste não gera notificação. Uma responsável desativada conta como sem responsável, e a nova entrada de um lead sem responsável avisa os admins.
+  - (admin) evento para o n8n falhou de vez;
+  - quantos leads novos uma importação deixou com você (3.7);
+  - (admin) o resumo da importação que você fez, que abre o resultado dela (3.7).
+- Quem fez a ação nunca recebe a notificação dela, e lead de teste não gera notificação. A exceção é o resumo da importação: ela roda em segundo plano, e quem importou pode ter saído da tela. Uma responsável desativada conta como sem responsável, e a nova entrada de um lead sem responsável avisa os admins.
 - Cada notificação é de um usuário. O título não leva dados do lead: a lista mostra o nome atual dele, lido na hora, e só se a pessoa ainda vê o lead. A notificação de um lead que passou para outra atendente some da lista dela, e marcá-la responde 404.
 - Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas. A lista traz as 30 mais recentes, e o contador soma todas as não lidas.
 - Com a aba aberta em segundo plano, o navegador mostra uma notificação nativa. A permissão é pedida uma vez.
@@ -340,7 +342,7 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 | importacoes_erros | id, importacao_id, linha, motivo | Sem dados pessoais: a linha é a da planilha |
 | historico_etapas | id, lead_id, etapa_anterior_id, etapa_nova_id, motivo_perda_id, motivo_perda_detalhe, usuario_id, ocorrido_em | O motivo continua aqui depois de o lead sair de Perdido. usuario_id fica nulo quando quem mudou foi o sistema, como na reabertura de um lead perdido por uma nova entrada |
 | interacoes | id, lead_id, usuario_id, tipo, descricao, ocorrido_em, criado_em | |
-| notificacoes | id, usuario_id, tipo, titulo, lead_id, lida_em, criado_em | |
+| notificacoes | id, usuario_id, tipo, titulo, lead_id, importacao_id, lida_em, criado_em | `importacao_id` só no resumo da importação, para quem importou |
 | eventos_saida | id (uuid), tipo, lead_id, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em). O `lead_id` liga o evento ao lead, para o aviso de falha e para a LGPD. O payload leva nome e empresa do lead, e `ultimo_erro` só o código HTTP ou o tipo da falha |
 | auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui. No login com e-mail desconhecido, usuario_id fica nulo e o e-mail digitado não é gravado |
 | configuracoes | chave, valor | `distribuicao_automatica`, `exigir_documento_para_ganho` |
