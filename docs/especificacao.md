@@ -130,15 +130,24 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 
 ### 3.7 Importação e exportação
 
-- **Importação (admin):** arquivo CSV de até 5 MB e 5.000 linhas. O sistema detecta a codificação (UTF-8, UTF-16 ou Windows-1252) e o separador (vírgula, ponto e vírgula ou tab).
+- **Importação (admin):** arquivo CSV de até 5 MB, 5.000 linhas e 100 colunas. O sistema detecta a codificação (UTF-8, UTF-16 ou Windows-1252) e o separador (vírgula, ponto e vírgula ou tab, ou o da linha `sep=;` do Excel). A primeira linha é o cabeçalho. Linhas vazias são ignoradas, e uma planilha `.xlsx` é recusada com a instrução de salvá-la como CSV.
 - O fluxo da tela é:
   1. enviar o arquivo;
   2. ver a prévia das 10 primeiras linhas;
   3. mapear as colunas, com sugestão pelo cabeçalho (nome/full_name, email/e-mail, telefone/phone_number/celular e assim por diante);
   4. escolher a origem, a campanha padrão, a coluna de id externo (opcional) e a distribuição (rodízio ou uma pessoa);
   5. processar.
-- Cada linha passa pelo `ReceberEntrada`. Por padrão, a importação não notifica nem gera evento por lead. No fim, o admin recebe um resumo e cada responsável recebe uma notificação com quantos leads ganhou.
-- O resultado mostra quantos leads foram criados, vinculados a leads existentes, já importados antes e com erro (com linha e motivo). O relatório de erros pode ser baixado.
+- **Mapeamento:** cada coluna vai para um dado do lead (nome, e-mail, telefone, CPF/CNPJ, UF ou empresa), para a campanha, o conjunto, o anúncio ou o formulário (id ou nome), para a plataforma, as UTMs e o gclid, para as respostas extras ou para nenhum lugar. O nome aceita mais de uma coluna (nome e sobrenome, juntados nessa ordem); os outros campos, uma só. A sugestão manda as colunas desconhecidas para as respostas extras e deixa de fora as colunas técnicas da exportação da Meta (`created_time`, `is_organic`, `lead_status`, `inbox_url`). O payload bruto guarda a linha inteira, com o número dela.
+- **Origem:** qualquer uma, menos `manual`. O padrão é `planilha`, e a análise sugere `meta_lead_ads` quando o cabeçalho é o da exportação da Meta.
+- **Id externo:** o da coluna escolhida, sugerida quando é `lead_id` ou um `id` com os ids de lead da Meta (`l:123`). Sem a coluna, ou com a célula vazia, o id externo é `sha256:` com o hash do conteúdo da linha (as colunas preenchidas, com o nome de cada uma, em ordem alfabética). Assim, reimportar o mesmo arquivo responde "já importado", mesmo numa planilha sem id.
+- **Arquivo da Meta:** os prefixos que a exportação põe nos ids e no telefone (`l:`, `c:`, `as:`, `ag:`, `f:` e `p:`) saem, e a plataforma `fb` ou `ig` vira `facebook` ou `instagram`. Os ids e as campanhas batem com os que a integração manda.
+- **Campanha:** vale a da linha; só com o nome, o nome serve de id. A campanha padrão vale para as linhas sem campanha: uma que já existe, da mesma origem, ou uma nova, pelo nome, criada na primeira linha que a usa.
+- **Linha com erro:** só a falta de nome, a falta de e-mail e telefone, um id externo com mais de 100 caracteres e um problema de estrutura (valor numa coluna a mais, aspas sem fechamento) recusam a linha. Formato inválido entra com o aviso na ficha, como na integração (3.1). O número da linha é o da planilha, contando o cabeçalho como linha 1.
+- Cada linha passa pelo `ReceberEntrada`, com o admin que importou como autor. Por padrão, a importação não notifica nem gera evento por lead: nada de `lead.criado` nem de `lead.entrada_repetida`. O `lead.etapa_alterada` da reabertura de um lead perdido segue a 4.3. No fim, o admin recebe um resumo e cada responsável recebe uma notificação com quantos leads ganhou.
+- **Distribuição:** pelo rodízio, que passa a vez a cada lead novo, ou para uma pessoa ativa, o que não mexe na vez (3.3).
+- **Processamento em segundo plano:** a importação é gravada e processada linha a linha, e a tela acompanha o andamento. Se a API parar no meio, a importação continua de onde parou, e as linhas que já tinham entrado respondem "já importado" sem mudar as contagens. O arquivo fica guardado só até o fim do processamento.
+- O resultado mostra quantos leads foram criados, vinculados a leads existentes, já importados antes e com erro (com linha e motivo), e quantos dos criados ficaram sem responsável. O relatório de erros pode ser baixado: um CSV para o Excel (UTF-8 com BOM e ponto e vírgula) com a linha e o motivo, sem dados pessoais.
+- A importação entra na auditoria (`importacao.criada`, com a origem e o número de linhas, sem o nome do arquivo), e cada lead criado, como `lead.criado` do admin que importou.
 - **Exportação (admin):** CSV dos leads com os filtros da lista. Cada exportação entra na auditoria.
 - **Relatório por campanha:** CSV sem dados pessoais (seção 8).
 
@@ -326,7 +335,9 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 | motivos_perda | id, nome, ativo | |
 | campanhas | id, origem, id_externo, nome, nome_provisorio | Única por (origem, id_externo) |
 | leads | id (bigint), nome, email, telefone, cpf_cnpj, uf, empresa, etapa_id, responsavel_id, origem, plataforma, campanha_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, gclid, respostas_extras (jsonb), motivo_perda_id, motivo_perda_detalhe, teste, criado_em, atualizado_em, primeiro_contato_em, convertido_em, perdido_em, anonimizado_em | Índices em email, telefone, cpf_cnpj, (responsavel_id, etapa_id), campanha_id e criado_em. Concorrência otimista pelo `xmin` |
-| entradas_recebidas | id, lead_id, origem, id_externo, campanha_id, conjunto, anuncio e formulario (jsonb, com id e nome), utm_*, gclid, respostas_extras, payload_bruto (jsonb), situacao, erro, teste, recebido_em, processado_em | Situação: `criado`, `vinculado` ou `erro`. Índice único parcial em (origem, id_externo) onde a situação não é `erro` |
+| entradas_recebidas | id, lead_id, origem, id_externo, campanha_id, conjunto, anuncio e formulario (jsonb, com id e nome), utm_*, gclid, respostas_extras, payload_bruto (jsonb), situacao, erro, teste, recebido_em, processado_em, importacao_id | Situação: `criado`, `vinculado` ou `erro`. Índice único parcial em (origem, id_externo) onde a situação não é `erro`. `importacao_id` liga a entrada à importação que a trouxe |
+| importacoes | id, usuario_id, nome_arquivo, codificacao, separador, origem, campos (text[]), coluna_id_externo, campanha_padrao_id, campanha_padrao_nome, responsavel_id, arquivo (bytea), situacao, total_linhas, linhas_processadas, criados, vinculados, ja_importados, com_erro, sem_responsavel, reservada_ate, criado_em, concluido_em | Situação: `processando` ou `concluida`. O arquivo é apagado no fim. A reserva é renovada a cada linha; vencida com a importação ainda processando, outra rodada a retoma. `responsavel_id` nulo é o rodízio |
+| importacoes_erros | id, importacao_id, linha, motivo | Sem dados pessoais: a linha é a da planilha |
 | historico_etapas | id, lead_id, etapa_anterior_id, etapa_nova_id, motivo_perda_id, motivo_perda_detalhe, usuario_id, ocorrido_em | O motivo continua aqui depois de o lead sair de Perdido. usuario_id fica nulo quando quem mudou foi o sistema, como na reabertura de um lead perdido por uma nova entrada |
 | interacoes | id, lead_id, usuario_id, tipo, descricao, ocorrido_em, criado_em | |
 | notificacoes | id, usuario_id, tipo, titulo, lead_id, lida_em, criado_em | |
@@ -347,7 +358,8 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `POST /api/leads/{id}/etapa` | Admin e atendente | Mudar etapa, com motivo quando for Perdido |
 | `POST /api/leads/{id}/responsavel` | Admin | Trocar responsável (`{ responsavelId }`) |
 | `GET /api/leads/{id}/linha-do-tempo`, `POST /api/leads/{id}/interacoes` | Admin e atendente | Linha do tempo e interações |
-| `POST /api/importacoes`, `GET /api/importacoes/{id}` | Admin | Importação CSV e resultado |
+| `POST /api/importacoes/analise` | Admin | Lê o arquivo (em base64, no JSON) e devolve a codificação, o separador, a prévia de 10 linhas e a sugestão de mapeamento, sem gravar nada |
+| `POST /api/importacoes`, `GET /api/importacoes/{id}`, `GET /api/importacoes/{id}/erros` | Admin | Importação CSV: cria (202, processada em segundo plano), andamento e resultado, e relatório de erros em CSV |
 | `GET /api/leads/exportacao` | Admin | CSV com os filtros da lista |
 | `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD |
 | `DELETE /api/leads/{id}` | Admin | Só para leads de teste |

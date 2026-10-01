@@ -27,6 +27,9 @@ internal static class AcoesAuditoria
     public const string MotivoPerdaCriado = "motivo_perda.criado";
     public const string MotivoPerdaEditado = "motivo_perda.editado";
     public const string ConfiguracaoAlterada = "configuracao.alterada";
+
+    /// <summary>Importação de CSV, com <c>detalhes { origem, linhas }</c>, sem o nome do arquivo.</summary>
+    public const string ImportacaoCriada = "importacao.criada";
 }
 
 internal static class EntidadesAuditoria
@@ -36,6 +39,7 @@ internal static class EntidadesAuditoria
     public const string Etapa = "etapa";
     public const string MotivoPerda = "motivo_perda";
     public const string Configuracao = "configuracao";
+    public const string Importacao = "importacao";
 }
 
 /// <summary>

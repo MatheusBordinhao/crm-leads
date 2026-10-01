@@ -7,6 +7,7 @@ using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Eventos;
+using Crm.Api.Infra.Importacoes;
 using Crm.Api.Infra.Web;
 using Scalar.AspNetCore;
 
@@ -30,6 +31,7 @@ builder.Services.AddLeads();
 builder.Services.AddNotificacoes();
 builder.Services.AddEventos();
 builder.Services.AddIntegracoes();
+builder.Services.AddImportacoes();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 
 var app = builder.Build();

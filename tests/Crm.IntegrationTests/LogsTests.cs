@@ -148,6 +148,28 @@ public class LogsTests(CrmApiFactory fabrica)
         AssertSemVazamento(captura, [(string)corpo["nome"]!, (string)corpo["email"]!, $"Empresa Sigilosa {marca}"]);
     }
 
+    [Fact]
+    public async Task A_importacao_nunca_poe_dados_pessoais_nem_o_nome_do_arquivo_no_log_nem_no_nivel_trace()
+    {
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        var telefone = LeadsDeTeste.TelefoneUnico();
+        var linha = ImportacoesDeTeste.LinhaExcel(
+            $"Nome Sigiloso {marca}", celular: LeadsDeTeste.ComoDigitado(telefone), empresa: $"Empresa Sigilosa {marca}", observacao: $"Observação sigilosa {marca}");
+        var semNome = ImportacoesDeTeste.LinhaExcel(string.Empty);
+        var nomeArquivo = $"Leads de Fulano Sigiloso {marca}.csv";
+
+        var resultado = await admin.ImportarAsync(ImportacoesDeTeste.ArquivoDoExcel(linha, semNome), nomeArquivo: nomeArquivo);
+
+        Assert.Equal(1, resultado.GetProperty("criados").GetInt32());
+        Assert.Equal(1, resultado.GetProperty("comErro").GetInt32());
+        Assert.Contains(captura.Registros, r => r.Contains($"Importação {resultado.GetProperty("id").GetInt64()} concluída", StringComparison.Ordinal));
+        AssertSemVazamento(captura, [.. linha.Where(v => v.Length > 0), semNome[1], telefone, nomeArquivo]);
+    }
+
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)
     {
         var registros = captura.Registros.ToList();
