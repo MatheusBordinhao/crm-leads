@@ -20,6 +20,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
 - No n8n de desenvolvimento, os fluxos `CRM - Alertas` (`jG8npUo12JBbqAKS`) e `CRM - Erros` (`zqvER5UUTkTxFM4G`) foram criados e publicados em 30/09/2026, com o `CRM - Erros` como fluxo de erro do Alertas. A credencial Header Auth do Webhook se chama "Header Auth account". O teste do n8n Cloud termina por volta de 06/10/2026.
 - Passo 4 validado de ponta a ponta em 30/09/2026, com o `.env` de desenvolvimento já com `N8n__WebhookUrl` e `N8n__WebhookChave`: um lead real pela integração foi para a Adriana pelo rodízio, o `lead.criado` foi entregue ao n8n na primeira tentativa, em 7 segundos, e o e-mail chegou com os dados do lead e o link da ficha, que abre o lead.
+- Passo 5 implementado em 01/10/2026 e conferido pelo Claude no Compose de produção rodando localmente (`DOMINIO=localhost`, portas 8088 e 8443): HTTPS com HSTS e CSP, sessão mantida depois de recriar o contêiner da API, IP de quem acessa na auditoria (no Docker Desktop, o gateway `172.30.0.1`) e um `X-Forwarded-For` forjado ignorado, importação dos exemplos de `docs/exemplos/` com os acentos certos, reimportação sem duplicar, backup e restauração. Faltam a validação pela tela e a publicação, que depende do servidor, do domínio e do destino da cópia do backup.
 
 ## Arquitetura
 
@@ -43,12 +44,15 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 ```
 src/Crm.Api/                 API, organizada por módulo em Features/ (Leads, Funil, Usuarios, Integracoes, Painel, Notificacoes)
-src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV
+src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV, proxy, chaves da sessão e front
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
 n8n/                         JSON exportado dos fluxos do n8n
-docs/                        especificação e guia de uso do Claude Code
+deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
+docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo da importação (exemplos/)
+Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
+docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 .claude/                     permissões do projeto e o comando /passo
 .mcp.json                    servidor MCP do n8n
 ```
@@ -65,6 +69,9 @@ dotnet format                                            # formata o C# (--verif
 cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
 dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
+dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=    # API sem mandar eventos ao n8n (para o npm run api:tipos)
+docker compose -f docker-compose.prod.yml up -d --build  # produção, no servidor (README › Publicação)
+docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC
 ```
 
 ## Convenções
@@ -89,7 +96,7 @@ dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 ## Armadilhas conhecidas
 
 - Desde julho de 2026 o CNPJ pode ser alfanumérico: 12 caracteres de A a Z ou 0 a 9, mais 2 dígitos verificadores calculados pelo código ASCII menos 48. Nunca guarde CPF/CNPJ como número.
-- CSV do Excel brasileiro costuma vir com `;` e Windows-1252; o da Meta pode vir em UTF-16 com tab. A importação detecta codificação e separador.
+- CSV do Excel brasileiro costuma vir com `;` e Windows-1252; o da Meta pode vir em UTF-16 com tab. A importação detecta codificação e separador e tira os prefixos da exportação da Meta (`l:`, `c:`, `as:`, `ag:`, `f:`, `p:`). Os CSVs de exemplo ficam fora da normalização de fim de linha do Git (`*.csv -text`), que trocaria o CRLF do arquivo do Excel.
 - No n8n Cloud, cada execução de fluxo conta no limite do plano (Starter: 2.500 por mês), inclusive as de gatilhos agendados. Envie ao n8n só os tipos de evento que algum fluxo usa (`N8n__Eventos`) e não agende fluxos a cada poucos minutos.
 - O xUnit v3 roda no Microsoft.Testing.Platform, ligado no `global.json`. Não adicione `Microsoft.NET.Test.Sdk` nem `xunit.runner.visualstudio`: com eles, o `dotnet test` do SDK 10 falha.
 - Os testes de integração compartilham um único PostgreSQL (`CrmApiFactory`, assembly fixture). Um teste não pode depender de outro ter rodado antes.
@@ -108,6 +115,13 @@ dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 - Todo record `*Request` precisa de um `ToString()` próprio, sem dados pessoais nem senha: o MVC imprime os argumentos da action no log de nível Trace, e o `ToString` gerado pelo compilador imprime todos os campos. Um teste por reflexão cobra isso.
 - Navegação de entidade para `Usuario` gera a FK com o nome antigo da tabela do Identity (`fk_..._users_...`). Dê o nome com `HasConstraintName`, como em `Lead.Responsavel`.
 - O `openapi-typescript` 7.x declara peer `typescript ^5`, e o front usa o TypeScript 6. Um `overrides` no `web/package.json` o faz usar o TypeScript do projeto. Quando sair uma versão que aceite o 6, atualize-a, tire o `overrides` e confira se o `npm run api:tipos` gera o mesmo `schema.d.ts`.
+- O serviço da importação retoma qualquer importação com a reserva vencida, de qualquer teste. Os testes de retomada usam um banco só deles e tiram o `ServicoImportacoes` (`ImportacaoRetomadaTests`), como os do despachante.
+- Uma rota que aceita qualquer método (`MapFallback`, `MapFallbackToFile`) faz um método errado numa rota da API responder 404 em vez de 405. Por isso o `index.html` é servido fora do roteamento, como último recurso de um GET (`FrontExtensions.UsarFront`).
+- O `UseForwardedHeaders` com as listas de proxies vazias confia em qualquer um. Sem `Proxy__Ip`, o `ProxyReverso` desliga os cabeçalhos encaminhados (`ForwardedHeaders.None`).
+- O `TestServer` não tem IP de conexão. Para testar o IP de quem acessa, use `Server.SendAsync` e defina o `Connection.RemoteIpAddress` (`ProxyTests`).
+- A CSP do Caddy (`deploy/Caddyfile`) só aceita a própria origem, mais os estilos inline do sonner e do Radix. Um recurso externo novo (fonte, imagem, script) precisa entrar nela, e no Passo 7 confira se o WebSocket do SignalR passa pelo `connect-src`.
+- Nos testes do front, numa seleção cuja lista vem de outra consulta (campanhas, usuários), espere a opção aparecer (`findByRole('option')`) antes do `selectOptions`: com a suíte inteira rodando, a lista pode chegar depois.
+- No Git Bash, um caminho como `/backup/backup.sh` num `docker compose exec` vira um caminho do Windows. Rode com `MSYS_NO_PATHCONV=1`.
 
 ## n8n
 
