@@ -132,6 +132,12 @@ cd web && npm run dev                    # front em http://localhost:5173
 
 Em desenvolvimento, a API lê o `.env` da raiz. Uma variável que já exista no ambiente tem prioridade sobre o arquivo. As migrations são aplicadas quando a API sobe, só em desenvolvimento. O arquivo [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) tem requisições prontas para testar a API pelo VS Code.
 
+Com o `N8n__WebhookUrl` preenchido, a API manda ao n8n os eventos pendentes assim que sobe. Para subir sem mandar nada (para gerar os tipos do front, por exemplo):
+
+```bash
+dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=
+```
+
 ### Primeiro acesso
 
 1. Abra http://localhost:5173 e entre com o `Admin__Email` e a senha inicial que o comando da primeira vez mostrou.
@@ -142,7 +148,7 @@ Se o banco não tiver nenhum admin (por exemplo, depois de `docker compose down 
 
 Depois de 5 senhas erradas, o login fica bloqueado por 15 minutos. Um admin libera antes redefinindo a senha na tela de usuários.
 
-O cookie da sessão é `Secure`. Chrome, Edge e Firefox o aceitam em `http://localhost`, mas não pelo IP da máquina: para abrir no celular, é preciso HTTPS, que chega no Passo 5. Até lá, confira as telas de celular com a visão de dispositivo do DevTools.
+O cookie da sessão é `Secure`. Chrome, Edge e Firefox o aceitam em `http://localhost`, mas não pelo IP da máquina: para abrir no celular, é preciso HTTPS, que vem com a [publicação](#publicação). Em desenvolvimento, confira as telas de celular com a visão de dispositivo do DevTools.
 
 ### Funil e ficha
 
@@ -171,6 +177,17 @@ O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especifi
 - O exemplo vai com `"teste": true`: lead de teste fica sem responsável, só aparece para admins e não gera aviso. Para ver o rodízio e o alerta por e-mail, use a requisição "Lead real pela integração".
 - Os leads da integração vão para o rodízio. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
 - Telefone, e-mail ou CPF/CNPJ em formato inválido não recusam o lead: a ficha mostra o aviso embaixo do campo.
+
+### Importação de leads
+
+Em Importação (só admin), escolha um CSV de até 5 MB e 5.000 linhas: o exportado pela Meta (UTF-16 com tab) ou uma planilha salva pelo Excel (Arquivo › Salvar como › CSV, que sai com ponto e vírgula e Windows-1252). O sistema reconhece a codificação e o separador, mostra a prévia e sugere o campo de cada coluna pelo cabeçalho.
+
+- Confira o campo de cada coluna e as opções: a origem (o arquivo da Meta já vem como Meta), a campanha padrão (para as linhas sem campanha: uma que já existe ou uma nova), a coluna de id externo e a distribuição (rodízio ou uma pessoa).
+- As linhas são processadas em segundo plano. A tela mostra o andamento, e o sino avisa quando a importação termina; quem recebeu leads também é avisado, com o total. A importação não manda alerta por e-mail lead a lead.
+- Reimportar o mesmo arquivo não duplica: as linhas que já entraram aparecem como "já importadas", mesmo numa planilha sem coluna de id. Uma pessoa que já é lead é vinculada ao lead dela.
+- Uma linha sem nome, ou sem e-mail e telefone, não entra e vai para o relatório de erros, com o número da linha na planilha (o cabeçalho é a linha 1). Telefone, e-mail ou CPF/CNPJ em formato inválido entram, com o aviso na ficha.
+- No Excel, formate as colunas de telefone e de CPF/CNPJ como texto antes de salvar: como número, o Excel apaga os zeros do começo.
+- Para testar, use os arquivos de [docs/exemplos/](docs/exemplos/): `leads-meta.csv` imita a exportação da Meta, e `leads-excel.csv`, a planilha do Excel. Os dois têm acentos, para conferir que nada sai trocado.
 
 ## Tipos da API no front
 
@@ -215,13 +232,114 @@ src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo
                              Notificacoes/ (sino e quem é avisado de cada acontecimento), Integracoes/ (chave e rotas do n8n)
 src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
                              (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
-                             ProblemDetails, validação e convenções da API (Web/)
+                             importação CSV, com a leitura do arquivo e o processamento em segundo plano (Importacoes/),
+                             ProblemDetails, validação, proxy, chaves da sessão e o front servido pela API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, notificacoes,
-                             configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o cliente e os tipos gerados
+web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, importacao,
+                             notificacoes, configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o cliente e os
+                             tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
-docs/                        especificação e guia de uso do Claude Code
+deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
+docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo para a importação (exemplos/)
+Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
 ```
 
-A publicação (Docker Compose de produção com Caddy e backup) entra no Passo 5.
+## Publicação
+
+O [docker-compose.prod.yml](docker-compose.prod.yml) sobe tudo num servidor com Docker: o Caddy, com HTTPS automático na frente da API; a API, que também serve o front; o PostgreSQL; as migrations, que rodam antes da API; e o backup diário. Só o Caddy expõe portas (80 e 443).
+
+### O que o servidor precisa
+
+- Linux com Docker Engine e o plugin Compose. Um Ubuntu 24.04 LTS com 2 GB de RAM basta.
+- Portas 80 e 443 abertas para a internet: o Caddy usa a 80 para obter o certificado do Let's Encrypt.
+- Um domínio ou subdomínio, como `crm.empresa.com.br`, com um registro DNS do tipo A apontando para o IP do servidor. Não crie o registro AAAA (IPv6), a não ser que o IPv6 esteja ligado no Docker: sem isso, quem acessa por IPv6 aparece com o IP interno do Docker na auditoria e no limite de logins.
+
+### Primeira publicação
+
+1. Clone o repositório no servidor (por exemplo, em `/opt/crm`) e entre na pasta.
+2. Crie o `.env` de produção. Os comandos geram as senhas e as chaves sem mostrá-las; troque o domínio e o e-mail:
+
+   ```bash
+   cp .env.example .env && chmod 600 .env
+   sed -i \
+     -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 16)/" \
+     -e "s/^DOMINIO=.*/DOMINIO=crm.empresa.com.br/" \
+     -e "s/^Admin__Email=.*/Admin__Email=voce@empresa.com.br/" \
+     -e "s/^Admin__SenhaInicial=.*/Admin__SenhaInicial=$(openssl rand -hex 8)/" \
+     -e "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" \
+     -e "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$(openssl rand -hex 24)/" .env
+   grep '^Admin__SenhaInicial=' .env   # a senha do primeiro acesso
+   ```
+
+   O Compose de produção monta a connection string e o `Crm__UrlPublica` (`https://` + `DOMINIO`) sozinho; as linhas deles no `.env` não são usadas. O `N8n__WebhookUrl` fica vazio até o n8n de produção existir: até lá, os eventos ficam pendentes.
+
+3. Suba tudo. A primeira vez leva alguns minutos, por causa do build do front e da API:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+4. Confira: `curl -I https://crm.empresa.com.br/health` responde 200, e `docker compose -f docker-compose.prod.yml ps -a` mostra `db`, `api`, `caddy` e `backup` rodando, e `migracoes` terminado com código 0.
+5. Entre com o `Admin__Email` e a senha inicial: o sistema pede a senha nova. Depois, cadastre as atendentes. As linhas `Admin__*` do `.env` podem ser apagadas.
+
+### Atualizar
+
+```bash
+docker compose -f docker-compose.prod.yml exec backup sh /backup/backup.sh agora   # um backup antes de mudar
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+O serviço `migracoes` aplica as migrations novas antes de a API subir. As sessões continuam valendo, porque as chaves que protegem o cookie ficam no volume `chaves-sessao`.
+
+### Backup
+
+- Todo dia às 03:00 (horário de Brasília), o serviço `backup` grava um `pg_dump` em `./backups` (ou na pasta de `BACKUP_PASTA`, no `.env`) e apaga os que têm mais de 14 dias.
+- Backup na hora: `docker compose -f docker-compose.prod.yml exec backup sh /backup/backup.sh agora`.
+- Os backups têm dados pessoais: a pasta fica só no servidor, e a cópia de fora precisa ser criptografada.
+- Cópia fora do servidor: com o [rclone](https://rclone.org/) instalado no servidor e um remoto criptografado configurado (`rclone config`, com um remoto do tipo `crypt` por cima do Google Drive da empresa, do Backblaze B2 ou do S3), um cron diário copia a pasta. O destino ainda precisa ser escolhido.
+
+  ```bash
+  # crontab -e
+  30 4 * * * rclone sync /opt/crm/backups crm-backup-cripto:crm
+  ```
+
+### Testar a restauração (uma vez por mês)
+
+```bash
+docker compose -f docker-compose.prod.yml exec backup sh /backup/testar-restauracao.sh
+```
+
+O script restaura o backup mais recente num banco à parte, mostra a contagem de cada tabela no backup e no banco em uso, e apaga o banco de teste. O banco em uso não é tocado. Para testar um backup específico, passe o arquivo: `.../testar-restauracao.sh /backups/crm-2026-10-01-030000.dump`.
+
+### Restaurar de verdade
+
+Para voltar o banco a um backup (o que entrou depois dele se perde):
+
+```bash
+docker compose -f docker-compose.prod.yml stop api
+docker compose -f docker-compose.prod.yml exec backup sh -c 'dropdb crm && createdb crm && pg_restore --no-owner --exit-on-error --dbname=crm /backups/crm-AAAA-MM-DD-HHMMSS.dump'
+docker compose -f docker-compose.prod.yml start api
+```
+
+### Cuidados
+
+- Nunca rode `docker compose -f docker-compose.prod.yml down -v` no servidor: o `-v` apaga os volumes, com o banco e as chaves das sessões.
+- Logs, sem dados pessoais: `docker compose -f docker-compose.prod.yml logs -f api`. Cada contêiner guarda até 5 arquivos de 10 MB.
+- A rede do Compose usa a faixa `172.30.0.0/24`, e o Caddy, o IP `172.30.0.10`: a API só aceita o IP de quem acessa (`X-Forwarded-For`) vindo dele. Se a faixa colidir com outra rede do servidor, defina `REDE_SUBNET` e `CADDY_IP` no `.env`.
+- O Caddy manda HSTS de um ano: depois do primeiro acesso por HTTPS, o navegador não aceita mais o domínio sem HTTPS.
+
+### Testar a publicação no próprio computador
+
+Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento:
+
+```bash
+# ../crm-teste.env: POSTGRES_PASSWORD, Admin__Email, Admin__SenhaInicial, DOMINIO=localhost, PORTA_HTTP=8088 e
+# PORTA_HTTPS=8443, sem N8n__WebhookUrl (para não mandar e-mail)
+docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build
+# abra https://localhost:8443
+docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env down -v   # aqui o -v apaga só o teste
+```
+
+No Docker Desktop, a auditoria registra o gateway da rede (`172.30.0.1`) como o IP de quem acessa; num servidor Linux, aparece o IP de verdade.
