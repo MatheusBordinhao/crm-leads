@@ -6,6 +6,8 @@ import { RotaAdmin, RotaProtegida } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
 import { ConfiguracaoFunilPage } from '@/features/configuracoes/ConfiguracaoFunilPage'
 import { FunilPage } from '@/features/funil/FunilPage'
+import { ImportacaoPage } from '@/features/importacao/ImportacaoPage'
+import { ResultadoImportacaoPage } from '@/features/importacao/ResultadoImportacaoPage'
 import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadsPage } from '@/features/leads/LeadsPage'
 import { NovoLeadPage } from '@/features/leads/NovoLeadPage'
@@ -30,6 +32,8 @@ export const rotas: RouteObject[] = [
           {
             element: <RotaAdmin />,
             children: [
+              { path: '/importacao', element: <ImportacaoPage /> },
+              { path: '/importacao/:id', element: <ResultadoImportacaoPage /> },
               { path: '/configuracoes/usuarios', element: <UsuariosPage /> },
               { path: '/configuracoes/funil', element: <ConfiguracaoFunilPage /> },
             ],

@@ -16,7 +16,8 @@ import {
   type RegistrarInteracaoRequest,
 } from '@/api/cliente'
 
-const chaveLeads = ['leads'] as const
+/** Lista, fichas e linhas do tempo: a importação recarrega tudo quando termina. */
+export const chaveLeads = ['leads'] as const
 const chaveLista = [...chaveLeads, 'lista'] as const
 const chaveFicha = (id: number) => [...chaveLeads, 'ficha', id] as const
 const chaveLinhaDoTempo = (id: number) => [...chaveLeads, 'linha-do-tempo', id] as const

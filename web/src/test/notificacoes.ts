@@ -8,6 +8,7 @@ export function notificacao(parcial: Partial<NotificacaoResponse> = {}): Notific
     tipo: 'lead_atribuido',
     titulo: 'Novo lead para você',
     lead: { id: 1024, nome: 'Maria Souza' },
+    importacaoId: null,
     criadoEm: new Date(Date.now() - 5 * 60_000).toISOString(),
     lidaEm: null,
     ...parcial,

@@ -4,6 +4,208 @@
  */
 
 export interface paths {
+    "/api/importacoes/analise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AnalisarImportacaoRequest"];
+                    "text/json": components["schemas"]["AnalisarImportacaoRequest"];
+                    "application/*+json": components["schemas"]["AnalisarImportacaoRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AnaliseImportacaoResponse"];
+                        "application/json": components["schemas"]["AnaliseImportacaoResponse"];
+                        "text/json": components["schemas"]["AnaliseImportacaoResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/importacoes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CriarImportacaoRequest"];
+                    "text/json": components["schemas"]["CriarImportacaoRequest"];
+                    "application/*+json": components["schemas"]["CriarImportacaoRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ImportacaoResponse"];
+                        "application/json": components["schemas"]["ImportacaoResponse"];
+                        "text/json": components["schemas"]["ImportacaoResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/importacoes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ImportacaoResponse"];
+                        "application/json": components["schemas"]["ImportacaoResponse"];
+                        "text/json": components["schemas"]["ImportacaoResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/importacoes/{id}/erros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/configuracoes": {
         parameters: {
             query?: never;
@@ -1650,6 +1852,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AnalisarImportacaoRequest: {
+            nomeArquivo: string;
+            conteudoBase64: string;
+        };
+        AnaliseImportacaoResponse: {
+            nomeArquivo: string;
+            codificacao: components["schemas"]["Codificacao"];
+            separador: components["schemas"]["Separador"];
+            colunas: components["schemas"]["ColunaAnalisada"][];
+            previa: string[][];
+            /** Format: int32 */
+            totalLinhas: number;
+            /** Format: int32 */
+            colunaIdExterno: null | number;
+            origem: components["schemas"]["Origem"];
+        };
         AvisoLead: {
             campo: string;
             mensagem: string;
@@ -1667,6 +1885,8 @@ export interface components {
             id: number;
             nome: string;
         };
+        /** @enum {unknown} */
+        CampoImportacao: "nao_importar" | "nome" | "email" | "telefone" | "cpf_cnpj" | "uf" | "empresa" | "campanha_id" | "campanha_nome" | "conjunto_id" | "conjunto_nome" | "anuncio_id" | "anuncio_nome" | "formulario_id" | "formulario_nome" | "plataforma" | "utm_source" | "utm_medium" | "utm_campaign" | "utm_content" | "utm_term" | "gclid" | "resposta_extra";
         CartaoFunilResponse: {
             /** Format: int64 */
             id: number;
@@ -1677,6 +1897,12 @@ export interface components {
             teste: boolean;
             /** Format: date-time */
             criadoEm: string;
+        };
+        /** @enum {unknown} */
+        Codificacao: "utf-8" | "utf-16" | "windows-1252";
+        ColunaAnalisada: {
+            nome: string;
+            sugestao: components["schemas"]["CampoImportacao"];
         };
         ColunaFunilResponse: {
             etapa: components["schemas"]["EtapaResumo"];
@@ -1690,6 +1916,19 @@ export interface components {
         };
         CriarEtapaRequest: {
             nome: string;
+        };
+        CriarImportacaoRequest: {
+            nomeArquivo: string;
+            conteudoBase64: string;
+            campos: components["schemas"]["CampoImportacao"][];
+            /** Format: int32 */
+            colunaIdExterno: null | number;
+            origem: components["schemas"]["Origem"];
+            /** Format: int32 */
+            campanhaPadraoId: null | number;
+            novaCampanha: null | string;
+            /** Format: uuid */
+            responsavelId: null | string;
         };
         CriarLeadRequest: {
             nome: string;
@@ -1779,6 +2018,11 @@ export interface components {
             situacao: components["schemas"]["SituacaoEntrada"];
             teste: boolean;
         };
+        ErroImportacaoResponse: {
+            /** Format: int32 */
+            linha: number;
+            motivo: string;
+        };
         EtapaResponse: {
             /** Format: int32 */
             id: number;
@@ -1806,6 +2050,37 @@ export interface components {
             etapa: components["schemas"]["EtapaResumo"];
             /** Format: int32 */
             periodo: number;
+        };
+        ImportacaoResponse: {
+            /** Format: int64 */
+            id: number;
+            nomeArquivo: string;
+            codificacao: components["schemas"]["Codificacao"];
+            separador: components["schemas"]["Separador"];
+            origem: components["schemas"]["Origem"];
+            campanhaPadrao: null | string;
+            responsavel: null | components["schemas"]["ResponsavelResumo"];
+            importadoPor: string;
+            situacao: components["schemas"]["SituacaoImportacao"];
+            /** Format: int32 */
+            totalLinhas: number;
+            /** Format: int32 */
+            linhasProcessadas: number;
+            /** Format: int32 */
+            criados: number;
+            /** Format: int32 */
+            vinculados: number;
+            /** Format: int32 */
+            jaImportados: number;
+            /** Format: int32 */
+            comErro: number;
+            /** Format: int32 */
+            semResponsavel: number;
+            erros: components["schemas"]["ErroImportacaoResponse"][];
+            /** Format: date-time */
+            criadoEm: string;
+            /** Format: date-time */
+            concluidoEm: null | string;
         };
         InteracaoNaLinhaDoTempo: {
             /** Format: int64 */
@@ -1928,6 +2203,8 @@ export interface components {
             tipo: components["schemas"]["TipoNotificacao"];
             titulo: string;
             lead: null | components["schemas"]["LeadDaNotificacao"];
+            /** Format: int64 */
+            importacaoId: null | number;
             /** Format: date-time */
             criadoEm: string;
             /** Format: date-time */
@@ -1990,7 +2267,11 @@ export interface components {
         /** @enum {unknown} */
         ResultadoEntrada: "criado" | "vinculado" | "ja_recebido";
         /** @enum {unknown} */
+        Separador: "virgula" | "ponto_e_virgula" | "tab";
+        /** @enum {unknown} */
         SituacaoEntrada: "criado" | "vinculado" | "erro";
+        /** @enum {unknown} */
+        SituacaoImportacao: "processando" | "concluida";
         /** @enum {unknown} */
         TipoEtapa: "aberta" | "ganho" | "perdido";
         /** @enum {unknown} */
@@ -1998,7 +2279,7 @@ export interface components {
         /** @enum {unknown} */
         TipoItemLinhaDoTempo: "entrada" | "interacao" | "etapa" | "responsavel";
         /** @enum {unknown} */
-        TipoNotificacao: "lead_atribuido" | "lead_reatribuido" | "nova_entrada" | "cadastro_repetido" | "lead_sem_responsavel" | "evento_falhou";
+        TipoNotificacao: "lead_atribuido" | "lead_reatribuido" | "nova_entrada" | "cadastro_repetido" | "lead_sem_responsavel" | "evento_falhou" | "importacao_concluida" | "leads_importados";
         TrocaResponsavelNaLinhaDoTempo: {
             anterior: null | components["schemas"]["UsuarioResumo"];
             nova: null | components["schemas"]["UsuarioResumo"];

@@ -1,5 +1,6 @@
 import {
   ContactRoundIcon,
+  FileUpIcon,
   SlidersHorizontalIcon,
   SquareKanbanIcon,
   UsersIcon,
@@ -23,6 +24,7 @@ function gruposDoMenu(perfil: Perfil): Grupo[] {
     },
   ]
   if (perfil === 'Admin') {
+    grupos[0].itens.push({ para: '/importacao', rotulo: 'Importação', icone: FileUpIcon })
     grupos.push({
       titulo: 'Configurações',
       itens: [

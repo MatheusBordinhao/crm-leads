@@ -36,6 +36,13 @@ export type TrocarResponsavelRequest = Schemas['TrocarResponsavelRequest']
 export type TipoNotificacao = Schemas['TipoNotificacao']
 export type NotificacaoResponse = Schemas['NotificacaoResponse']
 export type NotificacoesResponse = Schemas['NotificacoesResponse']
+export type CampoImportacao = Schemas['CampoImportacao']
+export type Codificacao = Schemas['Codificacao']
+export type Separador = Schemas['Separador']
+export type AnalisarImportacaoRequest = Schemas['AnalisarImportacaoRequest']
+export type AnaliseImportacaoResponse = Schemas['AnaliseImportacaoResponse']
+export type CriarImportacaoRequest = Schemas['CriarImportacaoRequest']
+export type ImportacaoResponse = Schemas['ImportacaoResponse']
 
 /** ProblemDetails da API. Nas respostas 400, `errors` traz as mensagens de cada campo. */
 export type Problema = Schemas['ProblemDetails'] & { errors?: Record<string, string[]> }

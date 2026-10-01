@@ -389,7 +389,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 - **Novo lead:** o admin escolhe a responsável ou deixa com o rodízio.
 - **Painel** (seção 8).
 - **Notificações:** sino com contador no topo de todas as telas. Clicar numa notificação a marca como lida e abre a ficha do lead.
-- **Importação** (admin).
+- **Importação** (admin): o arquivo é lido assim que escolhido, e a tela mostra a codificação, o separador, a prévia, o campo sugerido para cada coluna e as opções (origem, campanha padrão, coluna de id externo e distribuição). Depois de importar, o resultado acompanha o andamento e mostra os números, os leads que ficaram sem responsável e as linhas com erro, com o relatório para baixar.
 - **Configurações** (admin): usuários (com o cartão Rodízio, que liga e desliga a distribuição automática), etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho) e campanhas.
 - **Auditoria** (admin).
 
