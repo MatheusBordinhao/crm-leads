@@ -74,7 +74,41 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    A mesma chave vai para a credencial Header Auth do n8n no Passo 6. Para trocá-la, rode o comando de novo e atualize a credencial.
 
-4. Instale as ferramentas e as dependências:
+4. Alertas por e-mail (pode ficar para depois). O CRM avisa o fluxo `CRM - Alertas` do n8n, que manda o e-mail. Primeiro, gere a chave que o n8n confere no cabeçalho `X-Crm-Chave` (`N8n__WebhookChave`). Os comandos a gravam no `.env` e a deixam pronta para colar no n8n.
+
+   PowerShell (a chave vai para a área de transferência):
+
+   ```powershell
+   $bytes = New-Object byte[] 24; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+   $chave = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+   $linhas = (Get-Content .env -Encoding UTF8) -replace '^N8n__WebhookChave=.*$', "N8n__WebhookChave=$chave"
+   [IO.File]::WriteAllText("$PWD\.env", ($linhas -join "`n") + "`n")
+   Set-Clipboard -Value $chave
+   ```
+
+   Bash (a chave aparece no terminal):
+
+   ```bash
+   chave=$(openssl rand -hex 24)
+   sed -i "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$chave/" .env
+   echo "$chave"
+   ```
+
+   No n8n, crie uma credencial Header Auth com o nome do cabeçalho `X-Crm-Chave` e a chave como valor, e escolha essa credencial no nó "Evento do CRM" do fluxo `CRM - Alertas`. Com o fluxo publicado, preencha no `.env` a URL de produção do Webhook dele:
+
+   ```bash
+   N8n__WebhookUrl=https://SUA-INSTANCIA.app.n8n.cloud/webhook/crm-alertas
+   ```
+
+   Sem `N8n__WebhookUrl`, o CRM não envia nada, e os eventos ficam pendentes. Quando a URL for configurada, os pendentes acumulados saem todos de uma vez. Para descartá-los antes, em desenvolvimento:
+
+   ```bash
+   docker compose exec db psql -U crm -d crm -c "DELETE FROM eventos_saida WHERE situacao = 'pendente';"
+   ```
+
+   O CRM chama o n8n Cloud, então não precisa de túnel para os alertas.
+
+5. Instale as ferramentas e as dependências:
 
    ```bash
    dotnet tool restore      # dotnet ef, para criar migrations
@@ -119,14 +153,23 @@ A tela inicial é o funil: uma coluna por etapa aberta, e Ganho e Perdido como �
 - No celular (ou na visão de dispositivo do DevTools), o funil vira uma lista por etapa, com um "Mover para" em cada cartão.
 - Na ficha, os botões WhatsApp, Ligar e E-mail abrem o contato e, em seguida, o registro da interação com o tipo já escolhido. A primeira ligação, WhatsApp, e-mail ou reunião grava o primeiro contato, e a linha do tempo mostra quem fez o quê e quando.
 - As etapas, os motivos de perda e a exigência de CPF/CNPJ para Ganho ficam em Configurações › Etapas e motivos (só admin).
+- O admin passa o lead para outra pessoa no cartão Responsável da ficha. A troca aparece na linha do tempo e avisa a nova responsável.
+
+### Rodízio, notificações e alertas
+
+- Em Configurações › Usuários, o cartão Rodízio liga e desliga a distribuição automática e mostra para quem vai o próximo lead. A coluna Rodízio da lista escolhe quem participa: nas férias ou folgas, desligue a da pessoa.
+- Os leads da integração, e os que um admin cadastra com "Rodízio" no campo Responsável, vão um de cada vez para quem está no rodízio. Só o rodízio passa a vez: a escolha do admin, a troca de responsável e o lead que a atendente cadastra para si não mexem na ordem.
+- Sem ninguém no rodízio, ou com a distribuição desligada, o lead fica sem responsável, e os admins recebem um aviso no sino, com o motivo.
+- O sino no topo mostra as notificações e é consultado a cada 30 segundos. Quem fez a ação não é avisado dela, e lead de teste não gera aviso.
+- Os e-mails saem pelo n8n, em segundo plano. Se o n8n estiver fora do ar, o CRM tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h; depois disso, os admins recebem um aviso no sino.
 
 ### Leads pela integração
 
 O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especificação). Para simular um envio sem o n8n, com a API rodando, use a requisição "Lead pela integração" do [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) e informe o valor de `Integracao__Chave` quando o VS Code pedir.
 
 - Reenviar a mesma requisição responde `ja_recebido` e não duplica o lead. Troque o `idExterno` para simular um lead novo.
-- O exemplo vai com `"teste": true`: lead de teste fica sem responsável e só aparece para admins.
-- Até o rodízio (Passo 4), os leads da integração ficam sem responsável. O admin os encontra em Leads, com o filtro Responsável › Sem responsável.
+- O exemplo vai com `"teste": true`: lead de teste fica sem responsável, só aparece para admins e não gera aviso. Para ver o rodízio e o alerta por e-mail, use a requisição "Lead real pela integração".
+- Os leads da integração vão para o rodízio. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
 - Telefone, e-mail ou CPF/CNPJ em formato inválido não recusam o lead: a ficha mostra o aviso embaixo do campo.
 
 ## Tipos da API no front
@@ -150,7 +193,7 @@ cd web && npm run lint                   # ESLint
 cd web && npm run format                 # Prettier; format:check só confere
 ```
 
-O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras.
+O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso.
 
 ## Banco de dados
 
@@ -167,16 +210,17 @@ docker compose down -v                                            # para o banco
 
 ```
 src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/: Usuarios/ (acesso e cadastro),
-                             Leads/ (leads, entrada, normalização, campanhas, interações e linha do tempo),
+                             Leads/ (leads, entrada, rodízio, normalização, campanhas, interações e linha do tempo),
                              Funil/ (etapas, motivos de perda, mudança de etapa com histórico e quadro),
-                             Integracoes/ (chave e rotas do n8n)
+                             Notificacoes/ (sino e quem é avisado de cada acontecimento), Integracoes/ (chave e rotas do n8n)
 src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
-                             (Configuracao/), horário de Brasília (Datas/), ProblemDetails, validação e convenções da API (Web/)
+                             (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
+                             ProblemDetails, validação e convenções da API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, configuracoes,
-                             usuarios), components/ui/ do shadcn/ui, api/ com o cliente e os tipos gerados
-n8n/                         JSON exportado dos fluxos do n8n
+web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, notificacoes,
+                             configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o cliente e os tipos gerados
+n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
 docs/                        especificação e guia de uso do Claude Code
 ```
 
