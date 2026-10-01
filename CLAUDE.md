@@ -19,6 +19,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
 - O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
 - No n8n de desenvolvimento, os fluxos `CRM - Alertas` (`jG8npUo12JBbqAKS`) e `CRM - Erros` (`zqvER5UUTkTxFM4G`) foram criados e publicados em 30/09/2026, com o `CRM - Erros` como fluxo de erro do Alertas. A credencial Header Auth do Webhook se chama "Header Auth account". O teste do n8n Cloud termina por volta de 06/10/2026.
+- Passo 4 validado de ponta a ponta em 30/09/2026, com o `.env` de desenvolvimento já com `N8n__WebhookUrl` e `N8n__WebhookChave`: um lead real pela integração foi para a Adriana pelo rodízio, o `lead.criado` foi entregue ao n8n na primeira tentativa, em 7 segundos, e o e-mail chegou com os dados do lead e o link da ficha, que abre o lead.
 
 ## Arquitetura
 
