@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- O ícone da marca (users-round, do Lucide, licença ISC) no quadrado escuro, no lugar do logo da empresa. -->
+  <rect width="32" height="32" rx="7" fill="#171717" />
+  <g
+    transform="translate(6 6) scale(0.8333)"
+    fill="none"
+    stroke="#fafafa"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M18 21a8 8 0 0 0-16 0" />
+    <circle cx="10" cy="8" r="5" />
+    <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />
+  </g>
+</svg>
