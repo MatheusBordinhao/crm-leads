@@ -1,5 +1,5 @@
-import { z } from 'zod'
 import type { AnaliseImportacaoResponse, CriarImportacaoRequest } from '@/api/cliente'
+import { z } from '@/lib/zod'
 import { CAMPOS, ORIGENS_DA_IMPORTACAO, ROTULOS_CAMPO, umaColunaSo } from './rotulos'
 
 /** Valor da campanha padrão que pede o nome de uma campanha nova. */

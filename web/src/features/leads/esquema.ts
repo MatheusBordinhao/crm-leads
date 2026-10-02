@@ -1,6 +1,6 @@
-import { z } from 'zod'
 import type { LeadResponse } from '@/api/cliente'
 import { documentoValido, normalizarDocumento } from '@/lib/documento'
+import { z } from '@/lib/zod'
 
 export const MENSAGENS = {
   contato: 'Informe o e-mail ou o telefone.',

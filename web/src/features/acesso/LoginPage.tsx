@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { Navigate, useLocation, useNavigate } from 'react-router'
-import { z } from 'zod'
 import { CampoTexto } from '@/components/CampoTexto'
 import { TelaCentral } from '@/components/layout/TelaCentral'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
+import { z } from '@/lib/zod'
 import { useEu, useLogin } from './sessao'
 
 const esquema = z.object({
