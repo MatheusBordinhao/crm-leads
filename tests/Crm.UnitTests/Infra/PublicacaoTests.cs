@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace Crm.UnitTests.Infra;
@@ -68,10 +69,13 @@ public class PublicacaoTests
         Assert.Contains(trecho, Ler(Path.Combine("deploy", "Caddyfile")), StringComparison.Ordinal);
     }
 
-    /// <summary>A pasta do Crm.sln, subindo a partir de onde os testes rodam.</summary>
-    private static string AcharRaiz()
+    /// <summary>
+    /// A pasta do Crm.sln, subindo a partir deste arquivo de código. Vale também com o build fora do repositório, como no
+    /// contêiner dos testes (docker-compose.testes.yml).
+    /// </summary>
+    private static string AcharRaiz([CallerFilePath] string esteArquivo = "")
     {
-        for (var pasta = new DirectoryInfo(AppContext.BaseDirectory); pasta is not null; pasta = pasta.Parent)
+        for (var pasta = new DirectoryInfo(Path.GetDirectoryName(esteArquivo)!); pasta is not null; pasta = pasta.Parent)
         {
             if (File.Exists(Path.Combine(pasta.FullName, "Crm.sln")))
             {

@@ -203,6 +203,7 @@ O arquivo gerado vai para o Git, para o build do front não depender da API. O c
 
 ```bash
 dotnet test                              # unitários e de integração (estes sobem um PostgreSQL pelo Testcontainers)
+docker compose -f docker-compose.testes.yml run --rm testes   # os mesmos testes .NET, num contêiner Linux
 cd web && npm test                       # Vitest, sem modo watch (npm run test:watch para o modo watch)
 
 dotnet format                            # formata o C#; --verify-no-changes só confere
@@ -211,6 +212,25 @@ cd web && npm run format                 # Prettier; format:check só confere
 ```
 
 O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso.
+
+No Windows PowerShell 5.1, use `npm.cmd` no lugar de `npm` (a política de execução bloqueia o `npm.ps1`) e rode os comandos em linhas separadas, porque o `&&` não existe nele: `cd web` e, depois, `npm.cmd test`.
+
+### Testes .NET num contêiner Linux
+
+Com o Controle Inteligente de Aplicativos do Windows ligado, o `dotnet test` não carrega o `Testcontainers.dll`, que não é assinado, e os testes de integração falham com "Uma política de Controle de Aplicativo bloqueou este arquivo". O [docker-compose.testes.yml](docker-compose.testes.yml) roda os mesmos testes num contêiner Linux, sem mexer na segurança do Windows:
+
+```powershell
+docker compose -f docker-compose.testes.yml run --rm testes
+```
+
+- O código entra só para leitura: o build fica num volume do Docker, e nada muda nas pastas `bin/` e `obj/` do Windows. Por isso, ele roda mesmo com a API de desenvolvimento aberta, que trava o `Crm.Api.exe` do build do Windows.
+- O PostgreSQL dos testes sobe no Docker do computador, como no `dotnet test` normal.
+- A primeira vez baixa a imagem do SDK e os pacotes, o que leva alguns minutos; as seguintes reaproveitam os volumes. Para apagá-los: `docker compose -f docker-compose.testes.yml down -v`.
+- O que vem depois de `testes` vai para o `dotnet test`. Para rodar uma classe só:
+
+  ```powershell
+  docker compose -f docker-compose.testes.yml run --rm testes --project tests/Crm.IntegrationTests/Crm.IntegrationTests.csproj --filter-class "Crm.IntegrationTests.ImportacaoTests"
+  ```
 
 ## Banco de dados
 
