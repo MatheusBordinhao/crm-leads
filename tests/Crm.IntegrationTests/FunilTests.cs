@@ -44,7 +44,8 @@ public class FunilTests(CrmApiFactory fabrica)
         var motivos = await db.MotivosPerda.Select(m => m.Nome).ToListAsync(Ct);
         var configuracoes = await db.Configuracoes.ToDictionaryAsync(c => c.Chave, c => c.Valor, Ct);
 
-        Assert.Subset(
+        // Superset: os motivos iniciais estão no banco, que também tem os criados por testes que rodaram antes.
+        Assert.Superset(
             new HashSet<string> { "Sem resposta", "Sem interesse", "Preço", "Fechou com concorrente", "Fora do perfil", "Contato inválido" },
             motivos.ToHashSet());
         Assert.Equal("true", configuracoes[ChavesConfiguracao.DistribuicaoAutomatica]);
