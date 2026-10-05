@@ -457,9 +457,19 @@ A API confere na subida o que é obrigatório e para com uma mensagem clara. `Cr
 
 ## 10. Passos de entrega
 
-As datas seguem o plano de projeto. Cada passo termina com os critérios de aceite passando e com `dotnet test` e `npm test` sem erros.
+Cada passo termina com os critérios de aceite passando e com `dotnet test` e `npm test` sem erros.
 
-### Entrega 1, até 09/10/2026: já dá para trabalhar
+### Ordem
+
+A empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração. Por isso, desde 05/10/2026, a ordem abaixo substitui as três entregas do plano de projeto (09/10, 23/10 e 06/11/2026). Os Passos 0 a 5 estão feitos, menos a publicação do Passo 5. Depois deles:
+
+1. Passos 7 e 8, tudo local. A demonstração para o chefe vem logo depois do 8.
+2. Passos 9 e 10, enquanto o servidor não chega.
+3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
+
+O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `N8n__WebhookUrl` fica vazio, e os eventos ficam pendentes no CRM (4.3). O que depende do n8n fica para a terceira fase: levar os fluxos do Passo 4 para o n8n de produção, o fluxo `CRM - Relatório semanal Gama` do Passo 9 e a revisão das configurações de execução dos fluxos do Passo 10. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
+
+### Passos
 
 **Passo 0: base do projeto**
 
@@ -532,21 +542,19 @@ As datas seguem o plano de projeto. Cada passo termina com os critérios de acei
 - IP real do cliente atrás do Caddy: a API lê os cabeçalhos encaminhados (`UseForwardedHeaders`), confiando só no Caddy. Sem isso, o limite de logins por IP e a auditoria enxergam todo mundo com o IP do Caddy.
 - Chaves do Data Protection, que protegem o cookie da sessão, guardadas num volume. Sem isso, todos perdem a sessão quando o contêiner da API reinicia.
 - Backup diário e guia de publicação no README.
-- Publicação no servidor definido (seção 11).
+- Publicação no servidor definido (seção 11), que fica para a terceira fase da ordem. Lá se repetem os critérios de aceite da publicação, já conferidos no Compose de produção no próprio computador.
 - Aceite:
   - importar um CSV exportado da Meta (UTF-16, tab) e um do Excel (`;`, Windows-1252) sem erro de acentuação;
   - reimportar o mesmo arquivo não cria duplicados;
   - o sistema está no ar com HTTPS, e a restauração do backup foi testada;
   - reiniciar o contêiner da API não encerra as sessões, e a auditoria registra o IP real de quem faz login.
 
-### Entrega 2, até 23/10/2026: leads automáticos
-
 **Passo 6: entrada automática pelo n8n**
 
 - Fluxos `CRM - Entrada Meta`, `CRM - Entrada Google`, `CRM - Entrada Site` e `CRM - Reenvio de pendentes` (4.5).
 - Credencial Header Auth com a chave do CRM e a Data Table `crm_entradas_pendentes`.
 - Tela de campanhas para o admin renomear as provisórias.
-- Este passo depende do app da Meta em modo Live. Até lá, a importação CSV cobre os leads da Meta.
+- Este passo depende do CRM publicado, do n8n de produção e do app da Meta em modo Live. Até lá, a importação CSV cobre os leads da Meta.
 - Aceite:
   - um lead da Ferramenta de Teste da Meta e um do "Enviar dados de teste" do Google aparecem no CRM com origem e campanha, marcados como teste;
   - reenviar o mesmo lead não duplica;
@@ -568,12 +576,10 @@ As datas seguem o plano de projeto. Cada passo termina com os critérios de acei
   - um teste de integração com uma massa de dados conhecida confere cada número;
   - os leads de teste ficam de fora.
 
-### Entrega 3, até 06/11/2026: ajustes e relatório
-
 **Passo 9: relatório para a Gama**
 
 - Tela e CSV do relatório por campanha.
-- `GET /api/integracoes/relatorios/campanhas` e o fluxo `CRM - Relatório semanal Gama`.
+- `GET /api/integracoes/relatorios/campanhas` e o fluxo `CRM - Relatório semanal Gama`. O fluxo fica pendente até o n8n de produção.
 - Aceite:
   - os números do CSV batem com os do painel;
   - o relatório não tem nenhum dado pessoal.
@@ -582,7 +588,7 @@ As datas seguem o plano de projeto. Cada passo termina com os critérios de acei
 
 - Exportar os dados do titular, anonimizar e excluir leads de teste.
 - Exportação de leads com registro na auditoria e tela de auditoria.
-- Revisão das configurações de execução dos fluxos no n8n.
+- Revisão das configurações de execução dos fluxos no n8n, pendente até o n8n de produção.
 - Aceite:
   - depois de anonimizar, nenhum dado pessoal do lead aparece no banco, incluindo entradas e interações;
   - o painel mantém os totais.
@@ -607,9 +613,9 @@ Cada decisão tem um padrão, para o desenvolvimento não parar enquanto ela nã
 | Etapas definitivas do funil | As da seção 3.4 | Gama e chefe |
 | Quem é admin | Chefe e Matheus | Chefe |
 | A Gama acessa o painel? | Não; recebe o relatório | Chefe |
-| Onde o CRM roda e qual o domínio | Ambiente local até a definição | Chefe |
-| n8n de produção | Conta da empresa: n8n Cloud Starter ou n8n Community no servidor do CRM | Chefe |
-| E-mail que envia os alertas | Gmail da conta de desenvolvimento nos testes; e-mail da empresa em produção | Chefe e TI |
+| Onde o CRM roda e qual o domínio | Ambiente local até a definição, que vem depois da demonstração dos Passos 7 e 8 (seção 10) | Chefe |
+| n8n de produção | Nenhum até a decisão, tomada junto com a do servidor, entre o n8n Cloud Starter numa conta da empresa e o n8n Community no servidor do CRM. Até lá, o `N8n__WebhookUrl` fica vazio, e o que depende do n8n fica pendente (seção 10) | Chefe |
+| E-mail que envia os alertas | Gmail da conta de desenvolvimento nos testes, até o fim do teste do n8n Cloud em 06/10/2026; e-mail da empresa em produção | Chefe e TI |
 | URL da política de privacidade | Nenhum; a Meta exige para o app ficar Live | Empresa |
 | Quem faz o site e o formulário | Nenhum | Chefe |
 | Prazo para anonimizar leads perdidos | Sugestão: 24 meses sem atividade, com anonimização manual até a decisão | Chefe |

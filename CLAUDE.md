@@ -7,8 +7,9 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 ## Situação atual
 
 - Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
-- Ainda não há servidor, domínio, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
-- Nos testes, os alertas usam a credencial "Gmail account" do n8n e vão para matheusbordinhao11@gmail.com. Os usuários de teste usam aliases com "+" desse e-mail, como matheusbordinhao11+adriana@gmail.com.
+- Em 05/10/2026, a ordem do projeto mudou: a empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração para o chefe, que vem logo depois do Passo 8. A ordem nova está em "Como trabalhar" e na seção 10 da especificação.
+- Ainda não há servidor, domínio, n8n de produção, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
+- Os usuários de teste usam aliases com "+" de matheusbordinhao11@gmail.com, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
 - Passos 0 a 3 validados manualmente por mim em 30/09/2026, além dos testes automáticos:
   - login do admin, troca de senha obrigatória e cadastro da Adriana e da Pietra;
@@ -18,8 +19,13 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - lead cadastrado à mão fica "Ainda sem contato" até a primeira interação;
   - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
 - O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
-- No n8n de desenvolvimento, os fluxos `CRM - Alertas` (`jG8npUo12JBbqAKS`) e `CRM - Erros` (`zqvER5UUTkTxFM4G`) foram criados e publicados em 30/09/2026, com o `CRM - Erros` como fluxo de erro do Alertas. A credencial Header Auth do Webhook se chama "Header Auth account". O teste do n8n Cloud termina por volta de 06/10/2026.
-- Passo 4 validado de ponta a ponta em 30/09/2026, com o `.env` de desenvolvimento já com `N8n__WebhookUrl` e `N8n__WebhookChave`: um lead real pela integração foi para a Adriana pelo rodízio, o `lead.criado` foi entregue ao n8n na primeira tentativa, em 7 segundos, e o e-mail chegou com os dados do lead e o link da ficha, que abre o lead.
+- O teste do n8n Cloud de desenvolvimento acaba em 06/10/2026. Nele, os fluxos `CRM - Alertas` (`jG8npUo12JBbqAKS`) e `CRM - Erros` (`zqvER5UUTkTxFM4G`) foram criados e publicados em 30/09/2026, com o `CRM - Erros` como fluxo de erro do Alertas. A credencial Header Auth do Webhook se chama "Header Auth account", e os e-mails de teste saíam pela credencial "Gmail account" para matheusbordinhao11@gmail.com. Os JSONs dos dois fluxos estão em `n8n/`.
+- O n8n de produção será decidido junto com o servidor. Até lá, o `N8n__WebhookUrl` do `.env` fica vazio (os eventos ficam pendentes em `eventos_saida`, e nenhum e-mail sai), o servidor MCP do n8n fica desconectado, e o que depender do n8n fica pendente:
+  - levar o `CRM - Alertas` e o `CRM - Erros` para o n8n de produção pelos JSONs de `n8n/`, recriar as credenciais, preencher o `N8n__WebhookUrl` e repetir lá o e-mail com o link da ficha (Passo 4);
+  - o fluxo `CRM - Relatório semanal Gama` (Passo 9);
+  - a revisão das configurações de execução dos fluxos (Passo 10);
+  - apontar o `.mcp.json` para o n8n de produção.
+- Passo 4 validado de ponta a ponta em 30/09/2026, com `N8n__WebhookUrl` e `N8n__WebhookChave` no `.env` de desenvolvimento: um lead real pela integração foi para a Adriana pelo rodízio, o `lead.criado` foi entregue ao n8n na primeira tentativa, em 7 segundos, e o e-mail chegou com os dados do lead e o link da ficha, que abre o lead.
 - Passo 5 implementado em 01/10/2026 e conferido pelo Claude no Compose de produção rodando localmente (`DOMINIO=localhost`, portas 8088 e 8443): HTTPS com HSTS e CSP, sessão mantida depois de recriar o contêiner da API, IP de quem acessa na auditoria (no Docker Desktop, o gateway `172.30.0.1`) e um `X-Forwarded-For` forjado ignorado, importação dos exemplos de `docs/exemplos/` com os acentos certos, reimportação sem duplicar, backup e restauração. Em 02/10/2026, com o Zod sem `new Function` e o favicon, o console do Chrome ficou sem erros e sem issues da CSP com a sessão aberta. Sem sessão, o único erro é o 401 do `GET /api/auth/eu` na tela de login, que é esperado.
 - Passo 5 validado manualmente por mim em 02/10/2026:
   - em desenvolvimento, pela tela: `leads-meta.csv` e `leads-excel.csv` com os acentos certos, o telefone da Meta sem o `p:` e a campanha da Meta; reimportar o Excel deu 3 "já importados"; um CSV com erros deu 2 leads e as linhas 3 e 4 com os motivos, e o lead de telefone "123" entrou;
@@ -144,14 +150,18 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 
 ## n8n
 
-- O servidor MCP `n8n`, configurado em `.mcp.json`, dá acesso à instância de desenvolvimento. Use-o para criar, validar e testar os fluxos da seção 4.5 da especificação.
+- O servidor MCP `n8n` do `.mcp.json` aponta para a instância de desenvolvimento, que acaba em 06/10/2026, e fica desconectado até o n8n de produção existir. Até lá, não crie nem altere fluxos, e liste como pendente o que depender do n8n. Quando o `.mcp.json` apontar para o n8n de produção, use o MCP para criar, validar e testar os fluxos da seção 4.5 da especificação.
 - Nunca publique, ative nem execute um fluxo sem confirmação do usuário: um fluxo ativo pode mandar e-mail de verdade.
 - Todo fluxo do CRM tem o nome começando por `CRM - `. Credenciais ficam no n8n, nunca dentro do fluxo.
 - Depois de criar ou alterar um fluxo, salve o JSON dele em `n8n/<nome-do-fluxo>.json`.
 
 ## Como trabalhar
 
-- Siga os passos da seção 10 da especificação, na ordem. Um passo só termina quando os critérios de aceite passam.
+- Siga os passos da seção 10 da especificação nesta ordem, que vale desde 05/10/2026:
+  1. Passos 7 e 8, tudo local. A demonstração para o chefe vem logo depois do 8.
+  2. Depois, os Passos 9 e 10, enquanto o servidor não chega.
+  3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
+- Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.
 - Antes de codar um passo, mostre o plano (arquivos, migrations, endpoints, telas) e espere aprovação.

@@ -63,8 +63,8 @@ Para cada passo:
 | 10 | `/passo 10` | Nada |
 | 11 | `/passo 11` | Etapas do funil definidas com a Gama |
 
-- **Prazos:** os passos 0 a 5 fecham a Entrega 1 (09/10), os passos 6 a 8 a Entrega 2 (23/10) e os passos 9 a 11 a Entrega 3 (06/11).
-- **Quando faltar algo externo:** o Claude deixa o passo pronto e lista o que falta. Os passos 7 e 8 não dependem do 6, então dá para adiantá-los enquanto a Meta não libera o app.
+- **Ordem:** a da seção 10 da especificação, que mudou em 05/10/2026. Depois dos passos 0 a 5, vêm os passos 7 e 8, tudo local, com a demonstração para o chefe logo depois do 8; os passos 9 e 10, enquanto o servidor não chega; e, com o servidor, a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
+- **Quando faltar algo externo:** o Claude deixa o passo pronto e lista o que falta.
 
 ## 5. Prompts úteis
 

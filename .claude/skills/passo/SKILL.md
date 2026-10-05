@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 Execute o Passo $ARGUMENTS da seção 10 de `docs/especificacao.md`.
 
-1. **Contexto.** Leia o `CLAUDE.md`, o Passo $ARGUMENTS e todas as seções da especificação que ele cita. Confira pelo `git log` e pelo código se os passos anteriores estão concluídos. Se faltar algo de um passo anterior, pare e me diga o quê.
+1. **Contexto.** Leia o `CLAUDE.md`, o Passo $ARGUMENTS e todas as seções da especificação que ele cita. Confira pelo `git log` e pelo código se os passos que vêm antes dele na ordem da seção 10 estão concluídos, fora o que ela deixa para depois. Se faltar algo, pare e me diga o quê.
 2. **Plano.** Antes de alterar qualquer arquivo, apresente o plano:
    - arquivos que vai criar ou mudar;
    - migrations, endpoints e telas;
@@ -17,8 +17,8 @@ Execute o Passo $ARGUMENTS da seção 10 de `docs/especificacao.md`.
    Espere a minha aprovação antes de seguir.
 3. **Implementação.** Depois de aprovado, implemente em partes pequenas, escrevendo os testes junto com o código.
 4. **Verificação.** Rode `dotnet build` e `dotnet test`. Dentro de `web/`, rode `npm run lint` e `npm test` (sem modo watch). Corrija até tudo passar.
-5. **Critérios de aceite.** Confira um por um e mostre como cada um foi verificado. Os que dependem de algo externo (acesso à Meta, ao Google Ads, ao servidor, credencial de e-mail), deixe prontos e liste o que eu preciso providenciar.
-6. **n8n.** Se o passo envolver fluxos, crie e valide pelo MCP do n8n e salve o JSON de cada fluxo em `n8n/`. Não publique, não ative e não execute nenhum fluxo sem me perguntar.
+5. **Critérios de aceite.** Confira um por um e mostre como cada um foi verificado. Os que dependem de algo externo (acesso à Meta, ao Google Ads, ao servidor, ao n8n de produção, credencial de e-mail), deixe prontos e liste o que eu preciso providenciar.
+6. **n8n.** Se o passo envolver fluxos, crie e valide pelo MCP do n8n e salve o JSON de cada fluxo em `n8n/`. Com o MCP do n8n desconectado, não crie o fluxo: liste-o como pendente. Não publique, não ative e não execute nenhum fluxo sem me perguntar.
 7. **Revisão.** Antes de fechar, confira no código e nos testes:
    - cada item de "Regras que não podem quebrar" do `CLAUDE.md`;
    - as decisões da especificação que tocam o passo: as regras das seções que ele cita, as decisões tomadas neste passo e nos anteriores, as respostas que eu dei às suas dúvidas (nesta conversa ou já registradas na especificação) e o padrão da seção 11.
