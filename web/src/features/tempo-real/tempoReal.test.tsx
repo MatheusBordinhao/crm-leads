@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { atendente, comSessao, problema } from '@/test/api'
 import { comCadastros, comQuadro, fichaLead } from '@/test/leads'
 import { comNotificacoes, notificacao } from '@/test/notificacoes'
@@ -49,6 +49,36 @@ describe('conexão do tempo real', () => {
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
     expect(hub.estado.conectada).toBe(false)
     expect(hub.estado.paradas).toBeGreaterThan(0)
+  })
+
+  it('segura uma Web Lock enquanto está conectada, para a aba não ser congelada, e a solta ao sair', async () => {
+    let liberada: Promise<unknown> | undefined
+    const request = vi.fn(
+      (_nome: string, _opcoes: LockOptions, segurar: () => Promise<unknown>) => {
+        liberada = segurar()
+        return liberada
+      },
+    )
+    Object.defineProperty(navigator, 'locks', { configurable: true, value: { request } })
+    try {
+      comSessao(atendente)
+      comQuadro()
+      servidor.use(http.post('*/api/auth/logout', () => new HttpResponse(null, { status: 204 })))
+      const { hub, usuario } = renderizarApp('/funil')
+      await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+      expect(request).toHaveBeenCalledWith(
+        'crm-tempo-real',
+        expect.objectContaining({ mode: 'shared' }),
+        expect.any(Function),
+      )
+      await usuario.click(screen.getByRole('button', { name: 'Adriana' }))
+      await usuario.click(await screen.findByRole('menuitem', { name: 'Sair' }))
+
+      await expect(liberada).resolves.toBeUndefined()
+    } finally {
+      Reflect.deleteProperty(navigator, 'locks')
+    }
   })
 
   it('ao reconectar depois de uma queda, recarrega o que está na tela', async () => {
