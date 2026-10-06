@@ -39,7 +39,12 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
 - No banco de desenvolvimento, só a Adriana está no rodízio: os leads da integração e os importados pelo rodízio vão todos para ela.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
-- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity). O `dotnet test` do Windows roda os testes unitários, mas os de integração falham com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 476 de 476 em 03/10/2026.
+- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 511 de 511 em 06/10/2026.
+- Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
+  - testes automáticos dos dois critérios de aceite: o lead da integração chega à responsável do rodízio em menos de 5 s (`TempoRealRodizioTests`), e a atendente não recebe o id de lead de outra pessoa em nenhum caso (`TempoRealTests`, com um lead da outra atendente como sentinela);
+  - no Chrome sem janela, contra o Compose de produção local: o cartão apareceu no funil da atendente 1,6 s depois do envio pela integração com a API ainda fria e 0,35 s com ela quente, pelo WebSocket `wss://localhost:8444/hubs/notificacoes` (handshake 101); a outra atendente não recebeu o id do lead; o console ficou sem erros e sem issues da CSP;
+  - o corpo da requisição "Lead real pela integração" do `Crm.Api.http`, que respondia 400 sem o `recebidoEm`, respondeu 201.
+- Falta a validação manual do Passo 7 por mim (README › Rodízio, notificações e alertas), inclusive a notificação nativa com a aba minimizada.
 
 ## Arquitetura
 
@@ -63,7 +68,7 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 ```
 src/Crm.Api/                 API, organizada por módulo em Features/ (Leads, Funil, Usuarios, Integracoes, Painel, Notificacoes)
-src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV, proxy, chaves da sessão e front
+src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV, tempo real, proxy, chaves da sessão e front
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
@@ -140,9 +145,15 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - Uma rota que aceita qualquer método (`MapFallback`, `MapFallbackToFile`) faz um método errado numa rota da API responder 404 em vez de 405. Por isso o `index.html` é servido fora do roteamento, como último recurso de um GET (`FrontExtensions.UsarFront`).
 - O `UseForwardedHeaders` com as listas de proxies vazias confia em qualquer um. Sem `Proxy__Ip`, o `ProxyReverso` desliga os cabeçalhos encaminhados (`ForwardedHeaders.None`).
 - O `TestServer` não tem IP de conexão. Para testar o IP de quem acessa, use `Server.SendAsync` e defina o `Connection.RemoteIpAddress` (`ProxyTests`).
-- A CSP do Caddy (`deploy/Caddyfile`) só aceita a própria origem, mais os estilos inline do sonner e do Radix, e não tem `'unsafe-eval'`. Um recurso externo novo (fonte, imagem, script) precisa entrar nela, e no Passo 7 confira se o WebSocket do SignalR passa pelo `connect-src`.
+- A CSP do Caddy (`deploy/Caddyfile`) só aceita a própria origem, mais os estilos inline do sonner e do Radix, e não tem `'unsafe-eval'`. Um recurso externo novo (fonte, imagem, script) precisa entrar nela. O `connect-src` repete o domínio com `wss://`, para o WebSocket do tempo real no Safari antigo; com `DOMINIO=localhost` numa porta que não é a 443, quem cobre o WebSocket é o `'self'`, o que basta no Chrome.
 - O `z` vem de `@/lib/zod`, que liga o `jitless` antes de qualquer esquema. Com o `z` direto do `zod`, o Zod testa o `new Function` ao criar cada esquema de objeto, e o Chrome registra a violação da CSP, mesmo com o erro tratado. O ESLint barra o import de `zod`.
-- Para ver o console e os issues do DevTools sem abrir o navegador (por exemplo, uma violação da CSP), use o Chrome sem janela (`--headless --remote-debugging-port=<porta> --user-data-dir=<pasta temporária>`) e o protocolo do DevTools (`Log`, `Runtime` e `Audits.issueAdded`), contra o Compose de produção local.
+- Para ver o console e os issues do DevTools sem abrir o navegador (por exemplo, uma violação da CSP), use o Chrome sem janela (`--headless --remote-debugging-port=<porta> --user-data-dir=<pasta temporária>`) e o protocolo do DevTools (`Log`, `Runtime` e `Audits.issueAdded`), contra o Compose de produção local. Os quadros do WebSocket do tempo real chegam pelo `Network.webSocketFrameReceived`. Os issues `FormEmptyIdAndNameAttributesForInputError` do funil (a busca e as seleções sem `id` nem `name`) já existiam antes do Passo 7.
+- Os avisos do tempo real saem de um interceptador do EF Core (`InterceptadorTempoReal`), que anota cada `SaveChanges` e só entrega à `FilaTempoReal` depois do commit. O que não passa pelo `SaveChanges` (`ExecuteUpdate`, SQL direto) não avisa: uma mudança de lead feita assim precisa chamar a `FilaTempoReal.Publicar`. O interceptador guarda o estado por instância do contexto; com pool de contextos, isso precisaria mudar.
+- Uma fábrica do `WithWebHostBuilder` tem o próprio hub e o próprio publicador. Nos testes do tempo real, conecte o hub e faça as ações pela mesma fábrica. Os testes que precisam ver o que o interceptador entrega tiram o `PublicadorTempoReal` e leem a fila (`InterceptadorTempoRealTests`).
+- O cliente do SignalR dos testes (`TempoRealDeTeste`) fala com o TestServer por Server-Sent Events, com o cookie da sessão no cabeçalho. O início do cliente termina antes de o hub pôr a conexão nos grupos (`OnConnectedAsync`); por isso, o `ConectarAsync` espera o registro da conexão antes de devolver.
+- Nos testes do front, o hub é falso (`test/hubFalso.ts`, devolvido pelo `renderizarApp`): emita os avisos com `hub.emitir`. O MSW recusa requisições não tratadas, e o hub de verdade faria uma. O jsdom não tem a `Notification`: os testes da notificação nativa a trocam por uma falsa (`vi.stubGlobal`) e controlam o `document.visibilityState`.
+- A reconexão automática do SignalR não tenta de novo quando o primeiro início falha nem quando o servidor encerra a conexão (sessão encerrada, perfil trocado). O `TempoReal` faz a própria, conferindo a sessão antes de cada tentativa: só um 401 leva ao login.
+- Com a aba escondida e a notificação nativa ligada, o `TempoReal` busca a lista do sino pelo `fetchQuery`, para ter o título. Uma invalidação com `cancelRefetch` (o padrão) cancelaria essa busca, e a notificação não apareceria: a recarga do sino usa `cancelRefetch: false`.
 - Nos testes do front, numa seleção cuja lista vem de outra consulta (campanhas, usuários), espere a opção aparecer (`findByRole('option')`) antes do `selectOptions`: com a suíte inteira rodando, a lista pode chegar depois.
 - No Git Bash, um caminho como `/backup/backup.sh` num `docker compose exec` vira um caminho do Windows. Rode com `MSYS_NO_PATHCONV=1`.
 - Com a API de desenvolvimento rodando, o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio.

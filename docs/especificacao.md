@@ -126,8 +126,12 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - Quem fez a ação nunca recebe a notificação dela, e lead de teste não gera notificação. A exceção é o resumo da importação: ela roda em segundo plano, e quem importou pode ter saído da tela. Uma responsável desativada conta como sem responsável, e a nova entrada de um lead sem responsável avisa os admins.
 - Cada notificação é de um usuário. O título não leva dados do lead: a lista mostra o nome atual dele, lido na hora, e só se a pessoa ainda vê o lead. A notificação de um lead que passou para outra atendente some da lista dela, e marcá-la responde 404.
 - Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas. A lista traz as 30 mais recentes, e o contador soma todas as não lidas.
-- Com a aba aberta em segundo plano, o navegador mostra uma notificação nativa. A permissão é pedida uma vez.
-- Até o Passo 7, a lista se atualiza consultando a API a cada 30 segundos.
+- **Tempo real:** o sino, o quadro, a lista e a ficha se atualizam pelo hub do SignalR (`/hubs/notificacoes`), sem consultar a API de tempos em tempos. O hub só manda ids, e a tela busca os dados na API, que aplica a visibilidade de sempre:
+  - `LeadsAlterados(ids)`: os admins recebem os ids de todos os leads; a responsável, só os dos leads que são dela na hora do envio (lead de teste, só os admins). Quem perde um lead numa troca de responsável recebe o aviso sem ids, que recarrega o que estiver aberto: o id de um lead que já é de outra pessoa não chega até ela;
+  - `NotificacaoNova(id)`: só para o dono da notificação;
+  - `FunilAlterado()`: para todos, quando as etapas ou os motivos de perda mudam.
+- Os avisos saem depois do commit, e uma mudança desfeita não avisa. A tela recarrega no máximo uma vez por segundo; ao reconectar, recarrega tudo, porque os avisos do tempo sem conexão se perderam. Durante o arraste, o quadro espera a pessoa soltar. Na ficha, uma mudança de outra pessoa nos dados não apaga o que alguém está digitando: aparece o aviso "Outra pessoa alterou os dados deste lead", e salvar responde o conflito (409).
+- Com a aba em segundo plano e a permissão dada, o navegador mostra uma notificação nativa, só com o título, que nunca leva dados do lead; o clique abre a ficha e marca como lida. A permissão é pedida uma vez, depois do login, num aviso com "Ativar" e "Agora não". Enquanto a pessoa não decide, o sino oferece ativá-la. No celular, a notificação nativa depende do service worker do PWA (Passo 11).
 - Os e-mails de alerta saem do n8n, a partir dos eventos (seção 4).
 
 ### 3.7 Importação e exportação
@@ -377,7 +381,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/relatorios/campanhas` | Admin | Relatório por campanha, também em CSV |
 | `GET /api/auditoria` | Admin | Consulta da auditoria |
 | `POST /api/integracoes/leads`, `GET /api/integracoes/relatorios/campanhas` | Integração | Seções 4.2 e 4.4 |
-| `/hubs/notificacoes` | Admin e atendente | Hub do SignalR, com um grupo por usuário e um grupo de admins |
+| `/hubs/notificacoes` | Admin e atendente | Hub do SignalR, com um grupo por usuário e um grupo de admins. Exige a senha definitiva, como o resto da API, e só manda ids: `LeadsAlterados`, `NotificacaoNova` e `FunilAlterado` (3.6) |
 | `GET /health` | Público | Monitoramento |
 
 ## 7. Telas
@@ -417,10 +421,11 @@ O relatório por campanha usa as mesmas definições e traz, por campanha: leads
 
 - **Cookie:** HttpOnly, Secure, SameSite=Strict, com expiração deslizante de 12 horas.
 - **Senha:** mínimo de 10 caracteres. A 5ª tentativa errada bloqueia o login por 15 minutos e já responde com o aviso de bloqueio; a partir da 6ª, o login é recusado até com a senha certa. Senha atual errada na troca de senha também conta para o bloqueio. O admin cria o usuário com senha provisória, e o sistema exige a troca no primeiro acesso: até lá, só `eu`, `logout` e `trocar-senha` funcionam, e o resto responde 403.
-- **Sessão:** conferida no banco a cada minuto. Usuário desativado não entra, e quem já estava logado perde a sessão em até 1 minuto. Senha redefinida pelo admin também encerra a sessão, e um perfil trocado passa a valer na próxima conferência.
+- **Sessão:** conferida no banco a cada minuto. Usuário desativado não entra, e quem já estava logado perde a sessão em até 1 minuto. Senha redefinida pelo admin também encerra a sessão, e um perfil trocado passa a valer na próxima conferência. A conexão do tempo real é conferida do mesmo jeito, ao conectar e a cada minuto: a de quem foi desativado, teve a senha redefinida ou mudou de perfil é encerrada, e o grupo dos admins vem do perfil gravado no banco.
 - **Primeiro admin:** criado na inicialização a partir de `Admin__Email` e `Admin__SenhaInicial`, se ainda não existir nenhum. Como a senha do `.env` é provisória, ele também precisa trocá-la no primeiro acesso. Sem nenhum admin cadastrado e sem essas variáveis, a API não sobe.
 - **Limites de requisição:** 10 logins por minuto por IP e 120 requisições por minuto na integração.
-- **Caddy:** HTTPS automático, HSTS de um ano (sem `includeSubDomains`) e cabeçalhos de segurança: CSP só com a própria origem (os estilos inline são do sonner e do Radix), `nosniff`, `X-Frame-Options: DENY`, Referrer-Policy e Permissions-Policy. É o único serviço com portas expostas; a API serve o build do React por trás dele.
+- **Caddy:** HTTPS automático, HSTS de um ano (sem `includeSubDomains`) e cabeçalhos de segurança: CSP só com a própria origem (os estilos inline são do sonner e do Radix, e o `connect-src` repete o domínio com `wss://`, porque o Safari anterior a 2022 não cobre o WebSocket do tempo real pelo `'self'`), `nosniff`, `X-Frame-Options: DENY`, Referrer-Policy e Permissions-Policy. É o único serviço com portas expostas; a API serve o build do React por trás dele.
+- **Tempo real:** o hub do SignalR roda na própria API, numa instância só, sem backplane (Redis).
 - **Backup:** `pg_dump` diário, com 14 dias guardados e cópia fora do servidor. A restauração é testada uma vez por mês. No Compose de produção, o serviço `backup` faz o dump às 03:00 (horário de Brasília) numa pasta do servidor (`BACKUP_PASTA`), e o `testar-restauracao.sh` restaura o backup mais recente num banco à parte e compara as contagens. A cópia fora do servidor sai dessa pasta, criptografada (rclone, por exemplo), para o destino que a empresa definir.
 - **Migrations em produção:** o serviço `migracoes` do Compose de produção roda o migration bundle do EF e termina; a API só sobe depois dele. A API só aplica as migrations sozinha em desenvolvimento.
 - **Logs e monitoramento:** logs estruturados sem dados pessoais e `/health` para monitorar. No Compose de produção, o log de cada contêiner gira em 5 arquivos de 10 MB.
@@ -596,7 +601,7 @@ O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `
 **Passo 11: acabamento**
 
 - Etapas definitivas, combinadas com a Gama.
-- Instalação como app no celular (PWA) e revisão da usabilidade no celular.
+- Instalação como app no celular (PWA) e revisão da usabilidade no celular, com a notificação nativa no celular pelo service worker (3.6).
 - Pacote do front dividido por tela (rotas carregadas sob demanda), para o primeiro acesso no celular ficar mais leve. No fim do Passo 1, o build já avisava que o pacote passava de 500 kB (cerca de 200 kB compactado).
 - README de operação: publicar, fazer e restaurar backup, trocar as chaves.
 - Roteiro de treinamento de uma página para Adriana e Pietra.

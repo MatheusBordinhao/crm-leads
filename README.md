@@ -160,13 +160,15 @@ A tela inicial é o funil: uma coluna por etapa aberta, e Ganho e Perdido como �
 - Na ficha, os botões WhatsApp, Ligar e E-mail abrem o contato e, em seguida, o registro da interação com o tipo já escolhido. A primeira ligação, WhatsApp, e-mail ou reunião grava o primeiro contato, e a linha do tempo mostra quem fez o quê e quando.
 - As etapas, os motivos de perda e a exigência de CPF/CNPJ para Ganho ficam em Configurações › Etapas e motivos (só admin).
 - O admin passa o lead para outra pessoa no cartão Responsável da ficha. A troca aparece na linha do tempo e avisa a nova responsável.
+- O quadro, a lista e a ficha se atualizam sozinhos quando um lead chega ou muda, sem recarregar a página. Durante o arraste, o quadro espera você soltar o cartão. Se outra pessoa mudar os dados do lead enquanto você edita a ficha, o que você digitou continua lá, com o aviso "Outra pessoa alterou os dados deste lead".
 
 ### Rodízio, notificações e alertas
 
 - Em Configurações › Usuários, o cartão Rodízio liga e desliga a distribuição automática e mostra para quem vai o próximo lead. A coluna Rodízio da lista escolhe quem participa: nas férias ou folgas, desligue a da pessoa.
 - Os leads da integração, e os que um admin cadastra com "Rodízio" no campo Responsável, vão um de cada vez para quem está no rodízio. Só o rodízio passa a vez: a escolha do admin, a troca de responsável e o lead que a atendente cadastra para si não mexem na ordem.
 - Sem ninguém no rodízio, ou com a distribuição desligada, o lead fica sem responsável, e os admins recebem um aviso no sino, com o motivo.
-- O sino no topo mostra as notificações e é consultado a cada 30 segundos. Quem fez a ação não é avisado dela, e lead de teste não gera aviso.
+- O sino no topo mostra as notificações e se atualiza na hora, pelo tempo real (o hub `/hubs/notificacoes` do SignalR). Quem fez a ação não é avisado dela, e lead de teste não gera aviso.
+- Com a aba em segundo plano, o navegador mostra a notificação nativa, só com o título; o clique abre a ficha. Depois do login, um aviso pergunta uma vez se a pessoa quer ativá-la; quem respondeu "Agora não" ativa pelo sino. No celular, ela chega com o PWA (Passo 11).
 - Os e-mails saem pelo n8n, em segundo plano. Se o n8n estiver fora do ar, o CRM tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h; depois disso, os admins recebem um aviso no sino.
 
 ### Leads pela integração
@@ -174,8 +176,8 @@ A tela inicial é o funil: uma coluna por etapa aberta, e Ganho e Perdido como �
 O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especificação). Para simular um envio sem o n8n, com a API rodando, use a requisição "Lead pela integração" do [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) e informe o valor de `Integracao__Chave` quando o VS Code pedir.
 
 - Reenviar a mesma requisição responde `ja_recebido` e não duplica o lead. Troque o `idExterno` para simular um lead novo.
-- O exemplo vai com `"teste": true`: lead de teste fica sem responsável, só aparece para admins e não gera aviso. Para ver o rodízio e o alerta por e-mail, use a requisição "Lead real pela integração".
-- Os leads da integração vão para o rodízio. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
+- O exemplo vai com `"teste": true`: lead de teste fica sem responsável, só aparece para admins e não gera aviso. Para ver o rodízio e o alerta por e-mail, use a requisição "Lead real pela integração", que gera o `idExterno` e o e-mail a cada envio: cada clique é um lead novo.
+- Os leads da integração vão para o rodízio e aparecem na hora no funil e no sino de quem os recebe. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
 - Telefone, e-mail ou CPF/CNPJ em formato inválido não recusam o lead: a ficha mostra o aviso embaixo do campo.
 
 ### Importação de leads
@@ -211,13 +213,13 @@ cd web && npm run lint                   # ESLint
 cd web && npm run format                 # Prettier; format:check só confere
 ```
 
-O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso.
+O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`).
 
 No Windows PowerShell 5.1, use `npm.cmd` no lugar de `npm` (a política de execução bloqueia o `npm.ps1`) e rode os comandos em linhas separadas, porque o `&&` não existe nele: `cd web` e, depois, `npm.cmd test`.
 
 ### Testes .NET num contêiner Linux
 
-Com o Controle Inteligente de Aplicativos do Windows ligado, o `dotnet test` não carrega o `Testcontainers.dll`, que não é assinado, e os testes de integração falham com "Uma política de Controle de Aplicativo bloqueou este arquivo". O [docker-compose.testes.yml](docker-compose.testes.yml) roda os mesmos testes num contêiner Linux, sem mexer na segurança do Windows:
+Com o Controle Inteligente de Aplicativos do Windows ligado, o `dotnet test` não carrega os assemblies que não são assinados: o `Testcontainers.dll` e, às vezes, até os dos próprios projetos de teste, recém-compilados. Os testes falham com "Uma política de Controle de Aplicativo bloqueou este arquivo". O [docker-compose.testes.yml](docker-compose.testes.yml) roda os mesmos testes num contêiner Linux, sem mexer na segurança do Windows:
 
 ```powershell
 docker compose -f docker-compose.testes.yml run --rm testes
@@ -253,12 +255,13 @@ src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo
 src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
                              (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
                              importação CSV, com a leitura do arquivo e o processamento em segundo plano (Importacoes/),
+                             hub do tempo real, com a conferência das conexões e os avisos depois do commit (TempoReal/),
                              ProblemDetails, validação, proxy, chaves da sessão e o front servido pela API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, importacao,
-                             notificacoes, configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o cliente e os
-                             tipos gerados
+                             notificacoes, tempo-real, configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o
+                             cliente e os tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
 docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo para a importação (exemplos/)
