@@ -37,14 +37,19 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - o `leads-excel.csv` importado com uma campanha nova e para uma atendente escolhida: os 3 leads ficaram com essa campanha e com ela, sem passar pelo rodízio;
   - o relatório de erros aberto no Excel como um clique duplo: "Linha" e "Motivo" em colunas, com os acentos certos.
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
-- No banco de desenvolvimento, só a Adriana está no rodízio: os leads da integração e os importados pelo rodízio vão todos para ela.
+- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. O banco também tem os leads "teste" a "teste4" da validação do Passo 7.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
 - Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 511 de 511 em 06/10/2026.
 - Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
   - testes automáticos dos dois critérios de aceite: o lead da integração chega à responsável do rodízio em menos de 5 s (`TempoRealRodizioTests`), e a atendente não recebe o id de lead de outra pessoa em nenhum caso (`TempoRealTests`, com um lead da outra atendente como sentinela);
   - no Chrome sem janela, contra o Compose de produção local: o cartão apareceu no funil da atendente 1,6 s depois do envio pela integração com a API ainda fria e 0,35 s com ela quente, pelo WebSocket `wss://localhost:8444/hubs/notificacoes` (handshake 101); a outra atendente não recebeu o id do lead; o console ficou sem erros e sem issues da CSP;
   - o corpo da requisição "Lead real pela integração" do `Crm.Api.http`, que respondia 400 sem o `recebidoEm`, respondeu 201.
-- Falta a validação manual do Passo 7 por mim (README › Rodízio, notificações e alertas), inclusive a notificação nativa com a aba minimizada.
+- Passo 7 validado manualmente por mim em 06/10/2026, das 11:36 às 11:43, em desenvolvimento (API com `dotnet run` e front em http://localhost:5173), com três sessões ao mesmo tempo: o admin no Edge, a Adriana no Chrome e a Pietra numa janela anônima do Chrome. O admin criou os leads em Leads › Novo lead, com Responsável "Rodízio". No começo, a distribuição estava ligada, e só a Adriana estava no rodízio:
+  - lead novo em tempo real: o "teste" (lead 14) foi para a Adriana e apareceu no funil dela na hora, sem recarregar a página, e o sino dela contou; o funil e o sino da Pietra continuaram vazios;
+  - notificação nativa: com os avisos do navegador ativados e a janela da Adriana minimizada, o "teste2" (lead 15) gerou a notificação do Windows "Administrador cadastrou um lead para você", sem o nome do lead, e o clique abriu a ficha;
+  - troca de responsável: o admin passou o "teste2" da Adriana para a Pietra. Na Adriana, ele sumiu da lista, a ficha aberta parou de mostrar os dados, e o sino voltou para 5, sem a notificação dele; na Pietra, ele apareceu na lista, e o sino contou 1;
+  - rodízio com as duas: com o rodízio da Pietra ligado, o "teste3" foi para a Pietra e o "teste4" para a Adriana; no fim, a Pietra via só os 2 leads dela, e a Adriana não via nenhum dos dois.
+- Do Passo 7, o quadro parado durante o arraste e a ficha que guarda o que foi digitado não foram conferidos pela tela: ficam cobertos só pelos testes automáticos. A notificação nativa só foi conferida na Adriana, porque o Chrome bloqueia as notificações do navegador na janela anônima.
 
 ## Arquitetura
 
