@@ -4,13 +4,14 @@ import { toast } from 'sonner'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 import { servidor } from './servidor'
 
-// O jsdom não implementa estas APIs, que os componentes do Radix usam.
+// O jsdom não implementa estas APIs, que os componentes do Radix e os avisos do sonner usam.
 globalThis.ResizeObserver ??= class {
   observe() {}
   unobserve() {}
   disconnect() {}
 }
 Element.prototype.hasPointerCapture ??= () => false
+Element.prototype.setPointerCapture ??= () => {}
 Element.prototype.releasePointerCapture ??= () => {}
 Element.prototype.scrollIntoView ??= () => {}
 window.matchMedia ??= (query: string) =>

@@ -1,5 +1,5 @@
-import { BellIcon, CheckCheckIcon } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { BellIcon, BellRingIcon, CheckCheckIcon } from 'lucide-react'
+import { useState } from 'react'
 import type { NotificacaoResponse } from '@/api/cliente'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,35 +10,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { pedirPermissao, permissaoPendente } from '@/features/tempo-real/avisosNavegador'
 import { tempoDesde } from '@/lib/datas'
 import { cn } from '@/lib/utils'
-import { useMarcarLida, useMarcarTodasLidas, useNotificacoes } from './dados'
+import { useMarcarTodasLidas, useNotificacoes } from './dados'
+import { useAbrirNotificacao } from './useAbrirNotificacao'
 
 /**
  * Sino do topo (seção 3.6): o contador de não lidas e as notificações mais recentes. Clicar numa notificação a
  * marca como lida e abre a ficha do lead, o resultado da importação (no resumo, para quem importou) ou a lista de
- * leads (nos leads que uma importação deixou com a pessoa). A lista se atualiza pelo tempo real (TempoReal).
+ * leads (nos leads que uma importação deixou com a pessoa). A lista se atualiza pelo tempo real (TempoReal). Enquanto
+ * a pessoa não decidir sobre os avisos do navegador, o sino oferece ativá-los.
  */
 export function Sino() {
   const { data } = useNotificacoes()
-  const marcarLida = useMarcarLida()
   const marcarTodas = useMarcarTodasLidas()
-  const navigate = useNavigate()
+  const abrir = useAbrirNotificacao()
   const naoLidas = data?.naoLidas ?? 0
   const itens = data?.itens ?? []
-
-  const abrir = (notificacao: NotificacaoResponse) => {
-    if (!notificacao.lidaEm) {
-      marcarLida.mutate(notificacao.id)
-    }
-    if (notificacao.lead) {
-      navigate(`/leads/${notificacao.lead.id}`)
-    } else if (notificacao.importacaoId) {
-      navigate(`/importacao/${notificacao.importacaoId}`)
-    } else if (notificacao.tipo === 'leads_importados') {
-      navigate('/leads')
-    }
-  }
 
   return (
     <DropdownMenu>
@@ -77,6 +66,7 @@ export function Sino() {
           <CheckCheckIcon aria-hidden />
           Marcar todas como lidas
         </DropdownMenuItem>
+        <ItemAtivarAvisos />
         <DropdownMenuSeparator />
         {itens.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">Nenhuma notificação.</p>
@@ -93,6 +83,29 @@ export function Sino() {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/**
+ * "Ativar avisos do navegador", enquanto a permissão não foi dada nem negada. O menu monta o item ao abrir, então ele
+ * lê a permissão de agora; depois do pedido, some.
+ */
+function ItemAtivarAvisos() {
+  const [pendente, setPendente] = useState(permissaoPendente)
+  if (!pendente) {
+    return null
+  }
+  return (
+    <DropdownMenuItem
+      onSelect={(evento) => {
+        // Continua aberta, para a pessoa ver o pedido do navegador e a lista.
+        evento.preventDefault()
+        void pedirPermissao().then(() => setPendente(permissaoPendente()))
+      }}
+    >
+      <BellRingIcon aria-hidden />
+      Ativar avisos do navegador
+    </DropdownMenuItem>
   )
 }
 

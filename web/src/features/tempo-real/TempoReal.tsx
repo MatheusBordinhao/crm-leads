@@ -1,7 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useEffectEvent } from 'react'
+import { toast } from 'sonner'
 import { api } from '@/api/cliente'
+import { chaveNotificacoes, consultaNotificacoes } from '@/features/notificacoes/dados'
+import { useAbrirNotificacao } from '@/features/notificacoes/useAbrirNotificacao'
 import { chaveEu } from '@/lib/queryClient'
+import {
+  devePerguntar,
+  lembrarResposta,
+  mostrarNotificacao,
+  pedirPermissao,
+  podeMostrar,
+} from './avisosNavegador'
 import { useCriarConexao } from './contexto'
 import { criarRecarga } from './recarga'
 
@@ -32,16 +42,54 @@ async function sessaoEncerrada() {
  * encerra a conexão: as tentativas vêm depois de 0, 2, 10 e 30 s e, daí em diante, a cada 30 s. Antes de cada uma, a
  * sessão é conferida; encerrada, a tela vai para o login. Ao reconectar, tudo é recarregado, porque os avisos do tempo
  * sem conexão se perderam.
+ *
+ * Com a aba escondida e a permissão dada, uma notificação nova também aparece como notificação nativa do navegador,
+ * só com o título. A permissão é pedida uma vez, num aviso com "Ativar" e "Agora não".
  */
 export function TempoReal() {
   const criarConexao = useCriarConexao()
   const queryClient = useQueryClient()
+  const abrir = useAbrirNotificacao()
+
+  // Busca a lista, que também atualiza o sino, e mostra o título da notificação nova.
+  const avisarNoNavegador = useEffectEvent(async (id: number) => {
+    const buscar = async () =>
+      (await queryClient.fetchQuery(consultaNotificacoes)).itens.find((n) => n.id === id)
+    try {
+      // Dois avisos seguidos: a primeira busca pode ter saído antes da segunda notificação.
+      const notificacao = (await buscar()) ?? (await buscar())
+      if (notificacao) {
+        mostrarNotificacao(notificacao.titulo, id, () => abrir(notificacao))
+      }
+    } catch {
+      void queryClient.invalidateQueries({ queryKey: chaveNotificacoes })
+    }
+  })
+
+  useEffect(() => {
+    if (devePerguntar()) {
+      toast('Avisos do navegador', {
+        id: 'pedido-de-avisos',
+        description: 'Saiba de um lead novo mesmo com o CRM em segundo plano.',
+        duration: Infinity,
+        action: { label: 'Ativar', onClick: () => void pedirPermissao() },
+        cancel: { label: 'Agora não', onClick: lembrarResposta },
+      })
+    }
+  }, [])
 
   useEffect(() => {
     const conexao = criarConexao()
     const recarga = criarRecarga(queryClient)
     conexao.ao('LeadsAlterados', (ids) => recarga.leads(ids))
-    conexao.ao('NotificacaoNova', () => recarga.notificacoes())
+    conexao.ao('NotificacaoNova', (id) => {
+      // Com a notificação nativa, a busca da lista já atualiza o sino; sem ela, o sino recarrega como o resto.
+      if (podeMostrar()) {
+        void avisarNoNavegador(id)
+      } else {
+        recarga.notificacoes()
+      }
+    })
     conexao.ao('FunilAlterado', () => recarga.funil())
 
     let ativa = true

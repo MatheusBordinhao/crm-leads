@@ -1,15 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, exigirSucesso } from '@/api/cliente'
 
 /** Notificações do usuário logado: o tempo real as recarrega quando chega uma nova. */
 export const chaveNotificacoes = ['notificacoes'] as const
 
-/** As notificações mais recentes do usuário logado e quantas não foram lidas. */
+/**
+ * As notificações mais recentes do usuário logado e quantas não foram lidas. O tempo real também a usa para buscar o
+ * título da notificação nativa.
+ */
+export const consultaNotificacoes = queryOptions({
+  queryKey: chaveNotificacoes,
+  queryFn: () => exigirSucesso(api.GET('/api/notificacoes')),
+})
+
 export function useNotificacoes() {
-  return useQuery({
-    queryKey: chaveNotificacoes,
-    queryFn: () => exigirSucesso(api.GET('/api/notificacoes')),
-  })
+  return useQuery(consultaNotificacoes)
 }
 
 function useRecarregar() {
