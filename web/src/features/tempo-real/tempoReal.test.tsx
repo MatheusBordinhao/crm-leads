@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { atendente, comSessao, problema } from '@/test/api'
 import { comCadastros, comQuadro, fichaLead } from '@/test/leads'
+import { comNotificacoes, notificacao } from '@/test/notificacoes'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -90,6 +91,40 @@ describe('conexão do tempo real', () => {
     await waitFor(() => expect(hub.estado.inicios).toBe(2))
     expect(screen.getByRole('heading', { name: 'Funil' })).toBeInTheDocument()
     expect(screen.queryByText('Não foi possível falar com o servidor.')).not.toBeInTheDocument()
+  })
+
+  it('a notificação de um lead que passou para outra pessoa some do sino dela', async () => {
+    comSessao(atendente)
+    comQuadro()
+    comNotificacoes([notificacao({ id: 7 })])
+    const { hub } = renderizarApp('/funil')
+    expect(
+      await screen.findByRole('button', { name: 'Notificações: 1 não lida' }),
+    ).toBeInTheDocument()
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    // A API já não lista a notificação de um lead que a pessoa não vê.
+    servidor.use(
+      http.get('*/api/notificacoes', () => HttpResponse.json({ naoLidas: 0, itens: [] })),
+    )
+    hub.emitir('LeadsAlterados', [])
+
+    expect(await screen.findByRole('button', { name: 'Notificações' })).toBeInTheDocument()
+  })
+
+  it('o sino mostra o nome atual do lead de uma notificação', async () => {
+    comSessao(atendente)
+    comQuadro()
+    comNotificacoes([notificacao({ id: 7 })])
+    const { hub, usuario } = renderizarApp('/funil')
+    const sino = await screen.findByRole('button', { name: 'Notificações: 1 não lida' })
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    comNotificacoes([notificacao({ id: 7, lead: { id: 1024, nome: 'Maria Souza Lima' } })])
+    hub.emitir('LeadsAlterados', [1024])
+    await usuario.click(sino)
+
+    expect(await screen.findByRole('menuitem', { name: /Maria Souza Lima/ })).toBeInTheDocument()
   })
 
   it('um lead que passou para outra pessoa some da ficha aberta, pelo aviso sem ids', async () => {

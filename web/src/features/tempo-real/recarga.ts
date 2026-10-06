@@ -9,7 +9,7 @@ import {
   chaveMotivosPerda,
   chaveMudarEtapa,
 } from '@/features/leads/dados'
-import { chaveNotificacoes } from '@/features/notificacoes/dados'
+import { chaveNotificacoes, consultaNotificacoes } from '@/features/notificacoes/dados'
 
 /** No máximo uma recarga por segundo: uma importação grande manda um aviso atrás do outro. */
 export const INTERVALO_RECARGA = 1000
@@ -59,8 +59,13 @@ export function criarRecarga(queryClient: QueryClient) {
         recarregar(chaveLinhaDoTempo(id))
       }
     }
-    if (notificacoes) {
-      recarregar(chaveNotificacoes)
+    // O sino mostra o nome atual do lead de cada notificação e tira a de um lead que passou para outra pessoa.
+    const noSino = queryClient
+      .getQueryData(consultaNotificacoes.queryKey)
+      ?.itens.some((n) => n.lead !== null && leads.has(n.lead.id))
+    if (notificacoes || tudoDeLeads || noSino) {
+      // Sem cancelar a busca que a notificação nativa já fez (TempoReal), que chegou depois do aviso e está em dia.
+      void queryClient.invalidateQueries({ queryKey: chaveNotificacoes }, { cancelRefetch: false })
     }
   }
 
