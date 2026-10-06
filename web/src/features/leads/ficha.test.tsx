@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ItemLinhaDoTempo, LeadResponse } from '@/api/cliente'
@@ -451,5 +451,86 @@ describe('etapa, contato e interações na ficha', () => {
     expect(await dialogo.findByText('Escreva a nota.')).toBeInTheDocument()
     expect(dialogo.getByText('A data não pode estar no futuro.')).toBeInTheDocument()
     expect(registros).toEqual([])
+  })
+})
+
+/**
+ * Ficha simulada que outra pessoa pode mudar durante o teste (`mudar`). A edição só vale com a versão atual; com outra,
+ * responde o conflito. Devolve os corpos das edições recebidas.
+ */
+function comFichaQueMuda() {
+  let atual = fichaLead()
+  const edicoes: Record<string, unknown>[] = []
+  comCadastros()
+  servidor.use(
+    http.get('*/api/leads/:id', () => HttpResponse.json(atual)),
+    http.get('*/api/leads/:id/linha-do-tempo', () => HttpResponse.json([])),
+    http.put('*/api/leads/:id', async ({ request }) => {
+      const corpo = (await request.json()) as Record<string, unknown> & { versao: number }
+      edicoes.push(corpo)
+      if (corpo.versao !== atual.versao) {
+        return problema(409, {
+          detail:
+            'O lead foi alterado por outra pessoa. Recarregue a página para ver a versão atual.',
+        })
+      }
+      atual = { ...atual, ...corpo, versao: atual.versao + 1 }
+      return HttpResponse.json(atual)
+    }),
+  )
+  const mudar = (parcial: Partial<LeadResponse>) => {
+    atual = { ...atual, ...parcial, versao: atual.versao + 1 }
+  }
+  return { edicoes, mudar }
+}
+
+describe('ficha com o tempo real', () => {
+  /** A pessoa digita na empresa, e outra pessoa muda o lead; o hub avisa. */
+  async function editarEnquantoOutraPessoaMuda(parcial: Partial<LeadResponse>) {
+    comSessao(atendente)
+    const ficha = comFichaQueMuda()
+    const app = renderizarApp('/leads/1024')
+    await app.usuario.type(await screen.findByLabelText('Empresa'), ' Ltda')
+    await waitFor(() => expect(app.hub.estado.conectada).toBe(true))
+    ficha.mudar(parcial)
+    app.hub.emitir('LeadsAlterados', [1024])
+    return { ...app, ...ficha }
+  }
+
+  it('o que a pessoa digitou não some quando outra pessoa muda os dados, e salvar responde o conflito', async () => {
+    const { usuario, edicoes } = await editarEnquantoOutraPessoaMuda({ nome: 'Maria Souza Lima' })
+
+    expect(await screen.findByText('Outra pessoa alterou os dados deste lead.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Maria Souza Lima' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Empresa')).toHaveValue('Empresa X Ltda')
+    expect(screen.getByLabelText('Nome')).toHaveValue('Maria Souza')
+
+    await usuario.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByText(/alterado por outra pessoa\. Recarregue/)).toBeInTheDocument()
+    expect(edicoes).toEqual([expect.objectContaining({ empresa: 'Empresa X Ltda', versao: 777 })])
+  })
+
+  it('"Ver a versão atual" troca o que foi digitado pelos dados novos', async () => {
+    const { usuario } = await editarEnquantoOutraPessoaMuda({ nome: 'Maria Souza Lima' })
+
+    await usuario.click(await screen.findByRole('button', { name: 'Ver a versão atual' }))
+
+    expect(await screen.findByLabelText('Nome')).toHaveValue('Maria Souza Lima')
+    expect(screen.getByLabelText('Empresa')).toHaveValue('Empresa X')
+    expect(screen.queryByText('Outra pessoa alterou os dados deste lead.')).not.toBeInTheDocument()
+  })
+
+  it('se outra pessoa só mudou a etapa, o que foi digitado é salvo com a versão nova', async () => {
+    const { usuario, edicoes } = await editarEnquantoOutraPessoaMuda({
+      etapa: { id: 2, nome: 'Em contato', tipo: 'aberta' },
+    })
+
+    expect(await screen.findAllByText('Em contato', { selector: 'span' })).not.toHaveLength(0)
+    expect(screen.queryByText('Outra pessoa alterou os dados deste lead.')).not.toBeInTheDocument()
+    await usuario.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByText('Dados salvos.')).toBeInTheDocument()
+    expect(edicoes).toEqual([expect.objectContaining({ empresa: 'Empresa X Ltda', versao: 778 })])
   })
 })

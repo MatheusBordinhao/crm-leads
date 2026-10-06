@@ -75,6 +75,10 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
   // edição (o aviso de "salvo") se perderiam se o componente que a disparou sumisse.
   const editar = useEditarLead(lead.id)
   const [registrando, setRegistrando] = useState<TipoInteracao | null>(null)
+  // A ficha como estava quando a pessoa começou a editar os dados. Enquanto ela edita, o formulário fica com
+  // essa base: uma mudança que chegue pelo tempo real não apaga o que ela digitou.
+  const [base, setBase] = useState<LeadResponse | null>(null)
+  const mudouPorFora = base !== null && chaveDosDados(base) !== chaveDosDados(lead)
 
   return (
     <section className="flex flex-col gap-4">
@@ -117,11 +121,26 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
           <CardHeader>
             <CardTitle>Dados</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
+            {mudouPorFora && (
+              <Alert>
+                <AlertDescription className="flex flex-col items-start gap-2">
+                  Outra pessoa alterou os dados deste lead.
+                  <Button type="button" variant="outline" size="sm" onClick={() => setBase(null)}>
+                    Ver a versão atual
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             <FormularioDados
-              key={chaveDosDados(lead)}
-              lead={lead}
+              key={chaveDosDados(base ?? lead)}
+              lead={base ?? lead}
+              // A versão mais recente, para uma mudança de etapa feita aqui mesmo não contar como conflito. Se
+              // outra pessoa mudou os dados, vai a da base, e a API responde o conflito em vez de apagar a mudança.
+              versao={mudouPorFora ? base.versao : lead.versao}
               editar={editar}
+              aoEditar={() => setBase((atual) => atual ?? lead)}
+              aoTerminar={() => setBase(null)}
               aoRecarregar={aoRecarregar}
             />
           </CardContent>
@@ -157,11 +176,20 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
 
 function FormularioDados({
   lead,
+  versao,
   editar,
+  aoEditar,
+  aoTerminar,
   aoRecarregar,
 }: {
   lead: LeadResponse
+  /** A versão que vai no salvar, para a API responder o conflito se o lead mudou depois dela. */
+  versao: number
   editar: Editar
+  /** A pessoa mexeu num campo: a ficha prende a base do formulário. */
+  aoEditar: () => void
+  /** A edição acabou (salva, descartada ou recarregada): o formulário volta a mostrar a versão atual. */
+  aoTerminar: () => void
   aoRecarregar: () => void
 }) {
   const [erroGeral, setErroGeral] = useState<string | null>(null)
@@ -186,10 +214,12 @@ function FormularioDados({
   const salvar = handleSubmit((dados) => {
     setErroGeral(null)
     editar.mutate(
-      // A versão mais recente da ficha: uma mudança de etapa feita aqui mesmo não conta como conflito.
-      { ...dadosParaApi(dados), versao: lead.versao },
+      { ...dadosParaApi(dados), versao },
       {
-        onSuccess: () => toast.success('Dados salvos.'),
+        onSuccess: () => {
+          toast.success('Dados salvos.')
+          aoTerminar()
+        },
         onError: (erro) => {
           if (erro instanceof ErroApi && erro.status === 409) {
             setConflito(erro.message)
@@ -202,7 +232,7 @@ function FormularioDados({
   })
 
   return (
-    <form onSubmit={salvar} noValidate className="flex flex-col gap-5">
+    <form onSubmit={salvar} onChange={aoEditar} noValidate className="flex flex-col gap-5">
       {conflito && (
         <Alert variant="destructive">
           <AlertDescription className="flex flex-col items-start gap-2">
@@ -214,6 +244,7 @@ function FormularioDados({
               onClick={() => {
                 // Se só a etapa mudou, os dados continuam iguais e o formulário não é recriado.
                 setConflito(null)
+                aoTerminar()
                 aoRecarregar()
               }}
             >
@@ -229,7 +260,15 @@ function FormularioDados({
       )}
       <CamposDadosLead register={register} errors={errors} avisos={lead.avisos} />
       <div className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" disabled={!isDirty} onClick={() => reset()}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!isDirty}
+          onClick={() => {
+            reset()
+            aoTerminar()
+          }}
+        >
           Descartar
         </Button>
         <Button type="submit" disabled={!isDirty || editar.isPending}>
