@@ -152,7 +152,7 @@ O cookie da sessão é `Secure`. Chrome, Edge e Firefox o aceitam em `http://loc
 
 ### Funil e ficha
 
-A tela inicial é o funil: uma coluna por etapa aberta, e Ganho e Perdido como áreas de soltar, com quantos leads foram para lá nos últimos 30 dias.
+O funil é a tela inicial da atendente: uma coluna por etapa aberta, e Ganho e Perdido como áreas de soltar, com quantos leads foram para lá nos últimos 30 dias.
 
 - Arraste o cartão com o mouse, ou pelo teclado: foque a alça do cartão (⋮⋮), aperte espaço, escolha a etapa com as setas para a direita e para a esquerda e aperte espaço de novo. Esc cancela.
 - Soltar em Perdido pede o motivo; cancelar devolve o cartão. Ganho exige CPF/CNPJ válido na ficha, a não ser que o admin desligue a exigência.
@@ -161,6 +161,20 @@ A tela inicial é o funil: uma coluna por etapa aberta, e Ganho e Perdido como �
 - As etapas, os motivos de perda e a exigência de CPF/CNPJ para Ganho ficam em Configurações › Etapas e motivos (só admin).
 - O admin passa o lead para outra pessoa no cartão Responsável da ficha. A troca aparece na linha do tempo e avisa a nova responsável.
 - O quadro, a lista e a ficha se atualizam sozinhos quando um lead chega ou muda, sem recarregar a página. Durante o arraste, o quadro espera você soltar o cartão. Se outra pessoa mudar os dados do lead enquanto você edita a ficha, o que você digitou continua lá, com o aviso "Outra pessoa alterou os dados deste lead".
+
+### Painel
+
+O painel é a tela inicial do admin. A atendente o abre pelo menu e vê só os próprios números. As definições estão na seção 8 da especificação.
+
+- Os filtros ficam no endereço:
+  - o período, que pode ser os últimos 7, 30 ou 90 dias, este mês, o mês passado ou um personalizado, em dias do horário de Brasília (sem filtro, valem os últimos 30 dias, com hoje);
+  - a origem e a campanha;
+  - para o admin, a responsável.
+- Leads novos são os criados no período. A situação atual, a conversão, o primeiro contato e as quebras por origem, campanha e atendente contam só esses leads. A origem e a campanha são as da primeira entrada, e a responsável é a atual.
+- As entradas contam também as de quem já era lead, cada uma pela própria origem e campanha.
+- Os motivos de perda contam os leads que foram para Perdido no período, mesmo os que entraram antes ou foram reabertos depois.
+- Os leads de teste ficam de fora de tudo, e os anonimizados continuam contando.
+- O painel se atualiza sozinho quando um lead muda, como o funil.
 
 ### Rodízio, notificações e alertas
 
@@ -177,7 +191,7 @@ O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especifi
 
 - Reenviar a mesma requisição responde `ja_recebido` e não duplica o lead. Troque o `idExterno` para simular um lead novo.
 - O exemplo vai com `"teste": true`: lead de teste fica sem responsável, só aparece para admins e não gera aviso. Para ver o rodízio e o alerta por e-mail, use a requisição "Lead real pela integração", que gera o `idExterno` e o e-mail a cada envio: cada clique é um lead novo.
-- Os leads da integração vão para o rodízio e aparecem na hora no funil e no sino de quem os recebe. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
+- Os leads da integração vão para o rodízio e aparecem na hora no funil e no sino de quem os recebe, e no painel. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
 - Telefone, e-mail ou CPF/CNPJ em formato inválido não recusam o lead: a ficha mostra o aviso embaixo do campo.
 
 ### Importação de leads
@@ -251,7 +265,8 @@ docker compose down -v                                            # para o banco
 src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/: Usuarios/ (acesso e cadastro),
                              Leads/ (leads, entrada, rodízio, normalização, campanhas, interações e linha do tempo),
                              Funil/ (etapas, motivos de perda, mudança de etapa com histórico e quadro),
-                             Notificacoes/ (sino e quem é avisado de cada acontecimento), Integracoes/ (chave e rotas do n8n)
+                             Notificacoes/ (sino e quem é avisado de cada acontecimento), Integracoes/ (chave e rotas do n8n),
+                             Painel/ (métricas da seção 8)
 src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
                              (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
                              importação CSV, com a leitura do arquivo e o processamento em segundo plano (Importacoes/),
@@ -259,7 +274,7 @@ src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditor
                              ProblemDetails, validação, proxy, chaves da sessão e o front servido pela API (Web/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite: features/ por módulo (acesso, funil, leads, importacao,
+web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, funil, leads, importacao,
                              notificacoes, tempo-real, configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o
                              cliente e os tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)

@@ -50,6 +50,20 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - troca de responsável: o admin passou o "teste2" da Adriana para a Pietra. Na Adriana, ele sumiu da lista, a ficha aberta parou de mostrar os dados, e o sino voltou para 5, sem a notificação dele; na Pietra, ele apareceu na lista, e o sino contou 1;
   - rodízio com as duas: com o rodízio da Pietra ligado, o "teste3" foi para a Pietra e o "teste4" para a Adriana; no fim, a Pietra via só os 2 leads dela, e a Adriana não via nenhum dos dois.
 - Do Passo 7, o quadro parado durante o arraste e a ficha que guarda o que foi digitado não foram conferidos pela tela: ficam cobertos só pelos testes automáticos. A notificação nativa só foi conferida na Adriana, porque o Chrome bloqueia as notificações do navegador na janela anônima.
+- Passo 8 implementado em 06/10/2026 e conferido pelo Claude. Por decisão minha:
+  - as barras do painel são em HTML e CSS, e o Recharts saiu do Stack;
+  - o painel mostra também os ganhos e a conversão por origem e por campanha;
+  - o painel se atualiza pelo tempo real;
+  - o painel é a tela inicial só do admin, e a atendente continua entrando no funil.
+- Conferências do Passo 8:
+  - os dois critérios de aceite têm testes automáticos:
+    - a massa conhecida (`MassaDoPainel`, num banco só dela) confere cada número do painel do admin e da atendente, com os filtros e as viradas de dia em Brasília (`PainelMassaConhecidaTests`);
+    - os leads de teste ficam de fora, pela integração de verdade (`PainelTests`);
+  - no Chrome sem janela, contra um Compose de produção descartável (`-p crm-painel`, portas 8090 e 8453), com os dados montados pela API:
+    - o admin entrou no painel, e a atendente, no funil;
+    - em 1280 e em 360 px, não houve rolagem lateral;
+    - no `/painel`, o console ficou sem erros e sem issues;
+    - um lead pela integração somou na hora nos leads novos (de 13 para 14), com uma recarga só do painel.
 
 ## Arquitetura
 
@@ -63,7 +77,7 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 - API: ASP.NET Core (.NET 10) com controllers, EF Core 10 + Npgsql (nomes em snake_case), ASP.NET Core Identity com cookie, SignalR, FluentValidation, libphonenumber-csharp, OpenAPI + Scalar em desenvolvimento
 - Banco: PostgreSQL 17
-- Web: React + TypeScript + Vite, React Router, TanStack Query, React Hook Form + Zod, Tailwind + shadcn/ui, dnd-kit, Recharts, @microsoft/signalr, vite-plugin-pwa
+- Web: React + TypeScript + Vite, React Router, TanStack Query, React Hook Form + Zod, Tailwind + shadcn/ui, dnd-kit, @microsoft/signalr, vite-plugin-pwa. Os gráficos do painel são barras em HTML e CSS, sem biblioteca; o Recharts só entra quando um gráfico precisar dele, como uma linha por dia
 - Testes: xUnit, WebApplicationFactory + Testcontainers (PostgreSQL), Vitest
 - Deploy: Docker Compose com a API servindo o build do React, PostgreSQL e Caddy (HTTPS)
 - Pré-requisitos: .NET 10 SDK, Node 22 ou mais recente, Docker
@@ -156,6 +170,9 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - Os avisos do tempo real saem de um interceptador do EF Core (`InterceptadorTempoReal`), que anota cada `SaveChanges` e só entrega à `FilaTempoReal` depois do commit. O que não passa pelo `SaveChanges` (`ExecuteUpdate`, SQL direto) não avisa: uma mudança de lead feita assim precisa chamar a `FilaTempoReal.Publicar`. O interceptador guarda o estado por instância do contexto; com pool de contextos, isso precisaria mudar.
 - Uma fábrica do `WithWebHostBuilder` tem o próprio hub e o próprio publicador. Nos testes do tempo real, conecte o hub e faça as ações pela mesma fábrica. Os testes que precisam ver o que o interceptador entrega tiram o `PublicadorTempoReal` e leem a fila (`InterceptadorTempoRealTests`).
 - O cliente do SignalR dos testes (`TempoRealDeTeste`) fala com o TestServer por Server-Sent Events, com o cookie da sessão no cabeçalho. O início do cliente termina antes de o hub pôr a conexão nos grupos (`OnConnectedAsync`); por isso, o `ConectarAsync` espera o registro da conexão antes de devolver.
+- O Vitest 5 não mostra o console dos testes que passam, nem o aviso do MSW de uma requisição sem tratador, que só faz a requisição falhar. Para vê-los, rode `npx vitest run --silent=false`.
+- Nos testes do front, o admin em `/` vai para o painel, que chama `/api/painel`: registre o `comPainel()`. A atendente em `/` vai para o funil (`comQuadro()`).
+- Teste que confere os totais do admin, como os do painel, usa um banco só dele (`MassaDoPainel`): no banco compartilhado, os leads dos outros testes entram na conta. Lá, isole os números por uma campanha única ou por uma atendente nova.
 - Nos testes do front, o hub é falso (`test/hubFalso.ts`, devolvido pelo `renderizarApp`): emita os avisos com `hub.emitir`. O MSW recusa requisições não tratadas, e o hub de verdade faria uma. O jsdom não tem a `Notification`: os testes da notificação nativa a trocam por uma falsa (`vi.stubGlobal`) e controlam o `document.visibilityState`.
 - A reconexão automática do SignalR não tenta de novo quando o primeiro início falha nem quando o servidor encerra a conexão (sessão encerrada, perfil trocado). O `TempoReal` faz a própria, conferindo a sessão antes de cada tentativa: só um 401 leva ao login.
 - Com a aba escondida e a notificação nativa ligada, o `TempoReal` busca a lista do sino pelo `fetchQuery`, para ter o título. Uma invalidação com `cancelRefetch` (o padrão) cancelaria essa busca, e a notificação não apareceria: a recarga do sino usa `cancelRefetch: false`.
