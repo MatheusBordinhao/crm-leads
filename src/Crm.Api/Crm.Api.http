@@ -183,8 +183,8 @@ X-Api-Key: {{chave}}
   "respostasExtras": { "Qual serviço você procura?": "Serviço Y" }
 }
 
-### Lead real pela integração: vai para o rodízio, avisa a responsável no sino e gera o alerta por e-mail
-# Troque o idExterno e o e-mail a cada envio: repetidos, a entrada responde "ja_recebido" ou "vinculado".
+### Lead real pela integração: vai para o rodízio, aparece na hora no funil e no sino de quem o recebe e gera o alerta por e-mail (com o N8n__WebhookUrl)
+# Cada envio é um lead novo: o idExterno e o e-mail mudam a cada vez.
 # @prompt chave
 POST {{host}}/api/integracoes/leads
 Content-Type: application/json
@@ -192,10 +192,11 @@ X-Api-Key: {{chave}}
 
 {
   "origem": "site",
-  "idExterno": "alerta-0001",
+  "idExterno": "{{$guid}}",
+  "recebidoEm": "{{$datetime iso8601}}",
   "teste": false,
   "nome": "Joana Alves",
-  "email": "joana.alves@example.com",
+  "email": "joana.{{$guid}}@example.com",
   "telefone": null,
   "cpfCnpj": null,
   "uf": "RS",
