@@ -29,6 +29,12 @@ export const chaveFunil = ['funil'] as const
 export const chaveEtapas = ['etapas'] as const
 export const chaveMotivosPerda = ['motivos-perda'] as const
 
+/**
+ * As mudanças de etapa, na ficha e no quadro. Enquanto uma está a caminho da API, o tempo real não recarrega o
+ * quadro (o cartão voltaria para a coluna antiga até a resposta); ela mesma o recarrega quando termina.
+ */
+export const chaveMudarEtapa = ['mudar-etapa'] as const
+
 /** Cadastros que mudam pouco: ficam em cache por 5 minutos. */
 const CINCO_MINUTOS = 5 * 60_000
 
@@ -115,6 +121,7 @@ export function aposMudarEtapa(queryClient: QueryClient, lead: LeadResponse) {
 export function useMudarEtapa() {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: chaveMudarEtapa,
     mutationFn: mudarEtapa,
     onSuccess: (lead) => aposMudarEtapa(queryClient, lead),
   })

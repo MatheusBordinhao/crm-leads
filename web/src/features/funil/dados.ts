@@ -6,7 +6,13 @@ import {
   type FiltrosFunil,
   type QuadroFunilResponse,
 } from '@/api/cliente'
-import { aposMudarEtapa, chaveFunil, mudarEtapa, type MudancaDeEtapa } from '@/features/leads/dados'
+import {
+  aposMudarEtapa,
+  chaveFunil,
+  chaveMudarEtapa,
+  mudarEtapa,
+  type MudancaDeEtapa,
+} from '@/features/leads/dados'
 
 export function useQuadro(filtros: FiltrosFunil) {
   return useQuery({
@@ -51,12 +57,14 @@ export function moverCartao(
 
 /**
  * Move o cartão na hora, antes da resposta da API, e desfaz se ela recusar (um Ganho sem documento, por
- * exemplo). Depois, a ficha, a lista e o quadro são recarregados.
+ * exemplo). Depois, a ficha, a lista e o quadro são recarregados; o quadro também depois de uma recusa, para
+ * trazer o que o tempo real avisou enquanto a mudança estava a caminho.
  */
 export function useMoverNoQuadro(filtros: FiltrosFunil) {
   const queryClient = useQueryClient()
   const chave = [...chaveFunil, filtros]
   return useMutation({
+    mutationKey: chaveMudarEtapa,
     mutationFn: (movimento: MovimentoNoQuadro) => mudarEtapa(movimento),
     onMutate: async (movimento) => {
       await queryClient.cancelQueries({ queryKey: chave })
@@ -70,6 +78,7 @@ export function useMoverNoQuadro(filtros: FiltrosFunil) {
       if (contexto?.anterior) {
         queryClient.setQueryData(chave, contexto.anterior)
       }
+      return queryClient.invalidateQueries({ queryKey: chaveFunil })
     },
     onSuccess: (lead) => aposMudarEtapa(queryClient, lead),
   })

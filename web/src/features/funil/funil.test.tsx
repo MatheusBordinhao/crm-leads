@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MudarEtapaRequest, QuadroFunilResponse } from '@/api/cliente'
 import { admin, atendente, comSessao, problema } from '@/test/api'
-import { cartao, comQuadro, quadroFunil } from '@/test/leads'
+import { cartao, comQuadro, fichaLead, quadroFunil } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -288,15 +288,83 @@ describe('quadro do funil', () => {
     expect(coluna('Novo').getByText('Maria Souza')).toBeInTheDocument()
     await waitFor(() => expect(hub.estado.conectada).toBe(true))
 
-    const novo = cartao({ id: 2048, nome: 'Lead Novo', criadoEm: '2026-10-06T12:00:00Z' })
-    quadro = {
-      ...quadro,
-      colunas: quadro.colunas.map((c, i) =>
-        i === 0 ? { ...c, total: c.total + 1, leads: [novo, ...c.leads] } : c,
-      ),
-    }
+    quadro = comLeadNovoEmNovo(quadro)
     hub.emitir('LeadsAlterados', [2048])
 
     expect(await coluna('Novo').findByText('Lead Novo')).toBeInTheDocument()
   })
+
+  it('durante o arraste, o quadro fica como estava e se atualiza ao cancelar', async () => {
+    comSessao(atendente)
+    let quadro = quadroFunil()
+    comQuadro(quadro)
+    servidor.use(http.get('*/api/funil', () => HttpResponse.json(quadro)))
+    posicionarAreas()
+    const { hub, usuario, queryClient } = renderizarApp('/funil')
+    await screen.findByRole('region', { name: 'Quadro do funil' })
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    noQuadro().getByRole('button', { name: 'Mover Maria Souza' }).focus()
+    await usuario.keyboard('[Space]')
+    quadro = comLeadNovoEmNovo(quadro)
+    hub.emitir('LeadsAlterados', [2048])
+
+    // O quadro novo já chegou da API, mas a tela continua com o do começo do arraste.
+    await waitFor(() =>
+      expect(JSON.stringify(queryClient.getQueriesData({ queryKey: ['funil'] }))).toContain(
+        'Lead Novo',
+      ),
+    )
+    expect(coluna('Novo').queryByText('Lead Novo')).not.toBeInTheDocument()
+
+    await usuario.keyboard('[Escape]')
+
+    expect(await coluna('Novo').findByText('Lead Novo')).toBeInTheDocument()
+  })
+
+  it('não recarrega o quadro no meio de uma mudança de etapa, só depois dela', async () => {
+    comSessao(atendente)
+    const quadro = quadroFunil()
+    const consultas: URL[] = []
+    let responder = () => {}
+    const resposta = new Promise<void>((resolver) => {
+      responder = resolver
+    })
+    comQuadro(quadro)
+    servidor.use(
+      http.get('*/api/funil', ({ request }) => {
+        consultas.push(new URL(request.url))
+        return HttpResponse.json(quadro)
+      }),
+      http.post('*/api/leads/:id/etapa', async () => {
+        await resposta
+        return HttpResponse.json(
+          fichaLead({ etapa: { id: 2, nome: 'Em contato', tipo: 'aberta' }, versao: 2 }),
+        )
+      }),
+    )
+    const { hub, usuario } = renderizarApp('/funil')
+    await screen.findByRole('region', { name: 'Quadro do funil' })
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+    const antes = consultas.length
+
+    await usuario.selectOptions(screen.getByLabelText('Mover Maria Souza para'), 'Em contato')
+    hub.emitir('LeadsAlterados', [1025])
+    await new Promise((esperar) => setTimeout(esperar, 100))
+
+    expect(consultas).toHaveLength(antes)
+    responder()
+    await waitFor(() => expect(consultas.length).toBeGreaterThan(antes))
+  })
 })
+
+/** O quadro com um lead novo, o Lead Novo, no topo da coluna Novo. */
+function comLeadNovoEmNovo(quadro: QuadroFunilResponse): QuadroFunilResponse {
+  const novo = cartao({ id: 2048, nome: 'Lead Novo', criadoEm: '2026-10-06T12:00:00Z' })
+  return {
+    ...quadro,
+    colunas: quadro.colunas.map((c, i) =>
+      i === 0 ? { ...c, total: c.total + 1, leads: [novo, ...c.leads] } : c,
+    ),
+  }
+}

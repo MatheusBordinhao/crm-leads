@@ -7,6 +7,7 @@ import {
   chaveLinhaDoTempo,
   chaveLista,
   chaveMotivosPerda,
+  chaveMudarEtapa,
 } from '@/features/leads/dados'
 import { chaveNotificacoes } from '@/features/notificacoes/dados'
 
@@ -43,7 +44,9 @@ export function criarRecarga(queryClient: QueryClient) {
       recarregar(chaveEtapas)
       recarregar(chaveMotivosPerda)
     }
-    if (funil || tudoDeLeads || leads.size > 0) {
+    // Com uma mudança de etapa a caminho, o quadro já tem o cartão na coluna nova e só volta à API quando ela terminar.
+    const mudandoEtapa = queryClient.isMutating({ mutationKey: chaveMudarEtapa }) > 0
+    if ((funil || tudoDeLeads || leads.size > 0) && !mudandoEtapa) {
       recarregar(chaveFunil)
     }
     if (tudoDeLeads) {

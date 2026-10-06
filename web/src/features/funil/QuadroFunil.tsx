@@ -66,13 +66,18 @@ type Props = {
   mostrarResponsavel: boolean
 }
 
+/** O cartão que está sendo arrastado e o quadro como estava quando o arraste começou. */
+type Arraste = { cartao: CartaoFunilResponse; quadro: QuadroFunilResponse }
+
 /**
  * Quadro do funil no computador (seção 7): uma coluna por etapa aberta, e Ganho e Perdido como áreas de
- * soltar. Arrasta com o mouse ou com o teclado, pela alça do cartão.
+ * soltar. Arrasta com o mouse ou com o teclado, pela alça do cartão. Durante o arraste, o quadro fica como
+ * estava: um aviso do tempo real que chegue no meio dele só aparece ao soltar ou cancelar.
  */
-export function QuadroFunil({ quadro, filtros, mostrarResponsavel }: Props) {
+export function QuadroFunil({ quadro: atual, filtros, mostrarResponsavel }: Props) {
   const { soltar, pendenteId, dialogo } = useMovimento(filtros)
-  const [arrastando, setArrastando] = useState<CartaoFunilResponse | null>(null)
+  const [arrastando, setArrastando] = useState<Arraste | null>(null)
+  const quadro = arrastando?.quadro ?? atual
   const [teclado] = useState(criarNavegacaoPorTeclado)
   const sensores = useSensors(
     // Uma distância mínima, para o clique no nome ainda abrir a ficha.
@@ -82,7 +87,7 @@ export function QuadroFunil({ quadro, filtros, mostrarResponsavel }: Props) {
 
   const aoComecar = ({ active }: DragStartEvent) => {
     teclado.reiniciar()
-    setArrastando(cartaoDe(active))
+    setArrastando({ cartao: cartaoDe(active), quadro: atual })
   }
 
   const areas = [
@@ -136,7 +141,7 @@ export function QuadroFunil({ quadro, filtros, mostrarResponsavel }: Props) {
         <DragOverlay dropAnimation={null}>
           {arrastando && (
             <CartaoLead
-              cartao={arrastando}
+              cartao={arrastando.cartao}
               mostrarResponsavel={mostrarResponsavel}
               className="w-64 shadow-lg"
             />
