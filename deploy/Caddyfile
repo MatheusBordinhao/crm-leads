@@ -9,8 +9,9 @@
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
-		# O style-src aceita estilos inline porque o sonner (avisos) e o Radix (diálogos) põem <style> na página.
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		# O style-src aceita estilos inline porque o sonner (avisos) e o Radix (diálogos) põem <style> na página. O
+		# connect-src repete o domínio com wss:// para o WebSocket do tempo real: o Safari anterior a 2022 não o cobre pelo 'self'.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss://{$DOMINIO}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 		-Server
 	}
 

@@ -62,6 +62,7 @@ public class PublicacaoTests
     [InlineData("X-Frame-Options \"DENY\"")]
     [InlineData("frame-ancestors 'none'")]
     [InlineData("default-src 'self'")]
+    [InlineData("connect-src 'self' wss://{$DOMINIO};")]
     [InlineData("-Server")]
     [InlineData("reverse_proxy api:8080")]
     public void O_Caddy_manda_HSTS_e_os_cabecalhos_de_seguranca(string trecho)
