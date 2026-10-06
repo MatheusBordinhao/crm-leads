@@ -98,6 +98,12 @@ Content-Type: application/json
 
 { "responsavelId": "{{responsavelId}}" }
 
+### Painel dos últimos 30 dias, com hoje (a atendente vê só os próprios números)
+GET {{host}}/api/painel
+
+### Painel de setembro, só dos leads do Google Ads (as datas são dias no horário de Brasília)
+GET {{host}}/api/painel?de=2026-09-01&ate=2026-09-30&origem=google_ads
+
 ### Notificações do usuário logado (as 30 mais recentes e quantas não foram lidas)
 GET {{host}}/api/notificacoes
 
@@ -183,7 +189,7 @@ X-Api-Key: {{chave}}
   "respostasExtras": { "Qual serviço você procura?": "Serviço Y" }
 }
 
-### Lead real pela integração: vai para o rodízio, aparece na hora no funil e no sino de quem o recebe e gera o alerta por e-mail (com o N8n__WebhookUrl)
+### Lead real pela integração: vai para o rodízio, aparece na hora no funil e no sino de quem o recebe e no painel do admin, e gera o alerta por e-mail (com o N8n__WebhookUrl)
 # Cada envio é um lead novo: o idExterno e o e-mail mudam a cada vez.
 # @prompt chave
 POST {{host}}/api/integracoes/leads
