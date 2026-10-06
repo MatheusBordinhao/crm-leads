@@ -8,6 +8,7 @@ using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Eventos;
 using Crm.Api.Infra.Importacoes;
+using Crm.Api.Infra.TempoReal;
 using Crm.Api.Infra.Web;
 using Scalar.AspNetCore;
 
@@ -34,6 +35,7 @@ builder.Services.AddNotificacoes();
 builder.Services.AddEventos();
 builder.Services.AddIntegracoes();
 builder.Services.AddImportacoes();
+builder.Services.AddTempoReal();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 
 var app = builder.Build();
@@ -62,5 +64,6 @@ app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
 app.MapControllers();
+app.MapTempoReal();
 
 app.Run();
