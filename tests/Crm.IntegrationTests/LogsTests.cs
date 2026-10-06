@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Crm.Api.Features.Usuarios;
+using Crm.Api.Infra.TempoReal;
 using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
@@ -168,6 +169,34 @@ public class LogsTests(CrmApiFactory fabrica)
         Assert.Equal(1, resultado.GetProperty("comErro").GetInt32());
         Assert.Contains(captura.Registros, r => r.Contains($"Importação {resultado.GetProperty("id").GetInt64()} concluída", StringComparison.Ordinal));
         AssertSemVazamento(captura, [.. linha.Where(v => v.Length > 0), semNome[1], telefone, nomeArquivo]);
+    }
+
+    [Fact]
+    public async Task O_tempo_real_nunca_poe_dados_pessoais_no_log_nem_no_nivel_trace()
+    {
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        var atendente = await api.CriarUsuarioAsync();
+        var adminUsuario = await api.CriarUsuarioAsync(Perfil.Admin);
+        await using var conexaoAtendente = await api.ConectarAsync(atendente);
+        await using var conexaoAdmin = await api.ConectarAsync(adminUsuario);
+        using var admin = await api.LogarAsync(adminUsuario);
+        var corpo = LeadsDeTeste.CorpoLead($"Nome Sigiloso {marca}");
+        corpo["telefone"] = LeadsDeTeste.TelefoneUnico();
+        corpo["cpfCnpj"] = LeadsDeTeste.CpfUnico();
+        corpo["empresa"] = $"Empresa Sigilosa {marca}";
+        corpo["responsavelId"] = atendente.Id;
+
+        var id = await admin.CriarLeadIdAsync(corpo);
+        await conexaoAtendente.AguardarLeadAsync(id);
+        await conexaoAtendente.AguardarAsync(a => a.Nome == nameof(IClienteTempoReal.NotificacaoNova));
+        await conexaoAdmin.AguardarLeadAsync(id);
+
+        AssertSemVazamento(
+            captura,
+            [(string)corpo["nome"]!, (string)corpo["email"]!, (string)corpo["telefone"]!, (string)corpo["cpfCnpj"]!, $"Empresa Sigilosa {marca}"]);
     }
 
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)

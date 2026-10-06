@@ -108,13 +108,16 @@ public sealed class ClienteTempoReal : IAsyncDisposable
     /// <summary>Desde quando o cliente existe: a régua da hora de chegada dos avisos.</summary>
     public TimeSpan Agora => _relogio.Elapsed;
 
-    /// <summary>Espera um aviso que atenda à condição e o devolve. Falha se ele não chegar em <see cref="Espera"/>.</summary>
-    public async Task<AvisoRecebido> AguardarAsync(Func<AvisoRecebido, bool> condicao)
+    /// <summary>
+    /// Espera um aviso que atenda à condição, entre os que chegaram a partir da posição <paramref name="aPartirDe"/>
+    /// (a quantidade de avisos antes de uma ação), e o devolve. Falha se ele não chegar em <see cref="Espera"/>.
+    /// </summary>
+    public async Task<AvisoRecebido> AguardarAsync(Func<AvisoRecebido, bool> condicao, int aPartirDe = 0)
     {
         var limite = Stopwatch.StartNew();
         while (limite.Elapsed < Espera)
         {
-            if (_avisos.FirstOrDefault(condicao) is { } aviso)
+            if (Avisos.Skip(aPartirDe).FirstOrDefault(condicao) is { } aviso)
             {
                 return aviso;
             }
@@ -125,9 +128,9 @@ public sealed class ClienteTempoReal : IAsyncDisposable
         throw new TimeoutException($"O aviso esperado não chegou. Chegaram: {string.Join("; ", Avisos)}");
     }
 
-    /// <summary>Espera o <c>LeadsAlterados</c> com o id do lead.</summary>
-    public Task<AvisoRecebido> AguardarLeadAsync(long leadId) =>
-        AguardarAsync(a => a.Nome == nameof(IClienteTempoReal.LeadsAlterados) && a.Ids.Contains(leadId));
+    /// <summary>Espera o <c>LeadsAlterados</c> com o id do lead, entre os que chegaram a partir de <paramref name="aPartirDe"/>.</summary>
+    public Task<AvisoRecebido> AguardarLeadAsync(long leadId, int aPartirDe = 0) =>
+        AguardarAsync(a => a.Nome == nameof(IClienteTempoReal.LeadsAlterados) && a.Ids.Contains(leadId), aPartirDe);
 
     /// <summary>Os avisos que chegaram antes do primeiro que atende à condição (a sentinela).</summary>
     public async Task<List<AvisoRecebido>> AvisosAteAsync(Func<AvisoRecebido, bool> sentinela)
@@ -135,9 +138,6 @@ public sealed class ClienteTempoReal : IAsyncDisposable
         var chegada = await AguardarAsync(sentinela);
         return [.. Avisos.TakeWhile(a => !ReferenceEquals(a, chegada))];
     }
-
-    /// <summary>Algum aviso, de qualquer tipo, trouxe o id.</summary>
-    public bool RecebeuOId(long id) => Avisos.Any(a => a.Nome != nameof(IClienteTempoReal.NotificacaoNova) && a.Ids.Contains(id));
 
     /// <summary>Espera o servidor encerrar a conexão. Falha se ela continuar aberta depois de <see cref="Espera"/>.</summary>
     public async Task AguardarFechamentoAsync() => await Fechada.WaitAsync(Espera, TestContext.Current.CancellationToken);
