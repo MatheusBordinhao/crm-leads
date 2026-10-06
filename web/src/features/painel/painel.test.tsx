@@ -201,4 +201,19 @@ describe('painel', () => {
 
     expect(await screen.findByRole('list', { name: 'Situação atual' })).toBeInTheDocument()
   })
+
+  it('recarrega quando um lead ou o funil muda, pelo tempo real', async () => {
+    comSessao(admin)
+    const pedidos = comPainel()
+    const { hub } = renderizarApp('/painel')
+    await screen.findByRole('list', { name: 'Situação atual' })
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    hub.emitir('LeadsAlterados', [1024])
+    await waitFor(() => expect(pedidos).toHaveLength(2))
+    hub.emitir('FunilAlterado')
+
+    // No máximo uma recarga por segundo: a segunda vem no fim do segundo.
+    await waitFor(() => expect(pedidos).toHaveLength(3), { timeout: 2000 })
+  })
 })

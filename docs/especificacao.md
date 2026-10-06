@@ -126,7 +126,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - Quem fez a ação nunca recebe a notificação dela, e lead de teste não gera notificação. A exceção é o resumo da importação: ela roda em segundo plano, e quem importou pode ter saído da tela. Uma responsável desativada conta como sem responsável, e a nova entrada de um lead sem responsável avisa os admins.
 - Cada notificação é de um usuário. O título não leva dados do lead: a lista mostra o nome atual dele, lido na hora, e só se a pessoa ainda vê o lead. A notificação de um lead que passou para outra atendente some da lista dela, e marcá-la responde 404.
 - Um sino no topo mostra o contador e a lista, com opção de marcar uma ou todas como lidas. A lista traz as 30 mais recentes, e o contador soma todas as não lidas.
-- **Tempo real:** o sino, o quadro, a lista e a ficha se atualizam pelo hub do SignalR (`/hubs/notificacoes`), sem consultar a API de tempos em tempos. O hub só manda ids, e a tela busca os dados na API, que aplica a visibilidade de sempre:
+- **Tempo real:** o sino, o quadro, a lista, a ficha e o painel se atualizam pelo hub do SignalR (`/hubs/notificacoes`), sem consultar a API de tempos em tempos. O hub só manda ids, e a tela busca os dados na API, que aplica a visibilidade de sempre:
   - `LeadsAlterados(ids)`: os admins recebem os ids de todos os leads; a responsável, só os dos leads que são dela na hora do envio (lead de teste, só os admins). Quem perde um lead numa troca de responsável recebe o aviso sem ids, que recarrega o que estiver aberto: o id de um lead que já é de outra pessoa não chega até ela;
   - `NotificacaoNova(id)`: só para o dono da notificação;
   - `FunilAlterado()`: para todos, quando as etapas ou os motivos de perda mudam.

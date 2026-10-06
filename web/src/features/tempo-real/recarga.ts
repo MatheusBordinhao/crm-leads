@@ -10,6 +10,7 @@ import {
   chaveMudarEtapa,
 } from '@/features/leads/dados'
 import { chaveNotificacoes, consultaNotificacoes } from '@/features/notificacoes/dados'
+import { chavePainel } from '@/features/painel/dados'
 
 /** No máximo uma recarga por segundo: uma importação grande manda um aviso atrás do outro. */
 export const INTERVALO_RECARGA = 1000
@@ -48,6 +49,10 @@ export function criarRecarga(queryClient: QueryClient) {
     const mudandoEtapa = queryClient.isMutating({ mutationKey: chaveMudarEtapa }) > 0
     if ((funil || tudoDeLeads || leads.size > 0) && !mudandoEtapa) {
       recarregar(chaveFunil)
+    }
+    // O painel conta os leads e mostra os nomes das etapas.
+    if (funil || tudoDeLeads || leads.size > 0) {
+      recarregar(chavePainel)
     }
     if (tudoDeLeads) {
       // A lista, as fichas e as linhas do tempo: um lead da pessoa passou para outra, e o id dele não vem no aviso.
