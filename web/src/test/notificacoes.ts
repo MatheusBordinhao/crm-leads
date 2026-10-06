@@ -17,7 +17,7 @@ export function notificacao(parcial: Partial<NotificacaoResponse> = {}): Notific
 
 /**
  * Notificações simuladas, com estado: marcar como lida muda a lista recarregada. Devolve as consultas e as
- * marcações recebidas.
+ * marcações recebidas, e `adicionar`, que põe uma notificação nova no servidor, como depois de um lead atribuído.
  */
 export function comNotificacoes(itens: NotificacaoResponse[]) {
   let lista = itens.map((item) => ({ ...item }))
@@ -46,5 +46,8 @@ export function comNotificacoes(itens: NotificacaoResponse[]) {
       return new HttpResponse(null, { status: 204 })
     }),
   )
-  return { consultas, marcadas }
+  const adicionar = (item: NotificacaoResponse) => {
+    lista = [{ ...item }, ...lista]
+  }
+  return { consultas, marcadas, adicionar }
 }

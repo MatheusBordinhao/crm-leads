@@ -18,12 +18,16 @@ import {
 
 /** Lista, fichas e linhas do tempo: a importação recarrega tudo quando termina. */
 export const chaveLeads = ['leads'] as const
-const chaveLista = [...chaveLeads, 'lista'] as const
-const chaveFicha = (id: number) => [...chaveLeads, 'ficha', id] as const
-const chaveLinhaDoTempo = (id: number) => [...chaveLeads, 'linha-do-tempo', id] as const
+export const chaveLista = [...chaveLeads, 'lista'] as const
+export const chaveFicha = (id: number) => [...chaveLeads, 'ficha', id] as const
+export const chaveLinhaDoTempo = (id: number) => [...chaveLeads, 'linha-do-tempo', id] as const
 
 /** Quadro do funil. Fica aqui porque toda mudança de etapa, na ficha ou no quadro, o recarrega. */
 export const chaveFunil = ['funil'] as const
+
+/** Etapas e motivos de perda, que o tempo real recarrega quando o admin os muda. */
+export const chaveEtapas = ['etapas'] as const
+export const chaveMotivosPerda = ['motivos-perda'] as const
 
 /** Cadastros que mudam pouco: ficam em cache por 5 minutos. */
 const CINCO_MINUTOS = 5 * 60_000
@@ -48,7 +52,7 @@ export function useLead(id: number) {
 
 export function useEtapas() {
   return useQuery({
-    queryKey: ['etapas'],
+    queryKey: chaveEtapas,
     queryFn: () => exigirSucesso(api.GET('/api/etapas')),
     staleTime: CINCO_MINUTOS,
   })
@@ -56,7 +60,7 @@ export function useEtapas() {
 
 export function useMotivosPerda() {
   return useQuery({
-    queryKey: ['motivos-perda'],
+    queryKey: chaveMotivosPerda,
     queryFn: () => exigirSucesso(api.GET('/api/motivos-perda')),
     staleTime: CINCO_MINUTOS,
   })

@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { useEu } from '@/features/acesso/sessao'
 import { Sino } from '@/features/notificacoes/Sino'
+import { TempoReal } from '@/features/tempo-real/TempoReal'
 import { Marca } from './Marca'
 import { Menu } from './Menu'
 import { MenuUsuario } from './MenuUsuario'
 
 /**
  * Layout das telas com sessão: menu lateral no computador; no celular, barra no topo com o menu numa
- * gaveta. Funciona a partir de 360 px.
+ * gaveta. Funciona a partir de 360 px. Com ele na tela, a conexão do tempo real fica aberta.
  */
 export function Layout() {
   const { data: eu } = useEu()
@@ -58,6 +59,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <TempoReal />
     </div>
   )
 }

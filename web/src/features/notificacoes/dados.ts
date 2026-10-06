@@ -1,17 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, exigirSucesso } from '@/api/cliente'
 
-const chaveNotificacoes = ['notificacoes'] as const
+/** Notificações do usuário logado: o tempo real as recarrega quando chega uma nova. */
+export const chaveNotificacoes = ['notificacoes'] as const
 
-/** De quanto em quanto tempo a lista é consultada, até o tempo real chegar (Passo 7). */
-export const INTERVALO_NOTIFICACOES = 30_000
-
-/** As notificações mais recentes do usuário logado e quantas não foram lidas, consultadas a cada 30 segundos. */
+/** As notificações mais recentes do usuário logado e quantas não foram lidas. */
 export function useNotificacoes() {
   return useQuery({
     queryKey: chaveNotificacoes,
     queryFn: () => exigirSucesso(api.GET('/api/notificacoes')),
-    refetchInterval: INTERVALO_NOTIFICACOES,
   })
 }
 

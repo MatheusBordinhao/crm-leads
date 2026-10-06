@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { admin, atendente, comSessao } from '@/test/api'
 import { comCadastros, comLista, leadResumo } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
+import { servidor } from '@/test/servidor'
 
 async function tabela() {
   return within(await screen.findByRole('table'))
@@ -143,5 +145,24 @@ describe('lista de leads', () => {
     renderizarApp('/leads')
 
     expect(await screen.findByText('Nenhum lead encontrado.')).toBeInTheDocument()
+  })
+
+  it('um lead novo aparece na lista sem recarregar a página', async () => {
+    comSessao(atendente)
+    comCadastros()
+    let itens = [leadResumo()]
+    servidor.use(
+      http.get('*/api/leads', () =>
+        HttpResponse.json({ itens, total: itens.length, pagina: 1, tamanho: 25 }),
+      ),
+    )
+    const { hub } = renderizarApp('/leads')
+    expect((await tabela()).getByText('Maria Souza')).toBeInTheDocument()
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    itens = [leadResumo({ id: 2048, nome: 'Lead Novo' }), ...itens]
+    hub.emitir('LeadsAlterados', [2048])
+
+    expect(await (await tabela()).findByText('Lead Novo')).toBeInTheDocument()
   })
 })

@@ -1,10 +1,10 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MudarEtapaRequest, QuadroFunilResponse } from '@/api/cliente'
 import { admin, atendente, comSessao, problema } from '@/test/api'
-import { comQuadro, quadroFunil } from '@/test/leads'
+import { cartao, comQuadro, quadroFunil } from '@/test/leads'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -276,5 +276,27 @@ describe('quadro do funil', () => {
 
     expect(await screen.findByLabelText('Origem')).toBeInTheDocument()
     expect(screen.queryByLabelText('Responsável')).not.toBeInTheDocument()
+  })
+
+  it('um lead novo aparece no quadro sem recarregar a página', async () => {
+    comSessao(atendente)
+    let quadro = quadroFunil()
+    comQuadro(quadro)
+    servidor.use(http.get('*/api/funil', () => HttpResponse.json(quadro)))
+    const { hub } = renderizarApp('/funil')
+    await screen.findByRole('region', { name: 'Quadro do funil' })
+    expect(coluna('Novo').getByText('Maria Souza')).toBeInTheDocument()
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    const novo = cartao({ id: 2048, nome: 'Lead Novo', criadoEm: '2026-10-06T12:00:00Z' })
+    quadro = {
+      ...quadro,
+      colunas: quadro.colunas.map((c, i) =>
+        i === 0 ? { ...c, total: c.total + 1, leads: [novo, ...c.leads] } : c,
+      ),
+    }
+    hub.emitir('LeadsAlterados', [2048])
+
+    expect(await coluna('Novo').findByText('Lead Novo')).toBeInTheDocument()
   })
 })

@@ -7,7 +7,6 @@ import { comCadastros, comLista, comQuadro, fichaLead, leadResumo } from '@/test
 import { comNotificacoes, notificacao } from '@/test/notificacoes'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
-import { INTERVALO_NOTIFICACOES } from './dados'
 
 describe('sino de notificações', () => {
   it('mostra quantas não foram lidas e a lista, com o nome do lead', async () => {
@@ -129,7 +128,23 @@ describe('sino de notificações', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/leads'))
   })
 
-  it('consulta a lista de novo a cada 30 segundos', async () => {
+  it('o contador muda quando o tempo real avisa de uma notificação nova', async () => {
+    comSessao(atendente)
+    comQuadro()
+    const { adicionar } = comNotificacoes([])
+    const { hub } = renderizarApp('/')
+    expect(await screen.findByRole('button', { name: 'Notificações' })).toBeInTheDocument()
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    adicionar(notificacao({ id: 9 }))
+    hub.emitir('NotificacaoNova', 9)
+
+    expect(
+      await screen.findByRole('button', { name: 'Notificações: 1 não lida' }),
+    ).toBeInTheDocument()
+  })
+
+  it('não consulta mais a lista a cada 30 segundos', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       comSessao(atendente)
@@ -138,9 +153,9 @@ describe('sino de notificações', () => {
       renderizarApp('/')
       await waitFor(() => expect(consultas).toHaveLength(1))
 
-      await vi.advanceTimersByTimeAsync(INTERVALO_NOTIFICACOES)
+      await vi.advanceTimersByTimeAsync(30_000)
 
-      await waitFor(() => expect(consultas).toHaveLength(2))
+      expect(consultas).toHaveLength(1)
     } finally {
       vi.useRealTimers()
     }
