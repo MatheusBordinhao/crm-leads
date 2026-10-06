@@ -96,7 +96,7 @@ async function arrastar(usuario: UserEvent, nome: string, etapas: number) {
 }
 
 describe('quadro do funil', () => {
-  it('a tela inicial é o funil', async () => {
+  it('a tela inicial da atendente é o funil', async () => {
     comSessao(atendente)
     comQuadro()
 

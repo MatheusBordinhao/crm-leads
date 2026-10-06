@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { ErroApi } from '@/api/cliente'
-import { formatarDataHora, formatarHora, paraCampoDataHora, tempoDesde } from './datas'
+import {
+  formatarDataHora,
+  formatarDia,
+  formatarDuracao,
+  formatarHora,
+  paraCampoDataHora,
+  tempoDesde,
+} from './datas'
 import { mensagemDoErro } from './formularios'
+import { formatarNumero, formatarTaxa } from './numeros'
 import { gerarSenha, TAMANHO_MINIMO_SENHA } from './senha'
 
 describe('gerarSenha', () => {
@@ -37,6 +45,30 @@ describe('datas', () => {
 
   it('monta o valor do campo de data e hora no fuso do navegador', () => {
     expect(paraCampoDataHora(new Date(2026, 9, 5, 9, 3))).toBe('2026-10-05T09:03')
+  })
+
+  it('mostra um dia sem hora como a tela, sem mudar de fuso', () => {
+    expect(formatarDia('2026-09-07')).toBe('07/09/2026')
+  })
+
+  it('diz uma duração em minutos, horas e dias', () => {
+    expect(formatarDuracao(0)).toBe('menos de 1 min')
+    expect(formatarDuracao(0.6)).toBe('menos de 1 min')
+    expect(formatarDuracao(44.6)).toBe('45 min')
+    expect(formatarDuracao(59.6)).toBe('1 h')
+    expect(formatarDuracao(75)).toBe('1 h 15 min')
+    expect(formatarDuracao(24 * 60)).toBe('1 dia')
+    expect(formatarDuracao(2 * 24 * 60 + 3 * 60 + 20)).toBe('2 dias e 3 h')
+  })
+})
+
+describe('números', () => {
+  it('mostra os números e as taxas no formato brasileiro', () => {
+    expect(formatarNumero(1234)).toBe('1.234')
+    expect(formatarTaxa(0.25)).toBe('25%')
+    expect(formatarTaxa(1 / 3)).toBe('33,3%')
+    expect(formatarTaxa(0)).toBe('0%')
+    expect(formatarTaxa(null)).toBe('—')
   })
 })
 

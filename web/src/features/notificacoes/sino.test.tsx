@@ -5,6 +5,7 @@ import { admin, atendente, comSessao } from '@/test/api'
 import { comImportacao } from '@/test/importacao'
 import { comCadastros, comLista, comQuadro, fichaLead, leadResumo } from '@/test/leads'
 import { comNotificacoes, notificacao } from '@/test/notificacoes'
+import { comPainel } from '@/test/painel'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -86,7 +87,7 @@ describe('sino de notificações', () => {
 
   it('o resumo da importação abre o resultado dela', async () => {
     comSessao(admin)
-    comQuadro()
+    comPainel()
     comImportacao()
     const { marcadas } = comNotificacoes([
       notificacao({

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { admin, atendente, comSessao, problema } from '@/test/api'
 import { comImportacao, importacao } from '@/test/importacao'
 import { comCadastros, comLista, comQuadro } from '@/test/leads'
+import { comPainel } from '@/test/painel'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 import { MENSAGEM_TAMANHO } from './arquivo'
@@ -237,7 +238,7 @@ describe('importação', () => {
 
   it('o admin abre a importação pelo menu', async () => {
     comSessao(admin)
-    comQuadro()
+    comPainel()
     const { usuario } = renderizarApp('/')
 
     await usuario.click(await screen.findByRole('link', { name: 'Importação' }))

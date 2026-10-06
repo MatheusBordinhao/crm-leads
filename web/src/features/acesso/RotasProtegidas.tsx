@@ -30,6 +30,12 @@ export function RotaProtegida() {
   return <Outlet />
 }
 
+/** A tela inicial de cada perfil: o painel para o admin e o funil, onde ela trabalha, para a atendente. */
+export function TelaInicial() {
+  const { data: eu } = useEu()
+  return <Navigate to={eu?.perfil === 'Admin' ? '/painel' : '/funil'} replace />
+}
+
 /** Só para admin. A atendente volta ao início (a API também responde 403). */
 export function RotaAdmin() {
   const { data: eu } = useEu()

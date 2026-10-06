@@ -1,4 +1,5 @@
 import {
+  ChartColumnIcon,
   ContactRoundIcon,
   FileUpIcon,
   SlidersHorizontalIcon,
@@ -13,27 +14,33 @@ import { cn } from '@/lib/utils'
 type Item = { para: string; rotulo: string; icone: LucideIcon }
 type Grupo = { titulo?: string; itens: Item[] }
 
-/** Itens do menu. Cada passo acrescenta as telas que entrega. */
+const PAINEL: Item = { para: '/painel', rotulo: 'Painel', icone: ChartColumnIcon }
+const FUNIL: Item = { para: '/funil', rotulo: 'Funil', icone: SquareKanbanIcon }
+const LEADS: Item = { para: '/leads', rotulo: 'Leads', icone: ContactRoundIcon }
+
+/** Itens do menu. Cada passo acrescenta as telas que entrega, e o primeiro item é a tela inicial do perfil. */
 function gruposDoMenu(perfil: Perfil): Grupo[] {
-  const grupos: Grupo[] = [
+  if (perfil !== 'Admin') {
+    // A atendente começa pelo funil, onde ela trabalha.
+    return [{ itens: [FUNIL, LEADS, PAINEL] }]
+  }
+  return [
     {
       itens: [
-        { para: '/funil', rotulo: 'Funil', icone: SquareKanbanIcon },
-        { para: '/leads', rotulo: 'Leads', icone: ContactRoundIcon },
+        PAINEL,
+        FUNIL,
+        LEADS,
+        { para: '/importacao', rotulo: 'Importação', icone: FileUpIcon },
       ],
     },
-  ]
-  if (perfil === 'Admin') {
-    grupos[0].itens.push({ para: '/importacao', rotulo: 'Importação', icone: FileUpIcon })
-    grupos.push({
+    {
       titulo: 'Configurações',
       itens: [
         { para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: UsersIcon },
         { para: '/configuracoes/funil', rotulo: 'Etapas e motivos', icone: SlidersHorizontalIcon },
       ],
-    })
-  }
-  return grupos
+    },
+  ]
 }
 
 /** Menu principal. No celular, fica dentro da gaveta e a fecha ao navegar (`aoNavegar`). */

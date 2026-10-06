@@ -55,3 +55,28 @@ export function paraCampoDataHora(data: Date): string {
     `T${doisDigitos(data.getHours())}:${doisDigitos(data.getMinutes())}`
   )
 }
+
+/** Um dia sem hora, como a API manda (`2026-09-07`), no formato da tela: `07/09/2026`. */
+export function formatarDia(dia: string): string {
+  const [ano, mes, diaDoMes] = dia.split('-')
+  return `${diaDoMes}/${mes}/${ano}`
+}
+
+/** Uma duração em minutos: `menos de 1 min`, `45 min`, `1 h 15 min`, `2 dias e 3 h`. */
+export function formatarDuracao(minutos: number): string {
+  if (minutos < 1) {
+    return 'menos de 1 min'
+  }
+  const total = Math.round(minutos)
+  if (total < 60) {
+    return `${total} min`
+  }
+  const horas = Math.floor(total / 60)
+  if (horas < 24) {
+    const resto = total % 60
+    return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`
+  }
+  const dias = Math.floor(horas / 24)
+  const textoDias = dias === 1 ? '1 dia' : `${dias} dias`
+  return horas % 24 === 0 ? textoDias : `${textoDias} e ${horas % 24} h`
+}

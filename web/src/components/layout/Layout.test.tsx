@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { admin, atendente, comSessao } from '@/test/api'
 import { comQuadro } from '@/test/leads'
+import { comPainel } from '@/test/painel'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 
@@ -17,12 +18,13 @@ describe('layout', () => {
     const menu = screen.getByRole('navigation', { name: 'Menu principal' })
     expect(within(menu).getByRole('link', { name: 'Funil' })).toHaveAttribute('href', '/funil')
     expect(within(menu).getByRole('link', { name: 'Leads' })).toHaveAttribute('href', '/leads')
+    expect(within(menu).getByRole('link', { name: 'Painel' })).toHaveAttribute('href', '/painel')
     expect(within(menu).queryByRole('link', { name: 'Usuários' })).not.toBeInTheDocument()
   })
 
   it('admin vê Usuários em Configurações', async () => {
     comSessao(admin)
-    comQuadro()
+    comPainel()
 
     renderizarApp('/')
 
@@ -36,7 +38,7 @@ describe('layout', () => {
 
   it('no celular, o menu abre numa gaveta', async () => {
     comSessao(admin)
-    comQuadro()
+    comPainel()
     const { usuario } = renderizarApp('/')
 
     await usuario.click(await screen.findByRole('button', { name: 'Abrir o menu' }))
