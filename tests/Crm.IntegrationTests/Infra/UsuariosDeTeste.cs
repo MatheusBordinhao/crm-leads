@@ -20,7 +20,8 @@ public static class UsuariosDeTeste
         Perfil perfil = Perfil.Atendente,
         bool ativo = true,
         bool trocarSenha = false,
-        string senha = SenhaPadrao)
+        string senha = SenhaPadrao,
+        string? nome = null)
     {
         await using var escopo = fabrica.Services.CreateAsyncScope();
         var usuarios = escopo.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
@@ -29,7 +30,7 @@ public static class UsuariosDeTeste
         {
             UserName = email,
             Email = email,
-            Nome = $"{perfil} de teste",
+            Nome = nome ?? $"{perfil} de teste",
             Ativo = ativo,
             TrocarSenha = trocarSenha,
             CriadoEm = DateTimeOffset.UtcNow,

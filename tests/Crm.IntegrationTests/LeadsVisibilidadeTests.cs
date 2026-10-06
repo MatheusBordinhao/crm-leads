@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Crm.Api.Features.Usuarios;
 using Crm.IntegrationTests.Infra;
 
@@ -151,6 +152,31 @@ public class LeadsVisibilidadeTests(CrmApiFactory fabrica)
         Assert.Equal(daAdriana.Order(), lista.Order());
         Assert.Equal(daAdriana.Order(), filtrandoPelaPietra.Order());
         Assert.Equal(daAdriana.Order(), semResponsavel.Order());
+    }
+
+    [Fact]
+    public async Task Painel_da_atendente_so_conta_os_leads_dela_mesmo_filtrando_por_outra_pessoa()
+    {
+        var pietraUsuario = await fabrica.CriarUsuarioAsync();
+        using var adriana = await fabrica.LogarComoAsync(Perfil.Atendente);
+        using var pietra = await fabrica.LogarAsync(pietraUsuario);
+        await adriana.CriarLeadIdAsync();
+        await adriana.CriarLeadIdAsync();
+        await pietra.CriarLeadIdAsync();
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpoTeste = LeadsDeTeste.CorpoIntegracao();
+        corpoTeste["teste"] = true;
+        await n8n.EnviarLeadIdAsync(LeadsDeTeste.CorpoIntegracao());
+        await n8n.EnviarLeadIdAsync(corpoTeste);
+
+        foreach (var filtro in new[] { "", $"?responsavelId={pietraUsuario.Id}", "?semResponsavel=true" })
+        {
+            var painel = await (await adriana.GetAsync($"/api/painel{filtro}", Ct)).LerJsonAsync();
+
+            Assert.Equal(2, painel.GetProperty("leadsNovos").GetInt32());
+            Assert.Equal(2, painel.GetProperty("entradas").GetInt32());
+            Assert.Equal(JsonValueKind.Null, painel.GetProperty("porAtendente").ValueKind);
+        }
     }
 
     [Fact]

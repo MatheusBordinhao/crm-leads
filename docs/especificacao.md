@@ -377,7 +377,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/configuracoes`, `PUT /api/configuracoes` | Admin | `exigirDocumentoParaGanho` e `distribuicaoAutomatica`. O PUT recebe as duas, e cada mudança entra na auditoria |
 | `/api/campanhas` | Admin | Renomear as campanhas provisórias (Passo 6) |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
-| `GET /api/painel` | Admin e atendente | Métricas da seção 8 |
+| `GET /api/painel` | Admin e atendente | Métricas da seção 8. Filtros: `de`, `ate`, `origem`, `campanhaId` e, para o admin, `responsavelId` ou `semResponsavel` |
 | `GET /api/relatorios/campanhas` | Admin | Relatório por campanha, também em CSV |
 | `GET /api/auditoria` | Admin | Consulta da auditoria |
 | `POST /api/integracoes/leads`, `GET /api/integracoes/relatorios/campanhas` | Integração | Seções 4.2 e 4.4 |
@@ -401,19 +401,21 @@ Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem 
 
 ## 8. Painel e relatório
 
-- O período padrão são os últimos 30 dias, no horário de Brasília. Os filtros são período, origem, campanha e responsável (só admin).
+- O período é contado em dias no horário de Brasília, de `de` até `ate`, com os dois incluídos. O padrão são os últimos 30 dias, com hoje; só com o fim, valem os 30 dias que terminam nele. As datas vão de 2000 a 2099, e um fim antes do início responde 400.
+- Os filtros são período, origem, campanha e responsável (só admin).
 - Leads de teste ficam fora de todos os números. Leads anonimizados continuam contando.
+- Os leads novos do período são a base da situação atual, da conversão, do primeiro contato e das quebras por origem, campanha e atendente. Neles, a origem e a campanha são as da primeira entrada, e a responsável é a atual.
 
 | Métrica | Definição |
 | --- | --- |
 | Leads novos | Leads criados no período |
-| Entradas | Entradas recebidas no período, incluindo as de pessoas que já eram leads |
-| Por origem e por campanha | Leads novos agrupados pela origem e pela campanha da primeira entrada |
-| Situação atual | Leads novos do período, por etapa atual |
-| Taxa de conversão | Leads novos do período que hoje estão em Ganho, divididos pelos leads novos do período |
-| Tempo até o primeiro contato | Mediana de `primeiro_contato_em − criado_em` dos leads novos do período que já tiveram contato, e quantos ainda não tiveram |
-| Motivos de perda | Leads que foram para Perdido no período, por motivo |
-| Por atendente (admin) | Leads novos, ganhos, taxa de conversão e mediana do primeiro contato de cada atendente |
+| Entradas | Entradas que o CRM processou no período, incluindo as de pessoas que já eram leads. Vale a hora do processamento (`processado_em`), a mesma do `criado_em` do lead novo: o `recebidoEm` vem da integração e chega atrasado num reenvio. A origem e a campanha são as de cada entrada, e a responsável, a do lead. Sem filtros, são os leads novos mais as entradas vinculadas |
+| Por origem e por campanha | Leads novos, ganhos e taxa de conversão, agrupados pela origem e pela campanha da primeira entrada |
+| Situação atual | Leads novos do período, pela etapa atual: todas as etapas ativas, na ordem do funil |
+| Taxa de conversão | Leads novos do período que hoje estão em Ganho (os ganhos), divididos pelos leads novos do período. Sem leads novos, não há taxa |
+| Tempo até o primeiro contato | Mediana de `primeiro_contato_em − criado_em`, em minutos, dos leads novos do período que já tiveram contato (com uma quantidade par, a média dos dois do meio), e quantos ainda não tiveram |
+| Motivos de perda | Leads que foram para Perdido no período, pelo `historico_etapas`, por motivo: de qualquer data de entrada, mesmo os que depois foram reabertos, com os filtros valendo pelo lead. Cada lead conta uma vez por motivo |
+| Por atendente (admin) | Leads novos, ganhos, taxa de conversão e mediana do primeiro contato de cada responsável atual, inclusive quem foi desativada, mais uma linha para os leads sem responsável |
 
 O relatório por campanha usa as mesmas definições e traz, por campanha: leads novos, entradas, em andamento, ganhos, perdidos, taxa de conversão e mediana do primeiro contato. Não leva dados pessoais.
 
