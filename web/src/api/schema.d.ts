@@ -705,6 +705,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/painel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    de?: string;
+                    ate?: string;
+                    origem?: components["schemas"]["Origem"];
+                    campanhaId?: number;
+                    responsavelId?: string;
+                    semResponsavel?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PainelResponse"];
+                        "application/json": components["schemas"]["PainelResponse"];
+                        "text/json": components["schemas"]["PainelResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notificacoes": {
         parameters: {
             query?: never;
@@ -1868,9 +1922,29 @@ export interface components {
             colunaIdExterno: null | number;
             origem: components["schemas"]["Origem"];
         };
+        AtendentePainelResponse: {
+            responsavel: null | components["schemas"]["ResponsavelPainelResponse"];
+            /** Format: int32 */
+            leadsNovos: number;
+            /** Format: int32 */
+            ganhos: number;
+            /** Format: double */
+            taxaConversao: null | number;
+            /** Format: double */
+            medianaPrimeiroContatoMinutos: null | number;
+        };
         AvisoLead: {
             campo: string;
             mensagem: string;
+        };
+        CampanhaPainelResponse: {
+            campanha: null | components["schemas"]["CampanhaResumo"];
+            /** Format: int32 */
+            leadsNovos: number;
+            /** Format: int32 */
+            ganhos: number;
+            /** Format: double */
+            taxaConversao: null | number;
         };
         CampanhaResponse: {
             /** Format: int32 */
@@ -2023,6 +2097,11 @@ export interface components {
             linha: number;
             motivo: string;
         };
+        EtapaPainelResponse: {
+            etapa: components["schemas"]["EtapaResumo"];
+            /** Format: int32 */
+            leadsNovos: number;
+        };
         EtapaResponse: {
             /** Format: int32 */
             id: number;
@@ -2173,6 +2252,11 @@ export interface components {
             email: string;
             senha: string;
         };
+        MotivoPerdaPainelResponse: {
+            motivo: null | components["schemas"]["MotivoPerdaResumo"];
+            /** Format: int32 */
+            leads: number;
+        };
         MotivoPerdaResponse: {
             /** Format: int32 */
             id: number;
@@ -2219,8 +2303,50 @@ export interface components {
         OrdemLeads: "Recentes" | "Antigos" | "Nome";
         /** @enum {unknown} */
         Origem: "meta_lead_ads" | "google_ads" | "site" | "whatsapp" | "telefone" | "indicacao" | "planilha" | "manual";
+        OrigemPainelResponse: {
+            origem: components["schemas"]["Origem"];
+            /** Format: int32 */
+            leadsNovos: number;
+            /** Format: int32 */
+            ganhos: number;
+            /** Format: double */
+            taxaConversao: null | number;
+        };
+        PainelResponse: {
+            /** Format: date */
+            de: string;
+            /** Format: date */
+            ate: string;
+            /** Format: int32 */
+            leadsNovos: number;
+            /** Format: int32 */
+            entradas: number;
+            /** Format: int32 */
+            ganhos: number;
+            /** Format: double */
+            taxaConversao: null | number;
+            primeiroContato: components["schemas"]["PrimeiroContatoPainelResponse"];
+            situacaoAtual: components["schemas"]["EtapaPainelResponse"][];
+            porOrigem: components["schemas"]["OrigemPainelResponse"][];
+            porCampanha: components["schemas"]["CampanhaPainelResponse"][];
+            perdas: components["schemas"]["PerdasPainelResponse"];
+            porAtendente: null | components["schemas"]["AtendentePainelResponse"][];
+        };
+        PerdasPainelResponse: {
+            /** Format: int32 */
+            leads: number;
+            porMotivo: components["schemas"]["MotivoPerdaPainelResponse"][];
+        };
         /** @enum {unknown} */
         Perfil: "Admin" | "Atendente";
+        PrimeiroContatoPainelResponse: {
+            /** Format: double */
+            medianaMinutos: null | number;
+            /** Format: int32 */
+            comContato: number;
+            /** Format: int32 */
+            semContato: number;
+        };
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -2254,6 +2380,12 @@ export interface components {
         };
         ReordenarEtapasRequest: {
             ids: number[];
+        };
+        ResponsavelPainelResponse: {
+            /** Format: uuid */
+            id: string;
+            nome: string;
+            ativo: boolean;
         };
         ResponsavelResumo: {
             /** Format: uuid */
