@@ -155,7 +155,7 @@ public class FunilTests(CrmApiFactory fabrica)
     {
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
         using var n8n = fabrica.CriarClienteIntegracao();
-        var marca = Guid.NewGuid().ToString("N")[..12];
+        var marca = LeadsDeTeste.Marca();
         var corpoMeta = LeadsDeTeste.CorpoIntegracao();
         corpoMeta["nome"] = $"Quadro {marca} Meta";
         var meta = await n8n.EnviarLeadIdAsync(corpoMeta);

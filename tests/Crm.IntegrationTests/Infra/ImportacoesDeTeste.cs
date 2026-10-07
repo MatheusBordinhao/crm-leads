@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Crm.Api.Features.Leads;
@@ -30,9 +29,8 @@ public static class ImportacoesDeTeste
     /// <summary>Um cabeçalho de planilha montada à mão no Excel.</summary>
     public static readonly string[] CabecalhoExcel = ["Nome", "E-mail", "Celular", "Empresa", "Observações"];
 
-    /// <summary>Um id numérico como os da Meta, único.</summary>
-    public static string IdDaMeta() =>
-        $"{RandomNumberGenerator.GetInt32(100_000, 1_000_000)}{RandomNumberGenerator.GetInt32(0, 1_000_000_000):D9}";
+    /// <summary>Um id numérico de 15 algarismos, como os da Meta, que nenhuma outra chamada recebe nesta rodada.</summary>
+    public static string IdDaMeta() => $"9{LeadsDeTeste.NumeroUnico():D14}";
 
     /// <summary>Uma linha da Meta com os prefixos da exportação (<c>l:</c>, <c>c:</c>, <c>p:</c>...).</summary>
     public static string[] LinhaMeta(

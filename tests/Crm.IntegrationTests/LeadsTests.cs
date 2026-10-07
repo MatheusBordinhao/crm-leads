@@ -18,9 +18,6 @@ public class LeadsTests(CrmApiFactory fabrica)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    /// <summary>Palavra única para achar só os leads do teste na lista, que é compartilhada.</summary>
-    private static string Marca() => "zq" + Guid.NewGuid().ToString("N")[..10];
-
     private static async Task<JsonElement> FichaAsync(HttpClient cliente, long id)
     {
         var resposta = await cliente.GetAsync($"/api/leads/{id}", Ct);
@@ -255,7 +252,7 @@ public class LeadsTests(CrmApiFactory fabrica)
     public async Task Busca_ignora_acentos_e_acha_pelo_telefone_e_pelo_documento()
     {
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
-        var marca = Marca();
+        var marca = LeadsDeTeste.Marca();
         var telefone = LeadsDeTeste.TelefoneUnico();
         var cpf = LeadsDeTeste.CpfUnico();
         var corpo = LeadsDeTeste.CorpoLead($"João Ávila {marca}");
@@ -280,7 +277,7 @@ public class LeadsTests(CrmApiFactory fabrica)
         var atendente = await fabrica.CriarUsuarioAsync();
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
         using var n8n = fabrica.CriarClienteIntegracao();
-        var marca = Marca();
+        var marca = LeadsDeTeste.Marca();
         var daMeta = LeadsDeTeste.CorpoIntegracao();
         daMeta["nome"] = $"Da Meta {marca}";
         var idMeta = await n8n.EnviarLeadIdAsync(daMeta);
@@ -307,7 +304,7 @@ public class LeadsTests(CrmApiFactory fabrica)
     public async Task Pagina_e_ordena()
     {
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
-        var marca = Marca();
+        var marca = LeadsDeTeste.Marca();
         var carla = await admin.CriarLeadIdAsync(LeadsDeTeste.CorpoLead($"Carla {marca}"));
         var ana = await admin.CriarLeadIdAsync(LeadsDeTeste.CorpoLead($"Ana {marca}"));
         var bia = await admin.CriarLeadIdAsync(LeadsDeTeste.CorpoLead($"Bia {marca}"));

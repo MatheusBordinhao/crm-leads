@@ -24,8 +24,11 @@ public class ConexoesTempoRealTests(CrmApiFactory fabrica)
     private IHubContext<NotificacoesHub, IClienteTempoReal> Hub =>
         fabrica.Services.GetRequiredService<IHubContext<NotificacoesHub, IClienteTempoReal>>();
 
-    /// <summary>Um id que nenhum lead tem, para marcar um aviso mandado pelo próprio teste.</summary>
-    private static long Marca() => -Random.Shared.NextInt64(1, long.MaxValue);
+    /// <summary>
+    /// Um id que nenhum lead tem (os ids são positivos), para marcar um aviso mandado pelo próprio teste. Vem de um
+    /// contador, e não de um sorteio: dois avisos nunca têm a mesma marca.
+    /// </summary>
+    private static long Marca() => -LeadsDeTeste.NumeroUnico();
 
     [Fact]
     public void Os_enderecos_do_hub_exigem_sessao_com_a_senha_definitiva()

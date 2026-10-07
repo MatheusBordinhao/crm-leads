@@ -1,5 +1,5 @@
+using System.Globalization;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
 using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
@@ -13,22 +13,55 @@ namespace Crm.IntegrationTests.Infra;
 
 /// <summary>
 /// Leads e dados pessoais para os testes. O banco é compartilhado, então cada teste usa e-mail, telefone e
-/// documento únicos: senão, a deduplicação juntaria leads de testes diferentes.
+/// documento únicos: senão, a deduplicação juntaria leads de testes diferentes, e a busca acharia os de outro teste.
+/// O telefone, o CPF e a marca de busca vêm de um contador do processo, e não de um sorteio, que pode repetir.
 /// </summary>
 public static class LeadsDeTeste
 {
+    private static int _sequencia;
+
+    /// <summary>
+    /// Um número que nenhuma outra chamada recebe nesta rodada dos testes. O contador recomeça a cada rodada, o que só vale
+    /// porque o banco também nasce vazio: a <see cref="CrmApiFactory"/> confere.
+    /// </summary>
+    public static int NumeroUnico() => Interlocked.Increment(ref _sequencia);
+
     public static string EmailUnico() => $"lead-{Guid.NewGuid():N}@example.com";
 
-    /// <summary>Celular de Porto Alegre em E.164, válido para o libphonenumber.</summary>
-    public static string TelefoneUnico() => $"+555199{RandomNumberGenerator.GetInt32(0, 10_000_000):D7}";
+    /// <summary>
+    /// Celular de Porto Alegre em E.164, válido para o libphonenumber: <c>+5551990000001</c>, <c>+5551990000002</c>... Os
+    /// telefones fixos dos testes, como <c>+5551999998888</c>, ficam bem longe dessa faixa.
+    /// </summary>
+    public static string TelefoneUnico() => $"+555199{NumeroUnico():D7}";
 
-    /// <summary>CPF válido, com os dígitos verificadores calculados.</summary>
+    /// <summary>
+    /// CPF válido, com os dígitos verificadores calculados sobre a base <c>100000001</c>, <c>100000002</c>... Começa com
+    /// 1, então nunca aparece dentro de um telefone dos testes, que começam com 55, nem o contrário.
+    /// </summary>
     public static string CpfUnico()
     {
-        var digitos = Enumerable.Range(0, 9).Select(_ => RandomNumberGenerator.GetInt32(0, 10)).ToList();
+        var digitos = (100_000_000 + NumeroUnico()).ToString(CultureInfo.InvariantCulture).Select(c => c - '0').ToList();
         digitos.Add(DigitoCpf(digitos));
         digitos.Add(DigitoCpf(digitos));
         return string.Concat(digitos);
+    }
+
+    /// <summary>
+    /// Texto único para achar na busca os leads de um teste: <c>zq</c> e mais 8 letras. Nenhum e-mail dos testes tem
+    /// "zq", porque eles usam hexadecimal, e a marca não tem algarismos: com 4 ou mais, a busca procura também no telefone
+    /// e no CPF/CNPJ de todos os leads e acharia os de outros testes.
+    /// </summary>
+    public static string Marca()
+    {
+        var numero = NumeroUnico();
+        var letras = new char[8];
+        for (var posicao = letras.Length - 1; posicao >= 0; posicao--)
+        {
+            letras[posicao] = (char)('a' + (numero % 26));
+            numero /= 26;
+        }
+
+        return "zq" + new string(letras);
     }
 
     public static string IdExternoUnico() => Guid.NewGuid().ToString("N");

@@ -43,6 +43,14 @@ public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         await using (var db = new CrmDbContext(DadosExtensions.CriarOpcoes(ConnectionString)))
         {
             await db.Database.MigrateAsync();
+
+            // O contador de LeadsDeTeste (telefone, CPF, marcas de busca) recomeça a cada rodada: só não repete dados de
+            // uma rodada anterior porque o contêiner é novo e o banco nasce vazio.
+            if (await db.Leads.AnyAsync())
+            {
+                throw new InvalidOperationException(
+                    "O banco dos testes precisa nascer vazio: o contador de LeadsDeTeste recomeça a cada rodada. Não reaproveite o contêiner (WithReuse).");
+            }
         }
 
         // Sobe a API agora, para a criação dos perfis acontecer uma vez só, antes de qualquer teste.
