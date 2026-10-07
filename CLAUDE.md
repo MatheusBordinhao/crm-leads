@@ -39,7 +39,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
 - No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. O banco também tem os leads "teste" a "teste4" da validação do Passo 7.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
-- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 529 de 529 em 06/10/2026, com o Passo 8.
+- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 547 de 547 em 07/10/2026, com o comando da demonstração.
 - Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
   - testes automáticos dos dois critérios de aceite: o lead da integração chega à responsável do rodízio em menos de 5 s (`TempoRealRodizioTests`), e a atendente não recebe o id de lead de outra pessoa em nenhum caso (`TempoRealTests`, com um lead da outra atendente como sentinela);
   - no Chrome sem janela, contra o Compose de produção local: o cartão apareceu no funil da atendente 1,6 s depois do envio pela integração com a API ainda fria e 0,35 s com ela quente, pelo WebSocket `wss://localhost:8444/hubs/notificacoes` (handshake 101); a outra atendente não recebeu o id do lead; o console ficou sem erros e sem issues da CSP;
@@ -64,6 +64,13 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - em 1280 e em 360 px, não houve rolagem lateral;
     - no `/painel`, o console ficou sem erros e sem issues;
     - um lead pela integração somou na hora nos leads novos (de 13 para 14), com uma recarga só do painel.
+- O comando `preparar-demonstracao` ficou pronto em 07/10/2026 (README › Demonstração).
+  - Ele foi conferido pelo Claude num Compose de produção descartável, com os dados criados antes pela API:
+    - sem `Demo__Permitir`, recusou com o código 1;
+    - com a variável, trocou os leads pela massa;
+    - duas rodadas deram os mesmos números no painel: 60 leads, 65 entradas, 11 ganhos, 8 perdidos e mediana de 25 minutos, com a Adriana como próxima do rodízio.
+  - Ele ainda não rodou no banco de desenvolvimento, que continua com os leads de validação.
+  - Os números da Adriana e da Pietra ficam equilibrados (31 e 29 leads, 6 e 5 ganhos), para a demonstração não sugerir que uma atende melhor que a outra.
 
 ## Arquitetura
 
@@ -87,7 +94,7 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 ```
 src/Crm.Api/                 API, organizada por módulo em Features/ (Leads, Funil, Usuarios, Integracoes, Painel, Notificacoes)
-src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV, tempo real, proxy, chaves da sessão e front
+src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV, tempo real, proxy, chaves da sessão, front e o comando da demonstração
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
@@ -115,6 +122,7 @@ cd web && npm run lint && npm run format:check           # ESLint e Prettier do 
 dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=    # API sem mandar eventos ao n8n (para o npm run api:tipos)
+Demo__Permitir=true dotnet run --project src/Crm.Api -- preparar-demonstracao   # APAGA os leads e grava a massa da demonstração (README › Demonstração)
 docker compose -f docker-compose.prod.yml up -d --build  # produção, no servidor (README › Publicação)
 docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC
 ```
@@ -180,6 +188,11 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - No Git Bash, um caminho como `/backup/backup.sh` num `docker compose exec` vira um caminho do Windows. Rode com `MSYS_NO_PATHCONV=1`.
 - Com a API de desenvolvimento rodando, o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio.
 - O contêiner dos testes (`docker-compose.testes.yml`) monta o código só para leitura, compila com `--artifacts-path` num volume e usa `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, porque o PostgreSQL dos testes sobe no Docker do computador. Teste que precisa achar o repositório parte do próprio arquivo de código (`[CallerFilePath]`, como no `PublicacaoTests`), e não do `AppContext.BaseDirectory`, que no contêiner fica fora dele.
+- O comando `preparar-demonstracao` apaga todos os leads, as campanhas e as importações.
+  - Ele só roda com `Demo__Permitir=true` no ambiente e com o `Crm__UrlPublica` em `localhost`.
+  - A variável nunca vai para um `.env`, e o `docker-compose.prod.yml` não a repassa à API.
+  - Não rode o comando no banco de desenvolvimento sem eu pedir: ele apagaria os meus leads. Para conferir, use um banco de teste (`DemonstracaoTests`) ou um Compose descartável.
+  - O comando roda antes do `InicializarAcessoAsync` e termina sem subir a API: no `Program.cs`, o que vem depois do desvio não vale para ele.
 
 ## n8n
 

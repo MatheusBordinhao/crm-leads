@@ -205,6 +205,43 @@ Em Importação (só admin), escolha um CSV de até 5 MB e 5.000 linhas: o expor
 - No Excel, formate as colunas de telefone e de CPF/CNPJ como texto antes de salvar: como número, o Excel apaga os zeros do começo.
 - Para testar, use os arquivos de [docs/exemplos/](docs/exemplos/): `leads-meta.csv` imita a exportação da Meta, e `leads-excel.csv`, a planilha do Excel. Os dois têm acentos, para conferir que nada sai trocado.
 
+## Demonstração
+
+Para a demonstração do painel, o comando `preparar-demonstracao` troca os leads por uma massa fictícia:
+
+- 60 leads nos últimos 30 dias, contados a partir do dia em que o comando roda;
+- duas campanhas da Meta, duas do Google e algumas outras origens;
+- os leads divididos entre as atendentes ativas e espalhados por todas as etapas, com ganhos, perdas com motivos diferentes, primeiros contatos em tempos variados e alguns ainda sem contato.
+
+Nenhum lead é de teste, porque lead de teste fica fora do painel, e o comando não gera notificação nem evento para o n8n.
+
+**O comando apaga todos os leads** e o que depende deles: entradas, interações, histórico, notificações e eventos para o n8n. Apaga também as campanhas e as importações. Ficam os usuários, as etapas, os motivos de perda, as configurações e a auditoria. A vez do rodízio volta para a primeira atendente em ordem alfabética, então o primeiro lead da demonstração vai sempre para a mesma pessoa.
+
+Ele só roda com `Demo__Permitir=true` no ambiente do próprio comando, nunca no `.env`, e com o `Crm__UrlPublica` em `localhost`. Sem uma dessas condições, ou sem nenhuma atendente ativa, ele se recusa e não mexe em nada.
+
+No banco de desenvolvimento, com o banco no ar (`docker compose up -d db`) e a API parada, porque o build do Windows não sobrescreve o `Crm.Api.exe` em uso:
+
+```powershell
+$env:Demo__Permitir = 'true'; dotnet run --project src/Crm.Api -- preparar-demonstracao; Remove-Item Env:Demo__Permitir
+```
+
+```bash
+Demo__Permitir=true dotnet run --project src/Crm.Api -- preparar-demonstracao
+```
+
+Depois, suba a API como sempre (`dotnet run --project src/Crm.Api`).
+
+No Compose de produção no próprio computador (o plano B), com ele no ar:
+
+```bash
+docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env run --rm -e Demo__Permitir=true api preparar-demonstracao
+```
+
+- Depois de um ensaio, rode o comando de novo: tudo volta ao estado inicial.
+- O comando roda em outro processo, então recarregue as telas que estiverem abertas.
+- No Compose, pode aparecer a linha `Cannot load library libgssapi_krb5.so.2`. Ela vem do Npgsql, que tenta o Kerberos antes da senha; a API e as migrations mostram a mesma linha, e ela não atrapalha.
+- Os nomes das campanhas, das pessoas e das empresas ficam em [src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs](src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs).
+
 ## Tipos da API no front
 
 Os tipos das chamadas à API, em `web/src/api/schema.d.ts`, são gerados a partir do OpenAPI; não os edite à mão. Depois de mudar um endpoint ou um DTO, com a API rodando:
@@ -271,7 +308,8 @@ src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditor
                              (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
                              importação CSV, com a leitura do arquivo e o processamento em segundo plano (Importacoes/),
                              hub do tempo real, com a conferência das conexões e os avisos depois do commit (TempoReal/),
-                             ProblemDetails, validação, proxy, chaves da sessão e o front servido pela API (Web/)
+                             ProblemDetails, validação, proxy, chaves da sessão e o front servido pela API (Web/),
+                             o comando que prepara a demonstração do painel (Demonstracao/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, funil, leads, importacao,
