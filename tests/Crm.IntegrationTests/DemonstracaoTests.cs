@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Crm.Api.Features.Usuarios;
@@ -7,8 +8,10 @@ using Crm.Api.Infra.Demonstracao;
 using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Crm.IntegrationTests;
 
@@ -22,8 +25,9 @@ public class DemonstracaoTests(CrmApiFactory fabrica)
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    /// <summary>A API num banco à parte, com a permissão e o endereço pedidos.</summary>
-    private WebApplicationFactory<Program> CriarApi(string banco, bool permitir = true, string urlPublica = EnderecoLocal) =>
+    /// <summary>A API num banco à parte, com a permissão e o endereço pedidos e, se houver, um relógio parado.</summary>
+    private WebApplicationFactory<Program> CriarApi(
+        string banco, bool permitir = true, string urlPublica = EnderecoLocal, TimeProvider? relogio = null) =>
         fabrica.WithWebHostBuilder(builder =>
         {
             builder.UseSetting($"ConnectionStrings:{DadosExtensions.NomeConexao}", banco);
@@ -31,6 +35,11 @@ public class DemonstracaoTests(CrmApiFactory fabrica)
             if (permitir)
             {
                 builder.UseSetting(PreparacaoDemonstracao.ChavePermissao, "true");
+            }
+
+            if (relogio is not null)
+            {
+                builder.ConfigureTestServices(services => services.AddSingleton(relogio));
             }
         });
 
@@ -177,6 +186,63 @@ public class DemonstracaoTests(CrmApiFactory fabrica)
         var usuarios = await (await admin.GetAsync("/api/usuarios", Ct)).LerJsonAsync();
         var proximo = Assert.Single(usuarios.EnumerateArray(), u => u.GetProperty("proximoDaVez").GetBoolean());
         Assert.Equal(adriana.Id, proximo.GetProperty("id").GetGuid());
+    }
+
+    /// <summary>Cada hora que a preparação gravou, com o que ela é, para a falha dizer qual passou de agora.</summary>
+    private static async Task<List<(string Oque, DateTimeOffset Hora)>> HorasGravadasAsync(string banco)
+    {
+        await using var db = Banco(banco);
+        var horas = new List<(string Oque, DateTimeOffset? Hora)>();
+        foreach (var lead in await db.Leads.AsNoTracking().ToListAsync(Ct))
+        {
+            horas.Add(($"lead {lead.Id}: criado", lead.CriadoEm));
+            horas.Add(($"lead {lead.Id}: atualizado", lead.AtualizadoEm));
+            horas.Add(($"lead {lead.Id}: primeiro contato", lead.PrimeiroContatoEm));
+            horas.Add(($"lead {lead.Id}: ganho", lead.ConvertidoEm));
+            horas.Add(($"lead {lead.Id}: perda", lead.PerdidoEm));
+        }
+
+        foreach (var entrada in await db.EntradasRecebidas.AsNoTracking().ToListAsync(Ct))
+        {
+            horas.Add(($"entrada {entrada.Id}: recebida", entrada.RecebidoEm));
+            horas.Add(($"entrada {entrada.Id}: processada", entrada.ProcessadoEm));
+        }
+
+        foreach (var interacao in await db.Interacoes.AsNoTracking().ToListAsync(Ct))
+        {
+            horas.Add(($"interação {interacao.Id} ({interacao.Tipo}): ocorrida", interacao.OcorridoEm));
+            horas.Add(($"interação {interacao.Id} ({interacao.Tipo}): registrada", interacao.CriadoEm));
+        }
+
+        foreach (var mudanca in await db.HistoricoEtapas.AsNoTracking().ToListAsync(Ct))
+        {
+            horas.Add(($"mudança de etapa {mudanca.Id}", mudanca.OcorridoEm));
+        }
+
+        return [.. horas.Where(h => h.Hora is not null).Select(h => (h.Oque, h.Hora!.Value))];
+    }
+
+    [Theory]
+    [InlineData("2026-10-08T11:00:00Z")] // 08:00 em Brasília
+    [InlineData("2026-10-08T09:30:00Z")] // 06:30
+    [InlineData("2026-10-08T03:10:00Z")] // 00:10
+    public async Task Preparar_de_manha_cedo_nao_deixa_nenhuma_hora_no_futuro(string instante)
+    {
+        var agora = DateTimeOffset.Parse(instante, CultureInfo.InvariantCulture);
+        var banco = await fabrica.CriarBancoAsync("demonstracao");
+        using var api = CriarApi(banco, relogio: new FakeTimeProvider(agora));
+        await CriarAtendentesAsync(api, banco);
+
+        Assert.True((await PrepararAsync(api)).Preparada);
+
+        var horas = await HorasGravadasAsync(banco);
+        Assert.NotEmpty(horas);
+        Assert.Empty(horas.Where(h => h.Hora > agora).Select(h => $"{h.Oque} às {h.Hora:O}, depois de {agora:O}"));
+
+        // O painel de agora, que conta os últimos 30 dias, pega todos.
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        var painel = await (await admin.GetAsync("/api/painel", Ct)).LerJsonAsync();
+        Assert.Equal((60, 65), (painel.GetProperty("leadsNovos").GetInt32(), painel.GetProperty("entradas").GetInt32()));
     }
 
     [Fact]

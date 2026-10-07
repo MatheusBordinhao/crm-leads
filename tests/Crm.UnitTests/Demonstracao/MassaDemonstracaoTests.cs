@@ -97,16 +97,35 @@ public class MassaDemonstracaoTests
         }
     }
 
+    /// <summary>
+    /// O comando pode rodar a qualquer hora, inclusive de manhã cedo: em nenhuma, um lead, uma entrada, um contato ou uma
+    /// mudança de etapa fica no futuro, e os contatos e as mudanças ficam entre 8h e 20h em Brasília.
+    /// </summary>
     [Fact]
-    public void Contatos_e_mudancas_de_etapa_caem_no_horario_comercial()
+    public void Rodando_a_cada_10_minutos_de_dois_dias_nada_fica_no_futuro_nem_fora_do_horario_comercial()
     {
-        static int Hora(DateTimeOffset instante) => TimeZoneInfo.ConvertTime(instante, HorarioBrasilia.Fuso).Hour;
+        static DateTimeOffset EmBrasilia(DateTimeOffset momento) => TimeZoneInfo.ConvertTime(momento, HorarioBrasilia.Fuso);
 
-        foreach (var (_, _, interacoes, historico) in Gerar(Tarde))
+        var problemas = new List<string>();
+        for (var agora = new DateTimeOffset(2026, 10, 8, 3, 0, 0, TimeSpan.Zero); agora < new DateTimeOffset(2026, 10, 10, 3, 0, 0, TimeSpan.Zero); agora = agora.AddMinutes(10))
         {
-            Assert.All(interacoes, i => Assert.InRange(Hora(i.OcorridoEm), 8, 19));
-            Assert.All(historico, h => Assert.InRange(Hora(h.OcorridoEm), 8, 19));
+            var quando = EmBrasilia(agora).ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
+            foreach (var (lead, entradas, interacoes, historico) in Gerar(agora))
+            {
+                var horas = entradas.SelectMany(e => new[] { e.RecebidoEm, e.ProcessadoEm })
+                    .Concat(interacoes.SelectMany(i => new[] { i.OcorridoEm, i.CriadoEm }))
+                    .Concat(historico.Select(h => h.OcorridoEm))
+                    .Concat(new[] { lead.CriadoEm, lead.AtualizadoEm, lead.PrimeiroContatoEm, lead.ConvertidoEm, lead.PerdidoEm }.OfType<DateTimeOffset>());
+                problemas.AddRange(horas.Where(h => h > agora)
+                    .Select(h => $"rodando às {quando}, {lead.Nome} tem uma hora no futuro: {EmBrasilia(h):dd/MM HH:mm}"));
+
+                var atendimento = interacoes.Select(i => i.OcorridoEm).Concat(historico.Select(h => h.OcorridoEm));
+                problemas.AddRange(atendimento.Where(h => EmBrasilia(h).Hour is < 8 or >= 20)
+                    .Select(h => $"rodando às {quando}, {lead.Nome} tem atendimento fora do horário: {EmBrasilia(h):dd/MM HH:mm}"));
+            }
         }
+
+        Assert.Empty(problemas);
     }
 
     [Fact]
