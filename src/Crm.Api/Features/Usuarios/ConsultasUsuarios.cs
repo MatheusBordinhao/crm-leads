@@ -9,6 +9,11 @@ internal static class ConsultasUsuarios
         db.Users.Where(u => db.UserRoles.Any(up =>
             up.UserId == u.Id && db.Roles.Any(p => p.Id == up.RoleId && p.Name == nameof(Perfil.Admin))));
 
+    /// <summary>Os usuários com o perfil Atendente, ativos ou não.</summary>
+    public static IQueryable<Usuario> Atendentes(this CrmDbContext db) =>
+        db.Users.Where(u => db.UserRoles.Any(up =>
+            up.UserId == u.Id && db.Roles.Any(p => p.Id == up.RoleId && p.Name == nameof(Perfil.Atendente))));
+
     /// <summary>
     /// Quem participa do rodízio (seção 3.3), na ordem da vez: primeiro quem nunca recebeu lead pelo rodízio,
     /// depois quem recebeu há mais tempo; o empate é decidido pelo id.

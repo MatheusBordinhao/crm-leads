@@ -6,6 +6,7 @@ using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Configuracao;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Demonstracao;
 using Crm.Api.Infra.Eventos;
 using Crm.Api.Infra.Importacoes;
 using Crm.Api.Infra.TempoReal;
@@ -36,6 +37,7 @@ builder.Services.AddEventos();
 builder.Services.AddIntegracoes();
 builder.Services.AddImportacoes();
 builder.Services.AddTempoReal();
+builder.Services.AddDemonstracao();
 builder.Services.AddHealthChecks().AddDbContextCheck<CrmDbContext>("banco");
 
 var app = builder.Build();
@@ -52,6 +54,13 @@ if (app.Environment.IsDevelopment())
     await app.AplicarMigrationsAsync();
     app.MapOpenApi();
     app.MapScalarApiReference();
+}
+
+// O comando da demonstração (README › Demonstração) troca os leads por uma massa fictícia e termina, sem subir a API.
+if (ComandoDemonstracao.Pedido(args))
+{
+    Environment.ExitCode = await app.PrepararDemonstracaoAsync();
+    return;
 }
 
 await app.InicializarAcessoAsync();

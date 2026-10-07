@@ -30,6 +30,12 @@ internal static class AcoesAuditoria
 
     /// <summary>Importação de CSV, com <c>detalhes { origem, linhas }</c>, sem o nome do arquivo.</summary>
     public const string ImportacaoCriada = "importacao.criada";
+
+    /// <summary>
+    /// Os leads foram trocados pela massa da demonstração (README › Demonstração), com
+    /// <c>detalhes { leads, entradas, leadsApagados }</c>. Sem usuário: foi o comando.
+    /// </summary>
+    public const string DemonstracaoPreparada = "demonstracao.preparada";
 }
 
 internal static class EntidadesAuditoria
