@@ -75,7 +75,7 @@ describe('painel', () => {
     expect(await linhas('Por campanha')).toEqual([
       'Outubro | Serviço Y 4 1 ganho · 25%',
       'Google | Serviço Z 2 1 ganho · 50%',
-      'Sem campanha 2 0 ganhos · 0%',
+      'Sem campanha (não veio de anúncio) 2 0 ganhos · 0%',
     ])
     expect(await linhas('Motivos de perda')).toEqual([
       'Preço 1',
@@ -153,6 +153,37 @@ describe('painel', () => {
     await usuario.click(screen.getByRole('button', { name: 'Limpar filtros' }))
     await waitFor(() => expect(ultimo()).toEqual({}))
     expect(router.state.location.search).toBe('')
+  })
+
+  it('mostra os leads sem campanha por último, como a API manda, mesmo quando são a maioria', async () => {
+    comSessao(admin)
+    comPainel(
+      painel({
+        porCampanha: [
+          {
+            campanha: { id: 10, nome: 'Meta | Captação outubro' },
+            leadsNovos: 15,
+            ganhos: 4,
+            taxaConversao: 4 / 15,
+          },
+          {
+            campanha: { id: 11, nome: 'Google | Marca' },
+            leadsNovos: 6,
+            ganhos: 1,
+            taxaConversao: 1 / 6,
+          },
+          { campanha: null, leadsNovos: 18, ganhos: 2, taxaConversao: 2 / 18 },
+        ],
+      }),
+    )
+
+    renderizarApp('/painel')
+
+    expect(await linhas('Por campanha')).toEqual([
+      'Meta | Captação outubro 15 4 ganhos · 26,7%',
+      'Google | Marca 6 1 ganho · 16,7%',
+      'Sem campanha (não veio de anúncio) 18 2 ganhos · 11,1%',
+    ])
   })
 
   it('sem leads no período, mostra os vazios e nenhuma taxa', async () => {

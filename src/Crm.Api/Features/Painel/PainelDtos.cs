@@ -73,7 +73,10 @@ public sealed record EtapaPainelResponse(EtapaResumo Etapa, int LeadsNovos);
 /// <param name="TaxaConversao">Ganhos divididos pelos leads novos, de 0 a 1.</param>
 public sealed record OrigemPainelResponse(Origem Origem, int LeadsNovos, int Ganhos, double? TaxaConversao);
 
-/// <param name="Campanha">A campanha da primeira entrada; nula para os leads que entraram sem campanha.</param>
+/// <param name="Campanha">
+/// A campanha da primeira entrada; nula para os leads que entraram sem campanha, que não vieram de anúncio e vêm
+/// sempre por último.
+/// </param>
 /// <param name="Ganhos">Leads novos da campanha que hoje estão em Ganho.</param>
 /// <param name="TaxaConversao">Ganhos divididos pelos leads novos, de 0 a 1.</param>
 public sealed record CampanhaPainelResponse(CampanhaResumo? Campanha, int LeadsNovos, int Ganhos, double? TaxaConversao);

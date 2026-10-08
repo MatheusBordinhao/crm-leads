@@ -97,7 +97,10 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
             .ThenBy(g => g.Origem)
             .Select(g => new OrigemPainelResponse(g.Origem, g.Resumo.LeadsNovos, g.Resumo.Ganhos, g.Resumo.TaxaConversao))];
 
-    /// <summary>Os leads novos pela campanha da primeira entrada; os sem campanha ficam por último no empate.</summary>
+    /// <summary>
+    /// Os leads novos pela campanha da primeira entrada. Os sem campanha, que não vieram de anúncio, ficam sempre por
+    /// último, mesmo quando são a maioria: não são uma campanha que vende mais.
+    /// </summary>
     private async Task<List<CampanhaPainelResponse>> PorCampanhaAsync(List<LeadDaCoorte> coorte, CancellationToken ct)
     {
         var ids = coorte.Where(l => l.CampanhaId is not null).Select(l => l.CampanhaId!.Value).Distinct().ToList();
@@ -108,8 +111,8 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
         return [.. coorte
             .GroupBy(l => l.CampanhaId)
             .Select(g => (Campanha: g.Key is { } id ? campanhas[id] : null, Resumo: MetricasPainel.Resumir([.. g])))
-            .OrderByDescending(g => g.Resumo.LeadsNovos)
-            .ThenBy(g => g.Campanha is null)
+            .OrderBy(g => g.Campanha is null)
+            .ThenByDescending(g => g.Resumo.LeadsNovos)
             .ThenBy(g => g.Campanha?.Nome, MetricasPainel.OrdemDosNomes)
             .Select(g => new CampanhaPainelResponse(g.Campanha, g.Resumo.LeadsNovos, g.Resumo.Ganhos, g.Resumo.TaxaConversao))];
     }

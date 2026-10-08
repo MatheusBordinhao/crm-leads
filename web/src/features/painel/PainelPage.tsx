@@ -36,6 +36,12 @@ import { TabelaAtendentes } from './TabelaAtendentes'
 const SEM_RESPONSAVEL = 'sem'
 
 /**
+ * A linha dos leads sem campanha, que a API manda sempre por último. Eles não vieram de anúncio (cadastro manual, site,
+ * indicação, planilha), então o rótulo diz isso, para a linha não parecer uma campanha.
+ */
+const SEM_CAMPANHA = 'Sem campanha (não veio de anúncio)'
+
+/**
  * Filtros guardados no endereço, com os nomes do funil e da lista: `periodo` para os atalhos, `de` e `ate` para o
  * personalizado, `origem`, `campanha` e `responsavel`.
  */
@@ -452,7 +458,7 @@ function Numeros({
                 rotuloId={id}
                 itens={painel.porCampanha.map((linha) => ({
                   chave: linha.campanha?.id ?? 'sem-campanha',
-                  rotulo: linha.campanha?.nome ?? 'Sem campanha',
+                  rotulo: linha.campanha?.nome ?? SEM_CAMPANHA,
                   valor: linha.leadsNovos,
                   detalhe: ganhosEConversao(linha),
                 }))}

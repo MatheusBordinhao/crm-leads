@@ -175,6 +175,21 @@ public class PainelMassaConhecidaTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Sem_campanha_fica_sempre_por_ultimo_mesmo_com_mais_leads_que_as_campanhas()
+    {
+        var massa = await MassaAsync();
+        using var api = massa.CriarApi(fabrica);
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+
+        // De 15/09 a 30/09: P2 e A4 sem campanha, contra A3 em C2 e S1 em C1. No empate entre as campanhas, vale o nome.
+        var painel = await PainelAsync(admin, "de=2026-09-15&ate=2026-09-30");
+
+        Assert.Equal(
+            [(massa.C2.Nome, 1, 0, 0.0), (massa.C1.Nome, 1, 0, 0.0), (null, 2, 0, 0.0)],
+            PorCampanha(painel));
+    }
+
+    [Fact]
     public async Task Atendente_ve_so_os_proprios_numeros_mesmo_filtrando_por_outra_pessoa()
     {
         var massa = await MassaAsync();
