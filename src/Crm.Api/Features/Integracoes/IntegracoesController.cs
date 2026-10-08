@@ -1,4 +1,5 @@
 using Crm.Api.Features.Leads;
+using Crm.Api.Features.Painel;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Dados;
 using Crm.Api.Infra.Web;
@@ -13,7 +14,7 @@ namespace Crm.Api.Features.Integracoes;
 [Route("api/integracoes")]
 [Authorize(Policy = Politicas.Integracao)]
 [EnableRateLimiting(IntegracaoExtensions.PoliticaLimite)]
-public sealed class IntegracoesController(ReceberEntrada receberEntrada) : ControllerBase
+public sealed class IntegracoesController(ReceberEntrada receberEntrada, RelatorioCampanhas relatorio) : ControllerBase
 {
     private const int TamanhoMaximoCorpo = 64 * 1024;
 
@@ -57,4 +58,18 @@ public sealed class IntegracoesController(ReceberEntrada receberEntrada) : Contr
         var resposta = new EntradaIntegracaoResponse(processada.LeadId, processada.Resultado);
         return processada.Resultado == ResultadoEntrada.Criado ? StatusCode(StatusCodes.Status201Created, resposta) : resposta;
     }
+
+    /// <summary>
+    /// Relatório por campanha (seção 4.4), o mesmo da tela do admin, sem dados pessoais: uma linha por campanha, as dos
+    /// leads sem campanha no fim, e o total.
+    /// </summary>
+    [HttpGet("relatorios/campanhas")]
+    public async Task<ActionResult<RelatorioCampanhasResponse>> RelatorioPorCampanha([FromQuery] FiltroRelatorio filtro) =>
+        await relatorio.GerarAsync(filtro, HttpContext.RequestAborted);
+
+    /// <summary>O mesmo relatório no CSV que o admin baixa na tela, para o e-mail da Gama.</summary>
+    [HttpGet("relatorios/campanhas/csv")]
+    [ProducesResponseType<string>(StatusCodes.Status200OK, "text/csv")]
+    public async Task<IActionResult> RelatorioPorCampanhaCsv([FromQuery] FiltroRelatorio filtro) =>
+        RelatorioCampanhasCsv.Arquivo(await relatorio.GerarAsync(filtro, HttpContext.RequestAborted));
 }

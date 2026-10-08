@@ -7,28 +7,13 @@ namespace Crm.IntegrationTests;
 
 /// <summary>
 /// Critério de aceite do Passo 8: cada número do painel, conferido contra a massa de dados conhecida
-/// (<see cref="MassaDoPainel"/>), num banco só destes testes. A massa é criada uma vez, e os testes só leem.
+/// (<see cref="MassaDoPainel"/>), num banco só dela. A massa é criada uma vez, e os testes só leem.
 /// </summary>
 public class PainelMassaConhecidaTests(CrmApiFactory fabrica)
 {
-    private static readonly SemaphoreSlim CriacaoDaMassa = new(1, 1);
-
-    private static MassaDoPainel? _massa;
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private async Task<MassaDoPainel> MassaAsync()
-    {
-        await CriacaoDaMassa.WaitAsync(Ct);
-        try
-        {
-            return _massa ??= await MassaDoPainel.CriarAsync(fabrica);
-        }
-        finally
-        {
-            CriacaoDaMassa.Release();
-        }
-    }
+    private Task<MassaDoPainel> MassaAsync() => MassaDoPainel.ObterAsync(fabrica);
 
     private static async Task<JsonElement> PainelAsync(HttpClient cliente, string query)
     {

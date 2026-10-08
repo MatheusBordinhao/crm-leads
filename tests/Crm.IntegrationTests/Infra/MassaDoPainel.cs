@@ -36,6 +36,10 @@ public sealed class MassaDoPainel
     /// <summary>O período da massa, na query string do painel.</summary>
     public const string Setembro = "de=2026-09-01&ate=2026-09-30";
 
+    private static readonly SemaphoreSlim CriacaoDaMassa = new(1, 1);
+
+    private static MassaDoPainel? _massa;
+
     public required string Banco { get; init; }
 
     public required Usuario Adriana { get; init; }
@@ -52,7 +56,21 @@ public sealed class MassaDoPainel
     /// <summary>A API no banco da massa.</summary>
     public WebApplicationFactory<Program> CriarApi(CrmApiFactory fabrica) => CriarApi(fabrica, Banco);
 
-    public static async Task<MassaDoPainel> CriarAsync(CrmApiFactory fabrica)
+    /// <summary>A massa, criada uma vez e lida pelos testes do painel e do relatório. Nenhum teste a muda.</summary>
+    public static async Task<MassaDoPainel> ObterAsync(CrmApiFactory fabrica)
+    {
+        await CriacaoDaMassa.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            return _massa ??= await CriarAsync(fabrica);
+        }
+        finally
+        {
+            CriacaoDaMassa.Release();
+        }
+    }
+
+    private static async Task<MassaDoPainel> CriarAsync(CrmApiFactory fabrica)
     {
         var ct = TestContext.Current.CancellationToken;
         var banco = await fabrica.CriarBancoAsync("painel");

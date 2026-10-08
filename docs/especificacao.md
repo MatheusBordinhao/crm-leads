@@ -301,7 +301,41 @@ O campo `dados` muda conforme o tipo:
 
 ### 4.4 Relatório: `GET /api/integracoes/relatorios/campanhas?de=2026-10-01&ate=2026-10-31`
 
-Usa a mesma chave da entrada. Devolve uma linha por campanha com origem, campanha, leads novos, entradas, em andamento, ganhos, perdidos, taxa de conversão e mediana do primeiro contato em minutos, com as definições da seção 8. Não leva dados pessoais.
+Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relatório por campanha da seção 8, o mesmo da tela do admin: uma linha por campanha, com origem, campanha, leads novos, entradas, em andamento, ganhos, perdidos, taxa de conversão e mediana do primeiro contato em minutos, e o total. Não leva dados pessoais. O período segue as regras da seção 8, e um período inválido responde 400.
+
+```json
+{
+  "de": "2026-10-01",
+  "ate": "2026-10-31",
+  "linhas": [
+    {
+      "origem": "meta_lead_ads",
+      "campanha": { "id": 7, "nome": "Outubro | Serviço Y" },
+      "leadsNovos": 36,
+      "entradas": 39,
+      "emAndamento": 21,
+      "ganhos": 9,
+      "perdidos": 6,
+      "taxaConversao": 0.25,
+      "medianaPrimeiroContatoMinutos": 18.5
+    },
+    {
+      "origem": "site",
+      "campanha": null,
+      "leadsNovos": 4,
+      "entradas": 4,
+      "emAndamento": 3,
+      "ganhos": 1,
+      "perdidos": 0,
+      "taxaConversao": 0.25,
+      "medianaPrimeiroContatoMinutos": 32
+    }
+  ],
+  "total": { "leadsNovos": 40, "entradas": 43, "emAndamento": 24, "ganhos": 10, "perdidos": 6, "taxaConversao": 0.25, "medianaPrimeiroContatoMinutos": 20 }
+}
+```
+
+`GET /api/integracoes/relatorios/campanhas/csv`, com os mesmos parâmetros, devolve o relatório no CSV da seção 8: o mesmo arquivo que o admin baixa na tela.
 
 ### 4.5 Fluxos do n8n
 
@@ -378,9 +412,9 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `/api/campanhas` | Admin | Renomear as campanhas provisórias (Passo 6) |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8. Filtros: `de`, `ate`, `origem`, `campanhaId` e, para o admin, `responsavelId` ou `semResponsavel` |
-| `GET /api/relatorios/campanhas` | Admin | Relatório por campanha, também em CSV |
+| `GET /api/relatorios/campanhas`, `GET /api/relatorios/campanhas/csv` | Admin | Relatório por campanha (seção 8), em JSON e no CSV para o Excel. Filtros: `de` e `ate` |
 | `GET /api/auditoria` | Admin | Consulta da auditoria |
-| `POST /api/integracoes/leads`, `GET /api/integracoes/relatorios/campanhas` | Integração | Seções 4.2 e 4.4 |
+| `POST /api/integracoes/leads`, `GET /api/integracoes/relatorios/campanhas`, `GET /api/integracoes/relatorios/campanhas/csv` | Integração | Seções 4.2 e 4.4 |
 | `/hubs/notificacoes` | Admin e atendente | Hub do SignalR, com um grupo por usuário e um grupo de admins. Exige a senha definitiva, como o resto da API, e só manda ids: `LeadsAlterados`, `NotificacaoNova` e `FunilAlterado` (3.6) |
 | `GET /health` | Público | Monitoramento |
 
@@ -417,7 +451,18 @@ Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem 
 | Motivos de perda | Leads que foram para Perdido no período, pelo `historico_etapas`, por motivo: de qualquer data de entrada, mesmo os que depois foram reabertos, com os filtros valendo pelo lead. Cada lead conta uma vez por motivo |
 | Por atendente (admin) | Leads novos, ganhos, taxa de conversão e mediana do primeiro contato de cada responsável atual, inclusive quem foi desativada, mais uma linha para os leads sem responsável |
 
-O relatório por campanha usa as mesmas definições e traz, por campanha: leads novos, entradas, em andamento, ganhos, perdidos, taxa de conversão e mediana do primeiro contato. Não leva dados pessoais.
+O relatório por campanha usa as mesmas definições, sobre os leads novos do período, e não leva dados pessoais. O admin o vê na tela e o baixa em CSV, e o n8n o busca pela integração (4.4).
+
+- **Linhas:** uma por campanha, com a origem dela, e uma por origem dos leads sem campanha, com o rótulo "Sem campanha (não veio de anúncio)". Só entram as linhas com algum lead novo ou alguma entrada no período.
+- **Colunas:** leads novos; entradas, pela origem e pela campanha de cada uma; em andamento, ganhos e perdidos, que são os leads novos pela etapa em que estão hoje (aberta, ganho ou perdido) e somam os leads novos; taxa de conversão; e mediana do primeiro contato. Os perdidos são os da situação atual, e não as idas para Perdido dos motivos de perda.
+- **Ordem:** a do "Por campanha" do painel: mais leads novos primeiro e, no empate, o nome. As linhas sem campanha ficam sempre depois, com mais leads novos primeiro e, no empate, na ordem das origens.
+- **Total:** uma linha no fim, com os números do painel sem filtros. Cada linha de campanha bate com o painel filtrado por ela; as linhas de uma origem somam o "Por origem" do painel, e as sem campanha, a linha "Sem campanha" dele.
+- **Período:** as regras acima, sem outros filtros: o relatório é a visão da Gama.
+- **CSV:** o mesmo arquivo na tela e na integração, para o Excel em português abrir com um clique duplo:
+  - UTF-8 com BOM, ponto e vírgula e CRLF, com o nome `relatorio-campanhas-2026-10-01-a-2026-10-31.csv`;
+  - as colunas Origem, Campanha, Leads novos, Entradas, Em andamento, Ganhos, Perdidos, Taxa de conversão e Mediana do primeiro contato (min), com o Total na última linha;
+  - a taxa como porcentagem (`33,3%`) e a mediana em minutos (`12,5`), com até uma casa decimal; sem valor, o campo fica vazio;
+  - um texto que começa com `=`, `+`, `-` ou `@` ganha um `'` na frente, para o Excel não o ler como fórmula.
 
 ## 9. Segurança e operação
 

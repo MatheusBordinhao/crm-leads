@@ -36,7 +36,7 @@ public class MetricasPainelTests
     }
 
     [Fact]
-    public void Resumo_conta_os_ganhos_pelo_tipo_da_etapa_e_o_contato_em_minutos()
+    public void Resumo_conta_os_leads_pelo_tipo_da_etapa_e_o_contato_em_minutos()
     {
         var resumo = MetricasPainel.Resumir(
         [
@@ -46,13 +46,16 @@ public class MetricasPainelTests
             Lead(TipoEtapa.Aberta, null),
         ]);
 
-        Assert.Equal(new ResumoCoorte(LeadsNovos: 4, Ganhos: 1, TaxaConversao: 0.25, MedianaPrimeiroContatoMinutos: 30, ComContato: 3, SemContato: 1), resumo);
+        Assert.Equal(
+            new ResumoCoorte(
+                LeadsNovos: 4, EmAndamento: 2, Ganhos: 1, Perdidos: 1, TaxaConversao: 0.25, MedianaPrimeiroContatoMinutos: 30, ComContato: 3, SemContato: 1),
+            resumo);
     }
 
     [Fact]
     public void Resumo_sem_leads_nao_tem_taxa_nem_mediana()
     {
-        Assert.Equal(new ResumoCoorte(0, 0, null, null, 0, 0), MetricasPainel.Resumir([]));
+        Assert.Equal(new ResumoCoorte(0, 0, 0, 0, null, null, 0, 0), MetricasPainel.Resumir([]));
     }
 
     [Fact]

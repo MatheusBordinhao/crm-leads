@@ -53,11 +53,20 @@ public sealed record LeadDaCoorte(
     DateTimeOffset? PrimeiroContatoEm);
 
 /// <summary>Os números de um grupo de leads novos: o período inteiro, uma origem, uma campanha ou uma atendente.</summary>
+/// <param name="EmAndamento">Os leads novos que hoje estão numa etapa aberta.</param>
 /// <param name="Ganhos">Os leads novos que hoje estão em Ganho.</param>
+/// <param name="Perdidos">Os leads novos que hoje estão em Perdido. Com os em andamento e os ganhos, somam os leads novos.</param>
 /// <param name="TaxaConversao">Ganhos divididos pelos leads novos, de 0 a 1; nula sem leads novos.</param>
 /// <param name="MedianaPrimeiroContatoMinutos">Nula quando nenhum lead do grupo teve contato.</param>
 public sealed record ResumoCoorte(
-    int LeadsNovos, int Ganhos, double? TaxaConversao, double? MedianaPrimeiroContatoMinutos, int ComContato, int SemContato);
+    int LeadsNovos,
+    int EmAndamento,
+    int Ganhos,
+    int Perdidos,
+    double? TaxaConversao,
+    double? MedianaPrimeiroContatoMinutos,
+    int ComContato,
+    int SemContato);
 
 /// <summary>
 /// Cálculo das métricas da seção 8 sobre os leads novos do período, sem banco. O painel e o relatório por campanha
@@ -70,14 +79,17 @@ public static class MetricasPainel
 
     public static ResumoCoorte Resumir(IReadOnlyCollection<LeadDaCoorte> leads)
     {
-        var ganhos = leads.Count(l => l.TipoEtapa == TipoEtapa.Ganho);
+        var porTipo = leads.CountBy(l => l.TipoEtapa).ToDictionary();
+        var ganhos = porTipo.GetValueOrDefault(TipoEtapa.Ganho);
         var minutosAteOContato = leads
             .Where(l => l.PrimeiroContatoEm is not null)
             .Select(l => (l.PrimeiroContatoEm!.Value - l.CriadoEm).TotalMinutes)
             .ToList();
         return new ResumoCoorte(
             leads.Count,
+            porTipo.GetValueOrDefault(TipoEtapa.Aberta),
             ganhos,
+            porTipo.GetValueOrDefault(TipoEtapa.Perdido),
             Taxa(ganhos, leads.Count),
             Mediana(minutosAteOContato),
             minutosAteOContato.Count,
