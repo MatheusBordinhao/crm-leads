@@ -37,7 +37,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - o `leads-excel.csv` importado com uma campanha nova e para uma atendente escolhida: os 3 leads ficaram com essa campanha e com ela, sem passar pelo rodízio;
   - o relatório de erros aberto no Excel como um clique duplo: "Linha" e "Motivo" em colunas, com os acentos certos.
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
-- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. O banco também tem os leads "teste" a "teste4" da validação do Passo 7.
+- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Além dos 60 leads da massa, há o que a Adriana criou na validação do Passo 8. Para voltar aos 60 antes da demonstração, é só rodar o comando de novo.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
 - Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 552 de 552 em 08/10/2026.
 - Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
@@ -69,8 +69,15 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - sem `Demo__Permitir`, recusou com o código 1;
     - com a variável, trocou os leads pela massa;
     - duas rodadas deram os mesmos números no painel: 60 leads, 65 entradas, 11 ganhos, 8 perdidos e mediana de 25 minutos, com a Adriana como próxima do rodízio.
-  - Ele ainda não rodou no banco de desenvolvimento, que continua com os leads de validação.
+  - Em 08/10/2026, eu o rodei no banco de desenvolvimento, antes de validar o Passo 8.
   - Os números da Adriana e da Pietra ficam equilibrados (31 e 29 leads, 6 e 5 ganhos), para a demonstração não sugerir que uma atende melhor que a outra.
+- Passo 8 validado manualmente por mim em 08/10/2026, em desenvolvimento, com a massa da demonstração:
+  - o admin cai no painel, com 60 leads novos e 18,3% de conversão;
+  - com o filtro de responsável na Adriana, o painel mostra os 31 leads e os 19,4% de conversão dela;
+  - cada campanha mostra os ganhos e a conversão, e as somas da Adriana e da Pietra fecham com o total em todos os blocos;
+  - a tabela por atendente mostra a Adriana com 31 leads e a Pietra com 29;
+  - a Adriana cai no funil, e o Painel dela mostra só os números dela, sem o filtro de responsável e sem a tabela por atendente;
+  - com o painel do admin aberto, um lead criado pela Adriana subiu os leads novos de 60 para 61, sem recarregar a página.
 
 ## Arquitetura
 
