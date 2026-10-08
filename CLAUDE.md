@@ -217,5 +217,8 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.
 - Antes de codar um passo, mostre o plano (arquivos, migrations, endpoints, telas) e espere aprovação.
 - Rode `dotnet test` e `npm test` antes de dizer que terminou. Faça commits pequenos, um assunto por commit.
+- A suíte do .NET (pelo contêiner) e a do front rodam uma depois da outra, nunca ao mesmo tempo, nem uma em segundo plano enquanto a outra roda.
+  - Juntas, elas deixam a máquina lenta, e os testes do front estouram o tempo de espera de 1 segundo do `findBy` e do `waitFor`, falhando até em telas que não mudaram.
+  - Em 08/10/2026, rodando junto com a do .NET, a suíte do front teve 5 falhas, com arquivos levando até 34 s; sozinha, passou inteira.
 - Se algo mudar uma regra, atualize `docs/especificacao.md` no mesmo commit.
 - As decisões em aberto da seção 11 têm um padrão definido. Implemente o padrão e deixe configurável quando a especificação pedir.
