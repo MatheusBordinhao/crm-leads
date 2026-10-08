@@ -39,6 +39,7 @@ describe('painel', () => {
       'Painel',
       'Funil',
       'Leads',
+      'Relatório',
       'Importação',
       'Usuários',
       'Etapas e motivos',

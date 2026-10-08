@@ -1,6 +1,7 @@
 import {
   ChartColumnIcon,
   ContactRoundIcon,
+  FileSpreadsheetIcon,
   FileUpIcon,
   SlidersHorizontalIcon,
   SquareKanbanIcon,
@@ -30,6 +31,7 @@ function gruposDoMenu(perfil: Perfil): Grupo[] {
         PAINEL,
         FUNIL,
         LEADS,
+        { para: '/relatorio', rotulo: 'Relatório', icone: FileSpreadsheetIcon },
         { para: '/importacao', rotulo: 'Importação', icone: FileUpIcon },
       ],
     },

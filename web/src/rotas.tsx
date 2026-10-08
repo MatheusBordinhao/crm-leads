@@ -12,6 +12,7 @@ import { LeadPage } from '@/features/leads/LeadPage'
 import { LeadsPage } from '@/features/leads/LeadsPage'
 import { NovoLeadPage } from '@/features/leads/NovoLeadPage'
 import { PainelPage } from '@/features/painel/PainelPage'
+import { RelatorioPage } from '@/features/relatorio/RelatorioPage'
 import { UsuariosPage } from '@/features/usuarios/UsuariosPage'
 
 /** Rotas da aplicação. O main.tsx usa um roteador do navegador, e os testes, um em memória. */
@@ -33,6 +34,7 @@ export const rotas: RouteObject[] = [
           {
             element: <RotaAdmin />,
             children: [
+              { path: '/relatorio', element: <RelatorioPage /> },
               { path: '/importacao', element: <ImportacaoPage /> },
               { path: '/importacao/:id', element: <ResultadoImportacaoPage /> },
               { path: '/configuracoes/usuarios', element: <UsuariosPage /> },
