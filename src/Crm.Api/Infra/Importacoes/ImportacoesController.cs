@@ -1,10 +1,10 @@
 using System.Globalization;
-using System.Text;
 using Crm.Api.Features.Leads;
 using Crm.Api.Features.Leads.Normalizacao;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -166,16 +166,13 @@ public sealed class ImportacoesController(
             .Select(e => new ErroImportacaoResponse(e.Linha, e.Motivo))
             .ToListAsync(ct);
 
-        var csv = new StringBuilder("Linha;Motivo\r\n");
+        var csv = new CsvExcel().Linha("Linha", "Motivo");
         foreach (var erro in erros)
         {
-            csv.Append(erro.Linha.ToString(CultureInfo.InvariantCulture)).Append(';').Append(CampoCsv(erro.Motivo)).Append("\r\n");
+            csv.Linha(erro.Linha.ToString(CultureInfo.InvariantCulture), erro.Motivo);
         }
 
-        return File(
-            [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(csv.ToString())],
-            "text/csv; charset=utf-8",
-            $"importacao-{id.ToString(CultureInfo.InvariantCulture)}-erros.csv");
+        return File(csv.ParaBytes(), CsvExcel.TipoConteudo, $"importacao-{id.ToString(CultureInfo.InvariantCulture)}-erros.csv");
     }
 
     /// <summary>O arquivo e a leitura dele, ou nulo com o motivo no campo <c>arquivo</c> do ModelState.</summary>
@@ -276,10 +273,6 @@ public sealed class ImportacoesController(
             .ToListAsync(ct);
         return resposta with { Erros = erros };
     }
-
-    /// <summary>Um campo do CSV entre aspas quando tem o separador, aspas ou quebra de linha.</summary>
-    private static string CampoCsv(string valor) =>
-        valor.AsSpan().IndexOfAny(";\"\r\n") < 0 ? valor : $"\"{valor.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }
 
 internal static class ImportacoesExtensions
