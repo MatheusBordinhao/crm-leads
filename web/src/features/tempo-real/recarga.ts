@@ -11,6 +11,7 @@ import {
 } from '@/features/leads/dados'
 import { chaveNotificacoes, consultaNotificacoes } from '@/features/notificacoes/dados'
 import { chavePainel } from '@/features/painel/dados'
+import { chaveRelatorio } from '@/features/relatorio/dados'
 
 /** No máximo uma recarga por segundo: uma importação grande manda um aviso atrás do outro. */
 export const INTERVALO_RECARGA = 1000
@@ -50,9 +51,10 @@ export function criarRecarga(queryClient: QueryClient) {
     if ((funil || tudoDeLeads || leads.size > 0) && !mudandoEtapa) {
       recarregar(chaveFunil)
     }
-    // O painel conta os leads e mostra os nomes das etapas.
+    // O painel conta os leads e mostra os nomes das etapas; o relatório por campanha conta os mesmos leads.
     if (funil || tudoDeLeads || leads.size > 0) {
       recarregar(chavePainel)
+      recarregar(chaveRelatorio)
     }
     if (tudoDeLeads) {
       // A lista, as fichas e as linhas do tempo: um lead da pessoa passou para outra, e o id dele não vem no aviso.

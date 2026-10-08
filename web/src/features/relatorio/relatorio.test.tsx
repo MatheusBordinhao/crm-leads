@@ -167,4 +167,16 @@ describe('relatório por campanha', () => {
 
     expect(await screen.findByRole('table', { name: 'Relatório por campanha' })).toBeInTheDocument()
   })
+
+  it('recarrega quando um lead muda, pelo tempo real', async () => {
+    comSessao(admin)
+    const pedidos = comRelatorio()
+    const { hub } = renderizarApp('/relatorio')
+    await screen.findByRole('table', { name: 'Relatório por campanha' })
+    await waitFor(() => expect(hub.estado.conectada).toBe(true))
+
+    hub.emitir('LeadsAlterados', [1024])
+
+    await waitFor(() => expect(pedidos).toHaveLength(2))
+  })
 })
