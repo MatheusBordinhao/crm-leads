@@ -11,6 +11,16 @@ public sealed record EntradasDoGrupo(Origem Origem, int? CampanhaId, int Quantid
 /// <summary>Uma campanha do relatório, com a origem, que vai na coluna Origem da linha dela.</summary>
 public sealed record CampanhaDoRelatorio(int Id, Origem Origem, string Nome);
 
+/// <summary>O período do relatório quando a requisição não traz <c>de</c> nem <c>ate</c>.</summary>
+public enum PeriodoPadrao
+{
+    /// <summary>Os últimos 30 dias, com hoje, como no painel: a tela do admin.</summary>
+    UltimosTrintaDias = 1,
+
+    /// <summary>A semana anterior inteira, de segunda a domingo: a integração, para o fluxo semanal da Gama.</summary>
+    SemanaAnterior = 2,
+}
+
 /// <summary>
 /// Relatório por campanha (seção 8), com as consultas e as definições do painel. Só o admin e a integração chegam
 /// aqui, e o relatório conta todos os leads reais: ele não tem dados pessoais e não usa a <see cref="VisibilidadeLeads"/>,
@@ -18,9 +28,18 @@ public sealed record CampanhaDoRelatorio(int Id, Origem Origem, string Nome);
 /// </summary>
 public sealed class RelatorioCampanhas(CrmDbContext db, TimeProvider relogio)
 {
-    /// <summary>O relatório do período; sem datas, os últimos 30 dias, com hoje, como no painel.</summary>
-    public Task<RelatorioCampanhasResponse> GerarAsync(IFiltroPeriodo filtro, CancellationToken ct) =>
-        GerarAsync(PeriodoPainel.Resolver(filtro.De, filtro.Ate, HorarioBrasilia.Dia(relogio.GetUtcNow())), ct);
+    /// <summary>
+    /// O relatório do período, em dias de Brasília. Sem nenhuma das datas, vale o padrão de quem pede; com só uma
+    /// delas, as regras do painel.
+    /// </summary>
+    public Task<RelatorioCampanhasResponse> GerarAsync(IFiltroPeriodo filtro, PeriodoPadrao padrao, CancellationToken ct)
+    {
+        var hoje = HorarioBrasilia.Dia(relogio.GetUtcNow());
+        var periodo = filtro is { De: null, Ate: null } && padrao == PeriodoPadrao.SemanaAnterior
+            ? PeriodoPainel.SemanaAnterior(hoje)
+            : PeriodoPainel.Resolver(filtro.De, filtro.Ate, hoje);
+        return GerarAsync(periodo, ct);
+    }
 
     private async Task<RelatorioCampanhasResponse> GerarAsync(PeriodoPainel periodo, CancellationToken ct)
     {

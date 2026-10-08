@@ -155,12 +155,16 @@ public class RelatorioTests(CrmApiFactory fabrica)
             $"gclid-{marca}",
         ];
 
+        // De ontem a amanhã, nas quatro rotas: sem datas, a integração devolveria a semana anterior.
+        var hoje = HorarioBrasilia.Dia(DateTimeOffset.UtcNow);
+        var periodo = $"?de={hoje.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}"
+            + $"&ate={hoje.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
         var respostas = new[]
         {
-            await TextoAsync(admin, Relatorio),
-            await TextoAsync(admin, RelatorioCsv),
-            await TextoAsync(n8n, RelatorioDaIntegracao),
-            await TextoAsync(n8n, RelatorioCsvDaIntegracao),
+            await TextoAsync(admin, Relatorio + periodo),
+            await TextoAsync(admin, RelatorioCsv + periodo),
+            await TextoAsync(n8n, RelatorioDaIntegracao + periodo),
+            await TextoAsync(n8n, RelatorioCsvDaIntegracao + periodo),
         };
 
         // A campanha do lead está nas quatro respostas, sem nenhum dado das pessoas.

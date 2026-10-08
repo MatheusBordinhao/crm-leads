@@ -301,7 +301,10 @@ O campo `dados` muda conforme o tipo:
 
 ### 4.4 Relatório: `GET /api/integracoes/relatorios/campanhas?de=2026-10-01&ate=2026-10-31`
 
-Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relatório por campanha da seção 8, o mesmo da tela do admin: uma linha por campanha, com origem, campanha, leads novos, entradas, em andamento, ganhos, perdidos, taxa de conversão e mediana do primeiro contato em minutos, e o total. Não leva dados pessoais. O período segue as regras da seção 8, e um período inválido responde 400.
+Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relatório por campanha da seção 8, o mesmo da tela do admin: uma linha por campanha, com origem, campanha, leads novos, entradas, em andamento, ganhos, perdidos, taxa de conversão e mediana do primeiro contato em minutos, e o total. Não leva dados pessoais.
+
+- **Sem `de` e `ate`:** a semana anterior inteira, de segunda a domingo no horário de Brasília, que é o que o fluxo semanal pede, sem calcular data. Numa segunda ou numa quarta, como em 05/10/2026 ou 07/10/2026, a semana é a de 28/09 a 04/10. Num domingo, a semana que termina nele ainda não acabou e não conta.
+- **Com as datas, ou só com uma delas:** valem as regras do período da seção 8, e um período inválido responde 400.
 
 ```json
 {
@@ -347,10 +350,11 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 | `CRM - Entrada Google` | Webhook `POST` | Confere o `google_key` e mapeia `user_column_data` pelo `column_id` (FULL_NAME, ou FIRST_NAME e LAST_NAME, EMAIL, PHONE_NUMBER, COMPANY_NAME, REGION). Usa `lead_id` como idExterno, `campaign_id` como campanha, `gcl_id` como gclid e `is_test` como teste, e responde 200 com `{}` | 6 |
 | `CRM - Entrada Site` | Webhook `POST`, com CORS liberado só para o domínio do site | Descarta envios com o campo isca (honeypot) preenchido, gera o idExterno (UUID), leva as UTMs e envia ao CRM | 6 |
 | `CRM - Reenvio de pendentes` | Schedule de hora em hora, das 8h às 20h, de segunda a sexta | Reenvia o que está na Data Table `crm_entradas_pendentes` e apaga a linha quando dá certo | 6 |
-| `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o relatório da semana anterior (4.4) e envia para a Gama por e-mail ou planilha | 9 |
+| `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o CSV do relatório sem datas, que vem com a semana anterior (4.4), e o manda para a Gama por e-mail, anexo | 9 |
 
 - **Alertas:** o Webhook (`/webhook/crm-alertas`) confere o `X-Crm-Chave` por uma credencial Header Auth e só responde ao CRM depois de mandar o e-mail: se o Gmail falhar, o n8n responde com erro e o CRM tenta de novo. O e-mail vai em texto simples, para nenhum dado do lead virar HTML. Só `lead.criado`, `lead.entrada_repetida` e `lead.reatribuido` geram e-mail; os outros tipos recebem 200 sem e-mail.
 - **Chave do CRM:** fica numa credencial Header Auth (`X-Api-Key`) usada pelo HTTP Request.
+- **Relatório semanal:** o HTTP Request chama `GET /api/integracoes/relatorios/campanhas/csv` sem datas, e o CRM devolve a semana anterior inteira: o fluxo não calcula data. O e-mail vai para o endereço da Gama configurado no fluxo, com o CSV anexo, o mesmo que o admin baixa na tela. Se a Gama preferir uma planilha, o fluxo usa o JSON da mesma rota, sem o `/csv`.
 - **Falhas no envio ao CRM:** o HTTP Request tenta 3 vezes, a cada 5 segundos. Se ainda falhar com 429, 5xx ou tempo esgotado, o payload vai para `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em). Erros 400 e 401 não vão para a fila; disparam o `CRM - Erros`.
 - **Meta:**
   - O app da Meta usado pela credencial do n8n precisa estar em modo Live, o que exige a URL da política de privacidade. Também precisa de acesso avançado a `public_profile` e da verificação da empresa concluída.
@@ -457,7 +461,7 @@ O relatório por campanha usa as mesmas definições, sobre os leads novos do pe
 - **Colunas:** leads novos; entradas, pela origem e pela campanha de cada uma; em andamento, ganhos e perdidos, que são os leads novos pela etapa em que estão hoje (aberta, ganho ou perdido) e somam os leads novos; taxa de conversão; e mediana do primeiro contato. Os perdidos são os da situação atual, e não as idas para Perdido dos motivos de perda.
 - **Ordem:** a do "Por campanha" do painel: mais leads novos primeiro e, no empate, o nome. As linhas sem campanha ficam sempre depois, com mais leads novos primeiro e, no empate, na ordem das origens.
 - **Total:** uma linha no fim, com os números do painel sem filtros. Cada linha de campanha bate com o painel filtrado por ela; as linhas de uma origem somam o "Por origem" do painel, e as sem campanha, a linha "Sem campanha" dele.
-- **Período:** as regras acima, sem outros filtros: o relatório é a visão da Gama.
+- **Período:** as regras acima, sem outros filtros: o relatório é a visão da Gama. Sem datas, a tela mostra os últimos 30 dias, como o painel, e a integração devolve a semana anterior inteira, de segunda a domingo (4.4).
 - **CSV:** o mesmo arquivo na tela e na integração, para o Excel em português abrir com um clique duplo:
   - UTF-8 com BOM, ponto e vírgula e CRLF, com o nome `relatorio-campanhas-2026-10-01-a-2026-10-31.csv`;
   - as colunas Origem, Campanha, Leads novos, Entradas, Em andamento, Ganhos, Perdidos, Taxa de conversão e Mediana do primeiro contato (min), com o Total na última linha;
@@ -665,6 +669,7 @@ Cada decisão tem um padrão, para o desenvolvimento não parar enquanto ela nã
 | Etapas definitivas do funil | As da seção 3.4 | Gama e chefe |
 | Quem é admin | Chefe e Matheus | Chefe |
 | A Gama acessa o painel? | Não; recebe o relatório | Chefe |
+| Como a Gama recebe o relatório semanal | E-mail com o CSV anexo, toda segunda, no endereço que a Gama indicar (4.5) | Chefe e Gama |
 | Onde o CRM roda e qual o domínio | Ambiente local até a definição, que vem depois da demonstração dos Passos 7 e 8 (seção 10) | Chefe |
 | n8n de produção | Nenhum até a decisão, tomada junto com a do servidor, entre o n8n Cloud Starter numa conta da empresa e o n8n Community no servidor do CRM. Até lá, o `N8n__WebhookUrl` fica vazio, e o que depende do n8n fica pendente (seção 10) | Chefe |
 | E-mail que envia os alertas | Gmail da conta de desenvolvimento nos testes, até o fim do teste do n8n Cloud em 06/10/2026; e-mail da empresa em produção | Chefe e TI |

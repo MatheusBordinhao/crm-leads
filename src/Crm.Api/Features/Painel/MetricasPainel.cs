@@ -35,6 +35,16 @@ public readonly record struct PeriodoPainel(DateOnly De, DateOnly Ate)
         return new PeriodoPainel(de ?? fim.AddDays(-(DiasPadrao - 1)), fim);
     }
 
+    /// <summary>
+    /// A semana anterior à de hoje, inteira, de segunda a domingo: o padrão do relatório pela integração (4.4), que o fluxo
+    /// semanal da Gama chama às segundas. Num domingo, a semana que termina hoje ainda não acabou e não conta.
+    /// </summary>
+    public static PeriodoPainel SemanaAnterior(DateOnly hoje)
+    {
+        var segundaDestaSemana = hoje.AddDays(-(((int)hoje.DayOfWeek + 6) % 7));
+        return new PeriodoPainel(segundaDestaSemana.AddDays(-7), segundaDestaSemana.AddDays(-1));
+    }
+
     public static bool DataAceita(DateOnly? dia) => dia is null || (dia >= MenorData && dia <= MaiorData);
 }
 

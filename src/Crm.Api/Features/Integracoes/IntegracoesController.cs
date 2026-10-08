@@ -61,15 +61,16 @@ public sealed class IntegracoesController(ReceberEntrada receberEntrada, Relator
 
     /// <summary>
     /// Relatório por campanha (seção 4.4), o mesmo da tela do admin, sem dados pessoais: uma linha por campanha, as dos
-    /// leads sem campanha no fim, e o total.
+    /// leads sem campanha no fim, e o total. Sem datas, a semana anterior inteira, de segunda a domingo no horário de
+    /// Brasília: o fluxo semanal da Gama só chama a rota.
     /// </summary>
     [HttpGet("relatorios/campanhas")]
     public async Task<ActionResult<RelatorioCampanhasResponse>> RelatorioPorCampanha([FromQuery] FiltroRelatorio filtro) =>
-        await relatorio.GerarAsync(filtro, HttpContext.RequestAborted);
+        await relatorio.GerarAsync(filtro, PeriodoPadrao.SemanaAnterior, HttpContext.RequestAborted);
 
-    /// <summary>O mesmo relatório no CSV que o admin baixa na tela, para o e-mail da Gama.</summary>
+    /// <summary>O mesmo relatório no CSV que o admin baixa na tela, para o e-mail da Gama. Sem datas, a semana anterior.</summary>
     [HttpGet("relatorios/campanhas/csv")]
     [ProducesResponseType<string>(StatusCodes.Status200OK, "text/csv")]
     public async Task<IActionResult> RelatorioPorCampanhaCsv([FromQuery] FiltroRelatorio filtro) =>
-        RelatorioCampanhasCsv.Arquivo(await relatorio.GerarAsync(filtro, HttpContext.RequestAborted));
+        RelatorioCampanhasCsv.Arquivo(await relatorio.GerarAsync(filtro, PeriodoPadrao.SemanaAnterior, HttpContext.RequestAborted));
 }

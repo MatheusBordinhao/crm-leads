@@ -1,6 +1,8 @@
+using System.Globalization;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Leads;
 using Crm.Api.Features.Painel;
+using Crm.Api.Infra.Datas;
 
 namespace Crm.UnitTests.Painel;
 
@@ -67,6 +69,39 @@ public class MetricasPainelTests
         Assert.Equal(new PeriodoPainel(new(2026, 9, 1), new(2026, 9, 30)), PeriodoPainel.Resolver(null, new(2026, 9, 30), hoje));
         Assert.Equal(new PeriodoPainel(new(2026, 9, 15), hoje), PeriodoPainel.Resolver(new(2026, 9, 15), null, hoje));
         Assert.Equal(new PeriodoPainel(new(2026, 8, 1), new(2026, 8, 31)), PeriodoPainel.Resolver(new(2026, 8, 1), new(2026, 8, 31), hoje));
+    }
+
+    [Theory]
+    [InlineData("2026-10-05")] // segunda
+    [InlineData("2026-10-06")]
+    [InlineData("2026-10-07")] // quarta
+    [InlineData("2026-10-08")]
+    [InlineData("2026-10-09")]
+    [InlineData("2026-10-10")]
+    [InlineData("2026-10-11")] // domingo
+    public void Semana_anterior_vai_de_segunda_a_domingo_da_semana_passada_qualquer_que_seja_o_dia(string dia)
+    {
+        var hoje = DateOnly.Parse(dia, CultureInfo.InvariantCulture);
+
+        Assert.Equal(new PeriodoPainel(new(2026, 9, 28), new(2026, 10, 4)), PeriodoPainel.SemanaAnterior(hoje));
+    }
+
+    [Fact]
+    public void Num_domingo_a_semana_que_termina_hoje_ainda_nao_conta()
+    {
+        Assert.Equal(new PeriodoPainel(new(2026, 9, 21), new(2026, 9, 27)), PeriodoPainel.SemanaAnterior(new(2026, 10, 4)));
+    }
+
+    [Fact]
+    public void Semana_anterior_conta_pelo_dia_em_Brasilia_e_atravessa_o_ano()
+    {
+        // 02:30 UTC de segunda ainda é domingo, 23:30, em Brasília; às 03:00 UTC, já é segunda.
+        var domingoEmBrasilia = HorarioBrasilia.Dia(new DateTimeOffset(2026, 10, 5, 2, 30, 0, TimeSpan.Zero));
+        var segundaEmBrasilia = HorarioBrasilia.Dia(new DateTimeOffset(2026, 10, 5, 3, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal(new PeriodoPainel(new(2026, 9, 21), new(2026, 9, 27)), PeriodoPainel.SemanaAnterior(domingoEmBrasilia));
+        Assert.Equal(new PeriodoPainel(new(2026, 9, 28), new(2026, 10, 4)), PeriodoPainel.SemanaAnterior(segundaEmBrasilia));
+        Assert.Equal(new PeriodoPainel(new(2026, 12, 28), new(2027, 1, 3)), PeriodoPainel.SemanaAnterior(new(2027, 1, 6)));
     }
 
     [Fact]

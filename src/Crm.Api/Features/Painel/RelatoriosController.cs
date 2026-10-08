@@ -19,11 +19,11 @@ public sealed class RelatoriosController(RelatorioCampanhas relatorio) : Control
     /// </summary>
     [HttpGet("campanhas")]
     public async Task<ActionResult<RelatorioCampanhasResponse>> Campanhas([FromQuery] FiltroRelatorio filtro) =>
-        await relatorio.GerarAsync(filtro, HttpContext.RequestAborted);
+        await relatorio.GerarAsync(filtro, PeriodoPadrao.UltimosTrintaDias, HttpContext.RequestAborted);
 
     /// <summary>O mesmo relatório em CSV para o Excel (UTF-8 com BOM e ponto e vírgula), com o total na última linha.</summary>
     [HttpGet("campanhas/csv")]
     [ProducesResponseType<string>(StatusCodes.Status200OK, "text/csv")]
     public async Task<IActionResult> CampanhasCsv([FromQuery] FiltroRelatorio filtro) =>
-        RelatorioCampanhasCsv.Arquivo(await relatorio.GerarAsync(filtro, HttpContext.RequestAborted));
+        RelatorioCampanhasCsv.Arquivo(await relatorio.GerarAsync(filtro, PeriodoPadrao.UltimosTrintaDias, HttpContext.RequestAborted));
 }
