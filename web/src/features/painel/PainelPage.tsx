@@ -6,7 +6,6 @@ import { Carregando } from '@/components/Carregando'
 import { Selecao } from '@/components/Selecao'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useEu } from '@/features/acesso/sessao'
 import { useCampanhas } from '@/features/leads/dados'
@@ -18,18 +17,9 @@ import { formatarNumero, formatarTaxa } from '@/lib/numeros'
 import { cn } from '@/lib/utils'
 import { Barras } from './Barras'
 import { usePainel } from './dados'
+import { DatasDoPeriodo, SelecaoPeriodo, type MudarEndereco } from './FiltroPeriodo'
 import { Indicador } from './Indicador'
-import {
-  hojeEmBrasilia,
-  intervaloDoAtalho,
-  intervaloDoEndereco,
-  lerPeriodo,
-  MAIOR_DIA,
-  MENOR_DIA,
-  PERIODOS,
-  ROTULOS_PERIODO,
-  type Periodo,
-} from './periodo'
+import { hojeEmBrasilia, intervaloDoAtalho, intervaloDoEndereco, lerPeriodo } from './periodo'
 import { TabelaAtendentes } from './TabelaAtendentes'
 
 /** Valor do filtro de responsável para os leads que ainda não têm, como no funil e na lista. */
@@ -58,8 +48,6 @@ function lerFiltros(params: URLSearchParams, hoje: string): FiltrosPainel {
   }
 }
 
-type Mudar = (mudancas: Record<string, string | null>) => void
-
 /** O painel (seção 8): a tela inicial do admin. A atendente o abre pelo menu e vê só os próprios números. */
 export function PainelPage() {
   const { data: eu } = useEu()
@@ -75,7 +63,7 @@ export function PainelPage() {
     isPlaceholderData,
   } = usePainel(lerFiltros(params, hoje))
 
-  const mudar: Mudar = (mudancas) => {
+  const mudar: MudarEndereco = (mudancas) => {
     const novos = new URLSearchParams(params)
     for (const [nome, valor] of Object.entries(mudancas)) {
       if (valor) {
@@ -142,7 +130,7 @@ function Filtros({
   intervaloNaTela,
 }: {
   params: URLSearchParams
-  mudar: Mudar
+  mudar: MudarEndereco
   limpar: () => void
   ehAdmin: boolean
   intervaloNaTela: { de: string; ate: string }
@@ -150,13 +138,6 @@ function Filtros({
   const { data: campanhas } = useCampanhas()
   const { data: usuarios } = useUsuarios({ enabled: ehAdmin })
   const [abertos, setAbertos] = useState(false)
-  const periodo = lerPeriodo(params)
-
-  // O personalizado começa com o período que está na tela.
-  const mudarPeriodo = (novo: Periodo) =>
-    novo === 'personalizado'
-      ? mudar({ periodo: null, ...intervaloNaTela })
-      : mudar({ periodo: novo === '30d' ? null : novo, de: null, ate: null })
 
   const campo = (nome: string, rotulo: string, controle: ReactNode) => (
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -178,39 +159,17 @@ function Filtros({
       </Selecao>,
     )
 
-  const data = (nome: 'de' | 'ate', rotulo: string) =>
-    campo(
-      nome,
-      rotulo,
-      <Input
-        id={`painel-${nome}`}
-        type="date"
-        min={MENOR_DIA}
-        max={MAIOR_DIA}
-        value={params.get(nome) ?? ''}
-        onChange={(evento) => mudar({ [nome]: evento.target.value })}
-      />,
-    )
-
   return (
     <div className="flex flex-col gap-3">
       {/* Uma linha só no computador; no celular, o período fica sempre à vista e o resto, atrás de Filtros. */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <div className="flex min-w-0 items-end gap-2">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Label htmlFor="painel-periodo">Período</Label>
-            <Selecao
-              id="painel-periodo"
-              value={periodo}
-              onChange={(evento) => mudarPeriodo(evento.target.value as Periodo)}
-            >
-              {PERIODOS.map((opcao) => (
-                <option key={opcao} value={opcao}>
-                  {ROTULOS_PERIODO[opcao]}
-                </option>
-              ))}
-            </Selecao>
-          </div>
+          <SelecaoPeriodo
+            id="painel-periodo"
+            params={params}
+            mudar={mudar}
+            intervaloNaTela={intervaloNaTela}
+          />
           <Button
             type="button"
             variant="outline"
@@ -224,11 +183,8 @@ function Filtros({
           </Button>
         </div>
 
-        {periodo === 'personalizado' && (
-          <div className="grid grid-cols-2 gap-3 md:contents">
-            {data('de', 'De')}
-            {data('ate', 'Até')}
-          </div>
+        {lerPeriodo(params) === 'personalizado' && (
+          <DatasDoPeriodo prefixo="painel" params={params} mudar={mudar} className="md:contents" />
         )}
 
         <div
