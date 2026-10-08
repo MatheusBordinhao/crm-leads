@@ -1,9 +1,11 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Datas;
 using Crm.Api.Infra.Demonstracao;
 using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
@@ -226,6 +228,7 @@ public class DemonstracaoTests(CrmApiFactory fabrica)
     [InlineData("2026-10-08T11:00:00Z")] // 08:00 em Brasília
     [InlineData("2026-10-08T09:30:00Z")] // 06:30
     [InlineData("2026-10-08T03:10:00Z")] // 00:10
+    [InlineData("2026-03-02T09:00:00Z")] // 06:00 de 02/03, meses antes: o teste não depende da data em que roda
     public async Task Preparar_de_manha_cedo_nao_deixa_nenhuma_hora_no_futuro(string instante)
     {
         var agora = DateTimeOffset.Parse(instante, CultureInfo.InvariantCulture);
@@ -239,9 +242,15 @@ public class DemonstracaoTests(CrmApiFactory fabrica)
         Assert.NotEmpty(horas);
         Assert.Empty(horas.Where(h => h.Hora > agora).Select(h => $"{h.Oque} às {h.Hora:O}, depois de {agora:O}"));
 
-        // O painel de agora, que conta os últimos 30 dias, pega todos.
-        using var admin = await api.LogarComoAsync(Perfil.Admin);
-        var painel = await (await admin.GetAsync("/api/painel", Ct)).LerJsonAsync();
+        // O painel dos últimos 30 dias, contados a partir desse agora, pega todos. A sessão é aberta numa API com o
+        // relógio de verdade: o cookie do login vence 12 horas depois do relógio da API, e o HttpClient descarta um
+        // cookie que já venceu no relógio de verdade, o que fazia o teste falhar dependendo da hora em que rodava.
+        var hoje = HorarioBrasilia.Dia(agora);
+        using var apiDeVerdade = CriarApi(banco);
+        using var admin = await apiDeVerdade.LogarComoAsync(Perfil.Admin);
+        var resposta = await admin.GetAsync($"/api/painel?de={hoje.AddDays(-29):yyyy-MM-dd}&ate={hoje:yyyy-MM-dd}", Ct);
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        var painel = await resposta.LerJsonAsync();
         Assert.Equal((60, 65), (painel.GetProperty("leadsNovos").GetInt32(), painel.GetProperty("entradas").GetInt32()));
     }
 
