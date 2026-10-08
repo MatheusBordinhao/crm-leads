@@ -104,6 +104,13 @@ GET {{host}}/api/painel
 ### Painel de setembro, só dos leads do Google Ads (as datas são dias no horário de Brasília)
 GET {{host}}/api/painel?de=2026-09-01&ate=2026-09-30&origem=google_ads
 
+### Relatório por campanha de setembro (admin): uma linha por campanha, as sem campanha no fim e o total
+# Sem datas, os últimos 30 dias, com hoje, como no painel.
+GET {{host}}/api/relatorios/campanhas?de=2026-09-01&ate=2026-09-30
+
+### O mesmo relatório em CSV, para o Excel (admin)
+GET {{host}}/api/relatorios/campanhas/csv?de=2026-09-01&ate=2026-09-30
+
 ### Notificações do usuário logado (as 30 mais recentes e quantas não foram lidas)
 GET {{host}}/api/notificacoes
 
@@ -216,3 +223,14 @@ X-Api-Key: {{chave}}
   "gclid": null,
   "respostasExtras": null
 }
+
+### Relatório por campanha pela integração, como o fluxo semanal da Gama chama: sem datas, a semana anterior, de segunda a domingo
+# Com de e ate na query string, vale o período pedido, como na tela.
+# @prompt chave
+GET {{host}}/api/integracoes/relatorios/campanhas
+X-Api-Key: {{chave}}
+
+### O mesmo relatório em CSV, o arquivo que o fluxo semanal manda para a Gama
+# @prompt chave
+GET {{host}}/api/integracoes/relatorios/campanhas/csv
+X-Api-Key: {{chave}}
