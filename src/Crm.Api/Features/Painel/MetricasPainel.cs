@@ -13,6 +13,10 @@ public readonly record struct PeriodoPainel(DateOnly De, DateOnly Ate)
 {
     public const int DiasPadrao = 30;
 
+    public const string MensagemData = "Informe uma data entre 01/01/2000 e 31/12/2099.";
+
+    public const string MensagemPeriodo = "O fim do período vem depois do início.";
+
     /// <summary>As datas aceitas: o CRM não tem nada antes, e as extremas estourariam o <see cref="DateOnly"/>.</summary>
     public static readonly DateOnly MenorData = new(2000, 1, 1);
 

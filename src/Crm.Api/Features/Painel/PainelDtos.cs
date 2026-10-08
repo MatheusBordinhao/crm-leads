@@ -6,8 +6,18 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Crm.Api.Features.Painel;
 
+/// <summary>O período de uma consulta do painel ou do relatório por campanha, em dias no horário de Brasília.</summary>
+public interface IFiltroPeriodo
+{
+    /// <summary>Primeiro dia do período.</summary>
+    DateOnly? De { get; }
+
+    /// <summary>Último dia do período.</summary>
+    DateOnly? Ate { get; }
+}
+
 /// <summary>Filtros do painel, na query string, com os mesmos nomes da lista de leads.</summary>
-public sealed class FiltroPainel : IFiltroLeads
+public sealed class FiltroPainel : IFiltroLeads, IFiltroPeriodo
 {
     /// <summary>Primeiro dia do período, no horário de Brasília. Sem ele, 29 dias antes do último.</summary>
     [FromQuery(Name = "de")]
@@ -37,16 +47,17 @@ public sealed class FiltroPainel : IFiltroLeads
     string? IFiltroLeads.Busca => null;
 }
 
-internal sealed class FiltroPainelValidator : Validador<FiltroPainel>
+/// <summary>
+/// As regras do período, as mesmas no painel e no relatório por campanha (seção 8): datas de 2000 a 2099, e o fim não
+/// vem antes do início. Sem datas, o período é sempre válido, qualquer que seja o padrão de quem consulta.
+/// </summary>
+internal abstract class ValidadorPeriodo<T> : Validador<T>
+    where T : IFiltroPeriodo
 {
-    public const string MensagemData = "Informe uma data entre 01/01/2000 e 31/12/2099.";
-
-    public const string MensagemPeriodo = "O fim do período vem depois do início.";
-
-    public FiltroPainelValidator(TimeProvider relogio)
+    protected ValidadorPeriodo(TimeProvider relogio)
     {
-        RuleFor(f => f.De).Must(PeriodoPainel.DataAceita).WithMessage(MensagemData);
-        RuleFor(f => f.Ate).Must(PeriodoPainel.DataAceita).WithMessage(MensagemData);
+        RuleFor(f => f.De).Must(PeriodoPainel.DataAceita).WithMessage(PeriodoPainel.MensagemData);
+        RuleFor(f => f.Ate).Must(PeriodoPainel.DataAceita).WithMessage(PeriodoPainel.MensagemData);
         RuleFor(f => f.Ate)
             .Must((filtro, _) =>
             {
@@ -54,9 +65,11 @@ internal sealed class FiltroPainelValidator : Validador<FiltroPainel>
                 return periodo.De <= periodo.Ate;
             })
             .When(f => PeriodoPainel.DataAceita(f.De) && PeriodoPainel.DataAceita(f.Ate))
-            .WithMessage(MensagemPeriodo);
+            .WithMessage(PeriodoPainel.MensagemPeriodo);
     }
 }
+
+internal sealed class FiltroPainelValidator(TimeProvider relogio) : ValidadorPeriodo<FiltroPainel>(relogio);
 
 /// <param name="MedianaMinutos">
 /// Mediana do tempo entre a entrada e o primeiro contato, em minutos, dos leads novos que já tiveram contato. Nula

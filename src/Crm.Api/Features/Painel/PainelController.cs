@@ -23,8 +23,6 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
         var ct = HttpContext.RequestAborted;
         var ehAdmin = visibilidade.EhAdmin;
         var periodo = PeriodoPainel.Resolver(filtro.De, filtro.Ate, HorarioBrasilia.Dia(relogio.GetUtcNow()));
-        var inicio = periodo.Inicio;
-        var fim = periodo.Fim;
 
         // Os leads de teste ficam de fora de todos os números; os anonimizados continuam contando.
         var reais = visibilidade.Visiveis().Where(l => !l.Teste);
@@ -32,12 +30,9 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
 
         // Os leads novos do período são poucos (cerca de 300 por mês): vêm numa consulta só, e as contas, como a
         // mediana, são feitas aqui.
-        var coorte = await leads
-            .Where(l => l.CriadoEm >= inicio && l.CriadoEm < fim)
-            .Select(l => new LeadDaCoorte(l.EtapaId, l.Etapa.Tipo, l.ResponsavelId, l.Origem, l.CampanhaId, l.CriadoEm, l.PrimeiroContatoEm))
-            .ToListAsync(ct);
+        var coorte = await ConsultasPainel.Coorte(leads, periodo).ToListAsync(ct);
         var resumo = MetricasPainel.Resumir(coorte);
-        var entradas = await ContarEntradasAsync(FiltrosLeads.Aplicar(reais, new SoResponsavel(filtro), ehAdmin), filtro, inicio, fim, ct);
+        var entradas = await ContarEntradasAsync(FiltrosLeads.Aplicar(reais, new SoResponsavel(filtro), ehAdmin), filtro, periodo, ct);
 
         return new PainelResponse(
             periodo.De,
@@ -50,19 +45,17 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
             await SituacaoAtualAsync(coorte, ct),
             PorOrigem(coorte),
             await PorCampanhaAsync(coorte, ct),
-            await PerdasAsync(leads, inicio, fim, ct),
+            await PerdasAsync(leads, periodo, ct),
             ehAdmin ? await PorAtendenteAsync(coorte, ct) : null);
     }
 
     /// <summary>
     /// Entradas que o CRM processou no período, incluindo as de pessoas que já eram leads. A origem e a campanha são
-    /// as de cada entrada, e a visibilidade e a responsável, as do lead. A hora é a do processamento, a mesma do
-    /// <c>criado_em</c> do lead novo: o <c>recebidoEm</c> vem da integração e chega atrasado num reenvio.
+    /// as de cada entrada, e a visibilidade e a responsável, as do lead.
     /// </summary>
-    private async Task<int> ContarEntradasAsync(
-        IQueryable<Lead> donos, FiltroPainel filtro, DateTimeOffset inicio, DateTimeOffset fim, CancellationToken ct)
+    private async Task<int> ContarEntradasAsync(IQueryable<Lead> donos, FiltroPainel filtro, PeriodoPainel periodo, CancellationToken ct)
     {
-        var entradas = db.EntradasRecebidas.Where(e => e.ProcessadoEm >= inicio && e.ProcessadoEm < fim && !e.Teste);
+        var entradas = ConsultasPainel.Entradas(db, donos, periodo);
         if (filtro.Origem is { } origem)
         {
             entradas = entradas.Where(e => e.Origem == origem);
@@ -73,7 +66,7 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
             entradas = entradas.Where(e => e.CampanhaId == campanhaId);
         }
 
-        return await entradas.CountAsync(e => donos.Any(l => l.Id == e.LeadId), ct);
+        return await entradas.CountAsync(ct);
     }
 
     /// <summary>
@@ -121,9 +114,10 @@ public sealed class PainelController(CrmDbContext db, VisibilidadeLeads visibili
     /// Idas para Perdido no período, pelo histórico de etapas: de leads de qualquer data de entrada, mesmo os que
     /// depois foram reabertos, com os filtros valendo pelo lead. Cada lead conta uma vez por motivo.
     /// </summary>
-    private async Task<PerdasPainelResponse> PerdasAsync(
-        IQueryable<Lead> leads, DateTimeOffset inicio, DateTimeOffset fim, CancellationToken ct)
+    private async Task<PerdasPainelResponse> PerdasAsync(IQueryable<Lead> leads, PeriodoPainel periodo, CancellationToken ct)
     {
+        var inicio = periodo.Inicio;
+        var fim = periodo.Fim;
         var idas = db.HistoricoEtapas
             .Where(h => h.OcorridoEm >= inicio && h.OcorridoEm < fim)
             .Where(h => db.Etapas.Any(e => e.Id == h.EtapaNovaId && e.Tipo == TipoEtapa.Perdido))

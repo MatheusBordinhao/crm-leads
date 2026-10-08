@@ -29,15 +29,15 @@ public class FiltroPainelValidatorTests
     [Fact]
     public void Fim_antes_do_inicio_e_recusado_mesmo_quando_o_fim_e_hoje_em_Brasilia()
     {
-        Assert.Equal([("Ate", FiltroPainelValidator.MensagemPeriodo)], Erros(new(2026, 9, 30), new(2026, 9, 1)));
-        Assert.Equal([("Ate", FiltroPainelValidator.MensagemPeriodo)], Erros(new(2026, 10, 6), null));
+        Assert.Equal([("Ate", PeriodoPainel.MensagemPeriodo)], Erros(new(2026, 9, 30), new(2026, 9, 1)));
+        Assert.Equal([("Ate", PeriodoPainel.MensagemPeriodo)], Erros(new(2026, 10, 6), null));
     }
 
     [Fact]
     public void Datas_fora_de_2000_a_2099_sao_recusadas()
     {
-        Assert.Equal([("De", FiltroPainelValidator.MensagemData)], Erros(new(1999, 12, 31), new(2026, 9, 30)));
-        Assert.Equal([("Ate", FiltroPainelValidator.MensagemData)], Erros(null, DateOnly.MaxValue));
+        Assert.Equal([("De", PeriodoPainel.MensagemData)], Erros(new(1999, 12, 31), new(2026, 9, 30)));
+        Assert.Equal([("Ate", PeriodoPainel.MensagemData)], Erros(null, DateOnly.MaxValue));
         Assert.Empty(Erros(new(2000, 1, 1), new(2099, 12, 31)));
     }
 }

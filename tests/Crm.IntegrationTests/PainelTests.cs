@@ -139,10 +139,10 @@ public class PainelTests(CrmApiFactory fabrica)
         var extremo = await atendente.GetAsync("/api/painel?ate=9999-12-31", Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, invertido.StatusCode);
-        Assert.Equal([FiltroPainelValidator.MensagemPeriodo], await invertido.LerErrosDoCampoAsync("ate"));
+        Assert.Equal([PeriodoPainel.MensagemPeriodo], await invertido.LerErrosDoCampoAsync("ate"));
         Assert.Equal(HttpStatusCode.BadRequest, antigo.StatusCode);
-        Assert.Equal([FiltroPainelValidator.MensagemData], await antigo.LerErrosDoCampoAsync("de"));
+        Assert.Equal([PeriodoPainel.MensagemData], await antigo.LerErrosDoCampoAsync("de"));
         Assert.Equal(HttpStatusCode.BadRequest, extremo.StatusCode);
-        Assert.Equal([FiltroPainelValidator.MensagemData], await extremo.LerErrosDoCampoAsync("ate"));
+        Assert.Equal([PeriodoPainel.MensagemData], await extremo.LerErrosDoCampoAsync("ate"));
     }
 }
