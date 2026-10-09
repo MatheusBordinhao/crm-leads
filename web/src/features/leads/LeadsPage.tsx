@@ -3,6 +3,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { FiltrosLeads, LeadResumoResponse, OrdemLeads, Origem } from '@/api/cliente'
 import { Carregando } from '@/components/Carregando'
+import { Paginacao } from '@/components/Paginacao'
 import { Selecao } from '@/components/Selecao'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -135,7 +136,12 @@ export function LeadsPage() {
             </>
           )}
 
-          <Paginacao pagina={data.pagina} total={data.total} tamanho={data.tamanho} mudar={mudar} />
+          <Paginacao
+            pagina={data.pagina}
+            total={data.total}
+            tamanho={data.tamanho}
+            irPara={(pagina) => mudar('pagina', String(pagina))}
+          />
         </>
       )}
     </section>
@@ -387,43 +393,5 @@ function CartoesLeads({ leads, ehAdmin }: PropsLista) {
         </li>
       ))}
     </ul>
-  )
-}
-
-function Paginacao({
-  pagina,
-  total,
-  tamanho,
-  mudar,
-}: {
-  pagina: number
-  total: number
-  tamanho: number
-  mudar: Mudar
-}) {
-  const paginas = Math.max(1, Math.ceil(total / tamanho))
-  if (paginas <= 1) {
-    return null
-  }
-  return (
-    <nav aria-label="Páginas" className="flex items-center justify-between gap-2">
-      <Button
-        variant="outline"
-        disabled={pagina <= 1}
-        onClick={() => mudar('pagina', String(pagina - 1))}
-      >
-        Anterior
-      </Button>
-      <span className="text-sm text-muted-foreground">
-        Página {pagina} de {paginas}
-      </span>
-      <Button
-        variant="outline"
-        disabled={pagina >= paginas}
-        onClick={() => mudar('pagina', String(pagina + 1))}
-      >
-        Próxima
-      </Button>
-    </nav>
   )
 }
