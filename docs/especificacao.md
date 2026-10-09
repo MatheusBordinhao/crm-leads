@@ -160,7 +160,14 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 ### 3.8 LGPD
 
 - São dados pessoais: nome, e-mail, telefone, CPF/CNPJ, empresa quando identifica a pessoa, respostas extras, payload bruto das entradas e os textos livres sobre a pessoa, que são a descrição das interações e o detalhe do motivo de perda. O gclid e o id externo das entradas também levam até a pessoa, no Google e na Meta.
-- O admin pode exportar todos os dados de um lead em JSON e anonimizá-lo. Anonimizar faz o seguinte, numa transação só:
+- O admin pode exportar todos os dados de um lead em JSON, num arquivo `dados-titular-lead-{id}.json`, com:
+  - os dados do lead, com a etapa, a responsável, a campanha e o motivo de perda pelo nome;
+  - as entradas, com o payload bruto;
+  - as interações e o histórico de etapas;
+  - os avisos enviados ao n8n, só com o tipo, a situação e as datas, sem o payload.
+
+  A exportação entra na auditoria.
+- O admin também pode anonimizar o lead. Anonimizar faz o seguinte, numa transação só:
   - troca o nome por "Titular removido";
   - no lead, apaga e-mail, telefone, CPF/CNPJ, empresa, respostas extras, gclid e o detalhe do motivo de perda;
   - nas entradas, apaga o payload bruto, as respostas extras e o gclid;

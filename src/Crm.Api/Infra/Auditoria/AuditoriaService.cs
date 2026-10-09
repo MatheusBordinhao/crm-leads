@@ -19,6 +19,9 @@ internal static class AcoesAuditoria
     /// <summary>Troca de responsável, com <c>detalhes { anteriorId, novoId }</c>. A linha do tempo lê daqui.</summary>
     public const string LeadReatribuido = "lead.reatribuido";
 
+    /// <summary>Exportação dos dados do titular (LGPD), sem detalhes.</summary>
+    public const string LeadDadosExportados = "lead.dados_exportados";
+
     /// <summary>
     /// Anonimização (LGPD), com <c>detalhes { entradas, interacoes, eventos }</c>: quantas entradas e interações foram
     /// limpas e quantos eventos para o n8n foram apagados.
