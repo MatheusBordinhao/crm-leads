@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using Crm.Api.Features.Funil;
 using Crm.Api.Features.Notificacoes;
 using Crm.Api.Features.Usuarios;
@@ -135,7 +134,8 @@ public sealed class LeadsController(
 
     /// <summary>
     /// Edita os dados pessoais. O formato de e-mail, telefone e CPF/CNPJ só é conferido nos campos que
-    /// mudaram: um valor inválido que veio da integração não impede salvar o resto.
+    /// mudaram: um valor inválido que veio da integração não impede salvar o resto. Um lead anonimizado não é editado,
+    /// para os dados pessoais não voltarem.
     /// </summary>
     [HttpPut("{id:long}")]
     public async Task<ActionResult<LeadResponse>> Editar(long id, EditarLeadRequest requisicao)
@@ -145,6 +145,11 @@ public sealed class LeadsController(
         if (lead is null)
         {
             return NotFound();
+        }
+
+        if (lead.AnonimizadoEm is not null)
+        {
+            return Problem(detail: Anonimizacao.MensagemDadosRemovidos, statusCode: StatusCodes.Status400BadRequest);
         }
 
         var novos = DadosPessoa.Normalizar(
@@ -327,53 +332,5 @@ public sealed class LeadsController(
         return campos;
     }
 
-    private async Task<LeadResponse?> BuscarFichaAsync(long id)
-    {
-        var lead = await visibilidade.Visiveis()
-            .AsNoTracking()
-            .Include(l => l.Etapa)
-            .Include(l => l.Responsavel)
-            .Include(l => l.Campanha)
-            .Include(l => l.MotivoPerda)
-            .SingleOrDefaultAsync(l => l.Id == id, HttpContext.RequestAborted);
-        return lead is null ? null : ParaFicha(lead);
-    }
-
-    private static LeadResponse ParaFicha(Lead lead) => new(
-        lead.Id,
-        lead.Nome,
-        lead.Email,
-        lead.Telefone,
-        lead.CpfCnpj,
-        lead.Uf,
-        lead.Empresa,
-        new EtapaResumo(lead.Etapa.Id, lead.Etapa.Nome, lead.Etapa.Tipo),
-        lead.Responsavel is null ? null : new ResponsavelResumo(lead.Responsavel.Id, lead.Responsavel.Nome),
-        lead.Origem,
-        lead.Plataforma,
-        lead.Campanha is null ? null : new CampanhaResumo(lead.Campanha.Id, lead.Campanha.Nome),
-        lead.UtmSource,
-        lead.UtmMedium,
-        lead.UtmCampaign,
-        lead.UtmContent,
-        lead.UtmTerm,
-        lead.Gclid,
-        RespostasExtras(lead.RespostasExtras),
-        lead.Teste,
-        lead.CriadoEm,
-        lead.AtualizadoEm,
-        lead.PrimeiroContatoEm,
-        lead.ConvertidoEm,
-        lead.PerdidoEm,
-        lead.MotivoPerda is null ? null : new MotivoPerdaResumo(lead.MotivoPerda.Id, lead.MotivoPerda.Nome),
-        lead.MotivoPerdaDetalhe,
-        lead.AnonimizadoEm,
-        AvisosLead.Calcular(lead.Email, lead.Telefone, lead.CpfCnpj),
-        lead.Versao);
-
-    private static List<RespostaExtra> RespostasExtras(JsonDocument? respostas) =>
-        respostas?.RootElement.ValueKind == JsonValueKind.Object
-            ? [.. respostas.RootElement.EnumerateObject().Select(p => new RespostaExtra(
-                p.Name, p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString()! : p.Value.GetRawText()))]
-            : [];
+    private Task<LeadResponse?> BuscarFichaAsync(long id) => FichaLead.BuscarAsync(visibilidade.Visiveis(), id, HttpContext.RequestAborted);
 }

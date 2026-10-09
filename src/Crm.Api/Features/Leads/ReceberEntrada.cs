@@ -43,9 +43,9 @@ public sealed class ReceberEntrada(
 
         Lead lead;
         ResultadoEntrada resultado;
-        if (await BuscarPessoaAsync(pessoa, entrada.Teste, ct) is { } existenteId)
+        if (await BuscarParaVincularAsync(pessoa, entrada.Teste, ct) is { } existente)
         {
-            lead = await CarregarParaAlterarAsync(existenteId, ct);
+            lead = existente;
             await VincularAsync(lead, pessoa, entrada.UsuarioId, agora, ct);
             resultado = ResultadoEntrada.Vinculado;
         }
@@ -136,11 +136,18 @@ public sealed class ReceberEntrada(
         }
     }
 
-    private Task<long?> LeadDaEntradaAnteriorAsync(Origem origem, string idExterno, CancellationToken ct) =>
-        db.EntradasRecebidas
-            .Where(e => e.Origem == origem && e.IdExterno == idExterno && e.Situacao != SituacaoEntrada.Erro)
+    /// <summary>
+    /// O lead da entrada anterior com a mesma origem e o mesmo id externo. A entrada de um lead anonimizado guarda só o hash
+    /// do id (<see cref="IdExternoAnonimo"/>), e o reenvio continua sendo reconhecido: a pessoa não volta.
+    /// </summary>
+    private Task<long?> LeadDaEntradaAnteriorAsync(Origem origem, string idExterno, CancellationToken ct)
+    {
+        var anonimo = IdExternoAnonimo.De(idExterno);
+        return db.EntradasRecebidas
+            .Where(e => e.Origem == origem && (e.IdExterno == idExterno || e.IdExterno == anonimo) && e.Situacao != SituacaoEntrada.Erro)
             .Select(e => e.LeadId)
             .FirstOrDefaultAsync(ct);
+    }
 
     /// <summary>
     /// Campanha desconhecida é criada, com um nome provisório se vier sem nome. Um nome que chegue depois só
@@ -204,13 +211,23 @@ public sealed class ReceberEntrada(
     }
 
     /// <summary>
-    /// Trava a linha do lead até o fim da transação e o carrega. Uma edição feita ao mesmo tempo pela tela
-    /// espera e depois recebe o conflito de versão (409), em vez de esta entrada falhar.
+    /// O lead da pessoa, com a linha travada até o fim da transação. Uma edição feita ao mesmo tempo pela tela espera e
+    /// depois recebe o conflito de versão (409), em vez de esta entrada falhar. Enquanto a entrada esperava a trava, o lead
+    /// achado pode ter sido anonimizado ou excluído (lead de teste): aí a busca recomeça, e ele já não entra nela. Sem
+    /// isso, a entrada preencheria os campos vazios do lead anonimizado com os dados da pessoa.
     /// </summary>
-    private async Task<Lead> CarregarParaAlterarAsync(long id, CancellationToken ct)
+    private async Task<Lead?> BuscarParaVincularAsync(DadosPessoa pessoa, bool teste, CancellationToken ct)
     {
-        await db.TravarLeadAsync(id, ct);
-        return await db.Leads.SingleAsync(l => l.Id == id, ct);
+        while (await BuscarPessoaAsync(pessoa, teste, ct) is { } id)
+        {
+            await db.TravarLeadAsync(id, ct);
+            if (await db.Leads.SingleOrDefaultAsync(l => l.Id == id && l.AnonimizadoEm == null, ct) is { } lead)
+            {
+                return lead;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -319,5 +336,5 @@ public sealed class ReceberEntrada(
 internal static class LeadsExtensions
 {
     public static IServiceCollection AddLeads(this IServiceCollection services) =>
-        services.AddScoped<ReceberEntrada>().AddScoped<VisibilidadeLeads>().AddScoped<Distribuicao>();
+        services.AddScoped<ReceberEntrada>().AddScoped<VisibilidadeLeads>().AddScoped<Distribuicao>().AddScoped<Anonimizacao>();
 }

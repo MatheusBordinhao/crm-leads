@@ -1,4 +1,6 @@
 using Crm.Api.Infra.Dados;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -24,4 +26,12 @@ public static class BancosDeTeste
         await db.Database.MigrateAsync(ct);
         return connectionString;
     }
+
+    /// <summary>A API num banco à parte. <paramref name="configurar"/> muda o resto, como os serviços em segundo plano.</summary>
+    public static WebApplicationFactory<Program> ApiNoBanco(this CrmApiFactory fabrica, string banco, Action<IWebHostBuilder>? configurar = null) =>
+        fabrica.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting($"ConnectionStrings:{DadosExtensions.NomeConexao}", banco);
+            configurar?.Invoke(builder);
+        });
 }

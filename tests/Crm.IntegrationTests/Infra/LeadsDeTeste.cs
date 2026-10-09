@@ -178,6 +178,9 @@ public static class LeadsDeTeste
             new { tipo, descricao, ocorridoEm = ocorridoEm ?? DateTimeOffset.UtcNow },
             TestContext.Current.CancellationToken);
 
+    public static Task<HttpResponseMessage> AnonimizarAsync(this HttpClient cliente, long leadId) =>
+        cliente.PostAsync($"/api/leads/{leadId}/anonimizar", null, TestContext.Current.CancellationToken);
+
     /// <summary>Os itens da linha do tempo, do mais recente para o mais antigo.</summary>
     public static async Task<List<JsonElement>> LinhaDoTempoAsync(this HttpClient cliente, long leadId)
     {

@@ -64,9 +64,9 @@ Ficam fora da primeira versão:
 
 Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, pelo cadastro manual e pela importação:
 
-1. **Idempotência:** se já existe entrada processada com a mesma `(origem, id_externo)`, responde com o lead dela e não faz mais nada.
+1. **Idempotência:** se já existe entrada processada com a mesma `(origem, id_externo)`, responde com o lead dela e não faz mais nada. A entrada de um lead anonimizado guarda só o hash do id externo (3.8), que também conta.
 2. **Registro:** normaliza os dados e grava a entrada em `entradas_recebidas`, com o payload bruto.
-3. **Busca:** procura um lead existente e não anonimizado, nesta ordem: CPF/CNPJ, e-mail e telefone normalizados. Cada um só entra na busca quando está em formato válido, para um "a@a" ou um "000" não juntar pessoas diferentes. A busca e a criação rodam sob `pg_advisory_xact_lock`, para duas entradas simultâneas da mesma pessoa não criarem dois leads. As travas usam as chaves da entrada (origem e id externo), da pessoa (documento, e-mail e telefone válidos) e da campanha, pegas em ordem alfabética.
+3. **Busca:** procura um lead existente e não anonimizado, nesta ordem: CPF/CNPJ, e-mail e telefone normalizados. Cada um só entra na busca quando está em formato válido, para um "a@a" ou um "000" não juntar pessoas diferentes. A busca e a criação rodam sob `pg_advisory_xact_lock`, para duas entradas simultâneas da mesma pessoa não criarem dois leads. As travas usam as chaves da entrada (origem e id externo), da pessoa (documento, e-mail e telefone válidos) e da campanha, pegas em ordem alfabética. Depois de travar a linha do lead achado, a busca confere de novo: se ele foi anonimizado ou excluído enquanto a entrada esperava, ela recomeça sem ele.
 4. **Pessoa já existe:** vincula a entrada ao lead e preenche só os campos que estavam vazios. Registra a entrada na linha do tempo, notifica a responsável e gera `lead.entrada_repetida`. Se o lead estava numa etapa do tipo perdido, volta para a etapa inicial (reaberto) e grava `historico_etapas`, sem usuário quando a entrada veio da integração; se estava em ganho, continua em ganho.
 5. **Pessoa nova:** cria o lead na etapa inicial, com a origem e a campanha da entrada, distribui (3.3), notifica e gera `lead.criado`.
 6. Tudo acontece numa transação só, incluindo o evento em `eventos_saida`.
@@ -159,12 +159,20 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 
 ### 3.8 LGPD
 
-- São dados pessoais: nome, e-mail, telefone, CPF/CNPJ, empresa quando identifica a pessoa, respostas extras, payload bruto das entradas e descrição das interações.
-- O admin pode exportar todos os dados de um lead em JSON e anonimizá-lo. Anonimizar faz o seguinte:
+- São dados pessoais: nome, e-mail, telefone, CPF/CNPJ, empresa quando identifica a pessoa, respostas extras, payload bruto das entradas e os textos livres sobre a pessoa, que são a descrição das interações e o detalhe do motivo de perda. O gclid e o id externo das entradas também levam até a pessoa, no Google e na Meta.
+- O admin pode exportar todos os dados de um lead em JSON e anonimizá-lo. Anonimizar faz o seguinte, numa transação só:
   - troca o nome por "Titular removido";
-  - apaga e-mail, telefone, CPF/CNPJ, empresa, respostas extras, payload bruto das entradas e descrições das interações;
-  - mantém etapa, datas, origem, campanha e responsável, para as métricas continuarem certas;
-  - grava `anonimizado_em` e o registro na auditoria.
+  - no lead, apaga e-mail, telefone, CPF/CNPJ, empresa, respostas extras, gclid e o detalhe do motivo de perda;
+  - nas entradas, apaga o payload bruto, as respostas extras e o gclid;
+  - apaga as descrições das interações e o detalhe do motivo de perda no histórico;
+  - troca o id externo de cada entrada por `anon:` e o SHA-256 dele, em hexadecimal. O banco deixa de guardar o id da Meta ou do Google, e um reenvio do n8n ou a reimportação do mesmo arquivo continua respondendo "já recebido" ou "já importado" (3.2), sem trazer a pessoa de volta. É um hash sem chave: quem tiver uma cópia do banco consegue descobrir um id numérico da Meta testando todos. Um HMAC com chave impediria isso, mas a chave nunca poderia mudar nem se perder;
+  - apaga os eventos do lead em `eventos_saida`, inclusive os pendentes, porque o payload leva o nome e a empresa;
+  - mantém etapa, motivo de perda, datas, origem, plataforma, campanha, conjunto, anúncio, formulário, UTMs, UF e responsável, para as métricas continuarem certas;
+  - grava `anonimizado_em` e o registro na auditoria, com quantas entradas e interações foram limpas e quantos eventos foram apagados.
+- As notificações ficam como estão: o título nunca leva dados do lead (3.6), e a lista mostra o nome atual, "Titular removido".
+- Com uma importação processando, anonimizar responde 409 e pede para tentar de novo quando ela terminar: o arquivo da importação, que tem os dados das pessoas, só é apagado no fim (3.7).
+- O lead anonimizado não aceita edição dos dados nem interações novas (400), para os dados pessoais não voltarem. A etapa e a responsável continuam mudando, para o admin fechar um lead que estava em andamento. Anonimizar de novo não muda nada.
+- Uma entrada nova da mesma pessoa, com outro id externo, cria um lead novo, porque a busca ignora os anonimizados (3.2).
 - A anonimização é irreversível e pede confirmação.
 - A auditoria registra:
   - login, com sucesso ou falha;
@@ -264,6 +272,7 @@ A resposta 400 vale só para problemas de estrutura: falta de nome, falta de e-m
 - O despachante roda em segundo plano e confere a fila a cada 5 segundos (`N8n__IntervaloSegundos`). Cada evento vencido é reservado por 1 minuto, para outro despachante não pegá-lo, e enviado fora da transação.
 - Em caso de falha, o despachante tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h. Depois disso o evento fica como `falhou` e os admins são notificados, com o tipo do evento e o último erro. `ultimo_erro` guarda só o código HTTP ou o tipo da falha (`HTTP 503`, `Tempo esgotado (10 s)`, `Falha de conexão (ConnectionError)`), nunca o corpo da resposta.
 - A entrega é "pelo menos uma vez", sem garantia de ordem.
+- A anonimização do lead apaga os eventos dele, inclusive os pendentes (3.8). Um evento apagado durante o envio é deixado de lado, sem aviso de falha.
 - Sem `N8n__WebhookUrl` configurada, o despachante não envia nada e os eventos ficam pendentes.
 - O evento não leva e-mail, telefone nem CPF/CNPJ do lead. Quem precisa desses dados abre a ficha pelo link.
 - O evento é montado na hora da mudança. `lead.origem`, `lead.campanha` e `lead.idExterno` são os da primeira entrada, e o link usa `Crm__UrlPublica`. `responsavel` vem `null` quando o lead está sem responsável ou a responsável está desativada, e aí o n8n avisa o e-mail de admin.
@@ -379,13 +388,13 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 | motivos_perda | id, nome, ativo | |
 | campanhas | id, origem, id_externo, nome, nome_provisorio | Única por (origem, id_externo) |
 | leads | id (bigint), nome, email, telefone, cpf_cnpj, uf, empresa, etapa_id, responsavel_id, origem, plataforma, campanha_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, gclid, respostas_extras (jsonb), motivo_perda_id, motivo_perda_detalhe, teste, criado_em, atualizado_em, primeiro_contato_em, convertido_em, perdido_em, anonimizado_em | Índices em email, telefone, cpf_cnpj, (responsavel_id, etapa_id), campanha_id e criado_em. Concorrência otimista pelo `xmin` |
-| entradas_recebidas | id, lead_id, origem, id_externo, campanha_id, conjunto, anuncio e formulario (jsonb, com id e nome), utm_*, gclid, respostas_extras, payload_bruto (jsonb), situacao, erro, teste, recebido_em, processado_em, importacao_id | Situação: `criado`, `vinculado` ou `erro`. Índice único parcial em (origem, id_externo) onde a situação não é `erro`. `importacao_id` liga a entrada à importação que a trouxe |
+| entradas_recebidas | id, lead_id, origem, id_externo, campanha_id, conjunto, anuncio e formulario (jsonb, com id e nome), utm_*, gclid, respostas_extras, payload_bruto (jsonb), situacao, erro, teste, recebido_em, processado_em, importacao_id | Situação: `criado`, `vinculado` ou `erro`. Índice único parcial em (origem, id_externo) onde a situação não é `erro`. `importacao_id` liga a entrada à importação que a trouxe. Na anonimização, o `id_externo` vira `anon:` e o SHA-256 dele (3.8) |
 | importacoes | id, usuario_id, nome_arquivo, codificacao, separador, origem, campos (text[]), coluna_id_externo, campanha_padrao_id, campanha_padrao_nome, responsavel_id, arquivo (bytea), situacao, total_linhas, linhas_processadas, criados, vinculados, ja_importados, com_erro, sem_responsavel, reservada_ate, criado_em, concluido_em | Situação: `processando` ou `concluida`. O arquivo é apagado no fim. A reserva é renovada a cada linha; vencida com a importação ainda processando, outra rodada a retoma. `responsavel_id` nulo é o rodízio |
 | importacoes_erros | id, importacao_id, linha, motivo | Sem dados pessoais: a linha é a da planilha |
 | historico_etapas | id, lead_id, etapa_anterior_id, etapa_nova_id, motivo_perda_id, motivo_perda_detalhe, usuario_id, ocorrido_em | O motivo continua aqui depois de o lead sair de Perdido. usuario_id fica nulo quando quem mudou foi o sistema, como na reabertura de um lead perdido por uma nova entrada |
 | interacoes | id, lead_id, usuario_id, tipo, descricao, ocorrido_em, criado_em | |
 | notificacoes | id, usuario_id, tipo, titulo, lead_id, importacao_id, lida_em, criado_em | `importacao_id` só no resumo da importação, para quem importou |
-| eventos_saida | id (uuid), tipo, lead_id, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em). O `lead_id` liga o evento ao lead, para o aviso de falha e para a LGPD. O payload leva nome e empresa do lead, e `ultimo_erro` só o código HTTP ou o tipo da falha |
+| eventos_saida | id (uuid), tipo, lead_id, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em). O `lead_id` liga o evento ao lead, para o aviso de falha e para a LGPD: a anonimização apaga os eventos do lead. O payload leva nome e empresa do lead, e `ultimo_erro` só o código HTTP ou o tipo da falha |
 | auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui. No login com e-mail desconhecido, usuario_id fica nulo e o e-mail digitado não é gravado |
 | configuracoes | chave, valor | `distribuicao_automatica`, `exigir_documento_para_ganho` |
 

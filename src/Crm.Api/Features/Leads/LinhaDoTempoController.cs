@@ -45,7 +45,8 @@ public sealed class LinhaDoTempoController(CrmDbContext db, VisibilidadeLeads vi
 
     /// <summary>
     /// Registra uma interação. A primeira ligação, WhatsApp, e-mail ou reunião grava o primeiro contato do lead,
-    /// uma vez só. Uma data até 5 minutos no futuro (relógio do navegador adiantado) vale como agora.
+    /// uma vez só. Uma data até 5 minutos no futuro (relógio do navegador adiantado) vale como agora. Um lead anonimizado
+    /// não recebe interações.
     /// </summary>
     [HttpPost("interacoes")]
     [ProducesResponseType<ItemLinhaDoTempo>(StatusCodes.Status201Created)]
@@ -61,6 +62,12 @@ public sealed class LinhaDoTempoController(CrmDbContext db, VisibilidadeLeads vi
         if (lead is null || visibilidade.UsuarioId is not { } usuarioId)
         {
             return NotFound();
+        }
+
+        // A descrição é dado pessoal, e o lead anonimizado não tem mais com quem falar.
+        if (lead.AnonimizadoEm is not null)
+        {
+            return Problem(detail: Anonimizacao.MensagemSemInteracoes, statusCode: StatusCodes.Status400BadRequest);
         }
 
         var agora = relogio.GetUtcNow();
