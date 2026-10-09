@@ -291,9 +291,11 @@ function CartoesAuditoria({ registros, nomes }: PropsLista) {
                     {formatarDataHora(registro.ocorridoEm)}
                   </time>
                 </div>
-                <div className="min-w-0 break-words">
-                  <Sobre registro={registro} nomes={nomes} />
-                </div>
+                {registro.entidade && (
+                  <div className="min-w-0 break-words">
+                    <Sobre registro={registro} nomes={nomes} />
+                  </div>
+                )}
                 {detalhes && <div className="break-words text-muted-foreground">{detalhes}</div>}
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>{registro.usuario?.nome ?? 'Sem usuário'}</span>

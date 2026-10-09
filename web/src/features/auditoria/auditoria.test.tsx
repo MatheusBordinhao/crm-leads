@@ -70,15 +70,32 @@ describe('auditoria', () => {
 
   it('no celular, cada registro é um cartão', async () => {
     comSessao(admin)
-    comAuditoria()
+    comAuditoria([
+      registro(),
+      registro({
+        id: 2,
+        acao: 'leads.exportados',
+        entidade: null,
+        entidadeId: null,
+        detalhes: { linhas: 4, filtros: {} },
+      }),
+    ])
 
     renderizarApp('/auditoria')
 
     const cartoes = await screen.findByRole('list', { name: 'Registros da auditoria' })
-    const cartao = within(within(cartoes).getByRole('listitem'))
-    expect(cartao.getByText('Lead anonimizado')).toBeInTheDocument()
-    expect(cartao.getByRole('link', { name: 'Lead 1024' })).toHaveAttribute('href', '/leads/1024')
-    expect(cartao.getByText('IP 177.10.20.30')).toBeInTheDocument()
+    const [anonimizacao, exportacao] = within(cartoes)
+      .getAllByRole('listitem')
+      .map((item) => within(item))
+    expect(anonimizacao.getByText('Lead anonimizado')).toBeInTheDocument()
+    expect(anonimizacao.getByRole('link', { name: 'Lead 1024' })).toHaveAttribute(
+      'href',
+      '/leads/1024',
+    )
+    expect(anonimizacao.getByText('IP 177.10.20.30')).toBeInTheDocument()
+    // Sem registro afetado, o cartão não ganha uma linha vazia.
+    expect(exportacao.getByText('4 leads, sem filtros')).toBeInTheDocument()
+    expect(exportacao.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('os filtros vão para a API e ficam no endereço', async () => {
