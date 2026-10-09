@@ -33,6 +33,8 @@ public sealed class LeadsController(
 
     public const string MensagemLeadDeTeste = "Lead de teste fica sem responsável.";
 
+    public const string MensagemSoLeadDeTeste = "Só leads de teste podem ser excluídos. Para remover os dados de uma pessoa, use Anonimizar.";
+
     /// <summary>Lista com busca, filtros, ordenação e paginação.</summary>
     [HttpGet]
     public async Task<ActionResult<ListaLeadsResponse>> Listar([FromQuery] FiltroLeads filtro)
@@ -267,6 +269,37 @@ public sealed class LeadsController(
 
         await transacao.CommitAsync(ct);
         return (await BuscarFichaAsync(id))!;
+    }
+
+    /// <summary>
+    /// Exclui de vez um lead de teste (só admin), com as entradas, as interações, o histórico, as notificações e os eventos
+    /// dele. Um lead real não é excluído: os dados de uma pessoa saem pela anonimização, que mantém os números do painel.
+    /// </summary>
+    [HttpDelete("{id:long}")]
+    [Authorize(Policy = Politicas.Admin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Excluir(long id)
+    {
+        var ct = HttpContext.RequestAborted;
+        await using var transacao = await db.Database.BeginTransactionAsync(ct);
+        await db.TravarLeadAsync(id, ct);
+        var lead = await visibilidade.Visiveis().SingleOrDefaultAsync(l => l.Id == id, ct);
+        if (lead is null)
+        {
+            return NotFound();
+        }
+
+        if (!lead.Teste)
+        {
+            return Problem(detail: MensagemSoLeadDeTeste, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // O que depende do lead sai junto, pelas chaves estrangeiras com ON DELETE CASCADE.
+        db.Leads.Remove(lead);
+        auditoria.Registrar(AcoesAuditoria.LeadExcluido, EntidadesAuditoria.Lead, id.ToString(CultureInfo.InvariantCulture));
+        await db.SaveChangesAsync(ct);
+        await transacao.CommitAsync(ct);
+        return NoContent();
     }
 
     private IQueryable<Lead> Filtrar(IQueryable<Lead> consulta, FiltroLeads filtro)

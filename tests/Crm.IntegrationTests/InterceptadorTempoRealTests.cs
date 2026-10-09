@@ -179,6 +179,21 @@ public class InterceptadorTempoRealTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Excluir_um_lead_de_teste_avisa_o_id_dele()
+    {
+        await using var api = ApiSemPublicador();
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        var leadId = (await api.ReceberAsync(LeadsDeTeste.Entrada() with { Teste = true })).LeadId;
+        Entregues(api);
+
+        var exclusao = await admin.DeleteAsync($"/api/leads/{leadId}", Ct);
+
+        // O publicador não acha mais o lead e manda o id só para os admins, que são os únicos que viam o lead de teste.
+        Assert.Equal(HttpStatusCode.NoContent, exclusao.StatusCode);
+        Assert.Equal([leadId], Assert.Single(Entregues(api)).Leads);
+    }
+
+    [Fact]
     public async Task Uma_etapa_nova_avisa_que_o_funil_mudou()
     {
         await using var api = ApiSemPublicador();

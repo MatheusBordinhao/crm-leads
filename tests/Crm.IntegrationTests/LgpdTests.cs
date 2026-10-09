@@ -2,13 +2,21 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Crm.Api.Features.Leads;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
+using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Eventos;
 using Crm.IntegrationTests.Infra;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Crm.IntegrationTests;
 
-/// <summary>Exportação dos dados do titular (seção 3.8). A anonimização está em <see cref="AnonimizacaoTests"/>.</summary>
+/// <summary>
+/// Exportação dos dados do titular (seção 3.8) e exclusão de leads de teste (3.2). A anonimização está em
+/// <see cref="AnonimizacaoTests"/>.
+/// </summary>
 public class LgpdTests(CrmApiFactory fabrica)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -89,6 +97,83 @@ public class LgpdTests(CrmApiFactory fabrica)
         Assert.Equal(HttpStatusCode.NotFound, inexistente.StatusCode);
         Assert.DoesNotContain(
             await fabrica.AuditoriaAsync(EntidadesAuditoria.Lead, id.ToString(CultureInfo.InvariantCulture)), r => r.Acao == AcoesAuditoria.LeadDadosExportados);
+    }
+
+    [Fact]
+    public async Task Lead_de_teste_e_excluido_de_vez_com_tudo_o_que_depende_dele()
+    {
+        var adminUsuario = await fabrica.CriarUsuarioAsync(Perfil.Admin);
+        using var admin = await fabrica.LogarAsync(adminUsuario);
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        corpo["teste"] = true;
+        var id = await n8n.EnviarLeadIdAsync(corpo);
+        var repetida = new Dictionary<string, object?>(corpo) { ["idExterno"] = LeadsDeTeste.IdExternoUnico() };
+        Assert.Equal("vinculado", (await (await n8n.EnviarLeadAsync(repetida)).LerJsonAsync()).GetProperty("situacao").GetString());
+        (await admin.RegistrarInteracaoAsync(id, "nota", "Lead da ferramenta de teste da Meta")).EnsureSuccessStatusCode();
+        (await admin.MudarEtapaAsync(id, (await fabrica.EtapaAsync("Em contato")).Id)).EnsureSuccessStatusCode();
+
+        // Lead de teste não gera notificação nem evento: estes entram direto, para conferir que saem junto.
+        await fabrica.NotificarAsync(adminUsuario.Id, id);
+        await using (var escopo = fabrica.Services.CreateAsyncScope())
+        {
+            var banco = escopo.ServiceProvider.GetRequiredService<CrmDbContext>();
+            banco.EventosSaida.Add(new EventoSaida
+            {
+                Id = Guid.CreateVersion7(),
+                Tipo = TipoEvento.LeadCriado,
+                LeadId = id,
+                Payload = JsonDocument.Parse("{}"),
+                Situacao = SituacaoEvento.Falhou,
+                ProximaTentativaEm = DateTimeOffset.UtcNow,
+                CriadoEm = DateTimeOffset.UtcNow,
+            });
+            await banco.SaveChangesAsync(Ct);
+        }
+
+        var resposta = await admin.DeleteAsync($"/api/leads/{id}", Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/leads/{id}", Ct)).StatusCode);
+        await using (var escopo = fabrica.Services.CreateAsyncScope())
+        {
+            var db = escopo.ServiceProvider.GetRequiredService<CrmDbContext>();
+            Assert.False(await db.EntradasRecebidas.AnyAsync(e => e.LeadId == id, Ct));
+            Assert.False(await db.Interacoes.AnyAsync(i => i.LeadId == id, Ct));
+            Assert.False(await db.HistoricoEtapas.AnyAsync(h => h.LeadId == id, Ct));
+            Assert.False(await db.Notificacoes.AnyAsync(n => n.LeadId == id, Ct));
+            Assert.False(await db.EventosSaida.AnyAsync(e => e.LeadId == id, Ct));
+        }
+
+        var registro = Assert.Single(
+            await fabrica.AuditoriaAsync(EntidadesAuditoria.Lead, id.ToString(CultureInfo.InvariantCulture)), r => r.Acao == AcoesAuditoria.LeadExcluido);
+        Assert.Equal(adminUsuario.Id, registro.UsuarioId);
+        Assert.Null(registro.Detalhes);
+
+        // Sem as entradas, o mesmo lead de teste reenviado entra de novo, como um lead novo.
+        Assert.Equal(HttpStatusCode.Created, (await n8n.EnviarLeadAsync(corpo)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Lead_real_nao_e_excluido_e_a_atendente_recebe_403()
+    {
+        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+        using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);
+        var real = await admin.CriarLeadIdAsync();
+        var daAtendente = await atendente.CriarLeadIdAsync();
+
+        var recusada = await admin.DeleteAsync($"/api/leads/{real}", Ct);
+        var proibida = await atendente.DeleteAsync($"/api/leads/{daAtendente}", Ct);
+        var inexistente = await admin.DeleteAsync($"/api/leads/{long.MaxValue}", Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, recusada.StatusCode);
+        Assert.Equal(LeadsController.MensagemSoLeadDeTeste, await recusada.LerDetalheAsync());
+        Assert.Equal(HttpStatusCode.Forbidden, proibida.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, inexistente.StatusCode);
+        Assert.Equal(real, (await fabrica.BuscarLeadAsync(real)).Id);
+        Assert.Equal(daAtendente, (await fabrica.BuscarLeadAsync(daAtendente)).Id);
+        Assert.DoesNotContain(
+            await fabrica.AuditoriaAsync(EntidadesAuditoria.Lead, real.ToString(CultureInfo.InvariantCulture)), r => r.Acao == AcoesAuditoria.LeadExcluido);
     }
 
     private static string? Texto(JsonElement objeto, string propriedade) => objeto.GetProperty(propriedade).GetString();
