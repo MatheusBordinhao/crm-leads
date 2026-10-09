@@ -223,6 +223,41 @@ Em Importação (só admin), escolha um CSV de até 5 MB e 5.000 linhas: o expor
 - No Excel, formate as colunas de telefone e de CPF/CNPJ como texto antes de salvar: como número, o Excel apaga os zeros do começo.
 - Para testar, use os arquivos de [docs/exemplos/](docs/exemplos/): `leads-meta.csv` imita a exportação da Meta, e `leads-excel.csv`, a planilha do Excel. Os dois têm acentos, para conferir que nada sai trocado.
 
+### LGPD e auditoria
+
+Na ficha, o admin tem o cartão Privacidade (seção 3.8 da especificação):
+
+- **Exportar dados** baixa um JSON com tudo o que o CRM guarda do lead, para entregar ao titular:
+  - os dados;
+  - as entradas, com o que chegou de cada origem;
+  - as interações e o histórico de etapas;
+  - os avisos enviados ao n8n.
+- **Anonimizar** tira os dados pessoais e não tem volta.
+  - O que muda:
+    - o nome vira "Titular removido";
+    - saem o e-mail, o telefone, o CPF/CNPJ, a empresa, as respostas do formulário, o que chegou de cada origem, as descrições das interações e o detalhe da perda;
+    - o id do lead na Meta ou no Google vira um hash;
+    - os avisos ao n8n do lead são apagados.
+  - Ficam a etapa, as datas, a origem, a campanha e a responsável, e por isso o painel e o relatório não mudam.
+  - O lead anonimizado não aceita edição nem interação nova, mas ainda muda de etapa e de responsável.
+  - Um reenvio do mesmo lead pelo n8n, ou a reimportação do mesmo CSV, responde "já recebido" e não traz a pessoa de volta. Se ela voltar por um formulário novo, vira um lead novo.
+  - Com uma importação processando, a anonimização espera, porque o arquivo da importação ainda tem os dados das pessoas: tente de novo quando ela terminar.
+- **Excluir lead de teste** aparece só nos leads de teste e apaga o lead com tudo o que depende dele.
+
+Em Leads, o botão **Exportar CSV** (só admin) baixa a lista com os filtros e a ordem da tela, pronta para o Excel:
+
+- o telefone no formato nacional;
+- o CPF/CNPJ com a máscara, porque sem ela o Excel tira os zeros do começo;
+- as datas no horário de Brasília.
+
+Em **Auditoria** (só admin) ficam, do mais recente para o mais antigo, os logins, as mudanças nos leads, nos usuários e nas configurações, as exportações e a LGPD.
+
+- Os filtros de ação, de quem fez e de período ficam no endereço.
+- O "Ver na auditoria" da ficha abre a tela só com os registros do lead.
+- Os registros não têm dados pessoais: os leads aparecem pelo número.
+
+No n8n, os fluxos não salvam as execuções que deram certo (os JSONs de `n8n/` já levam o ajuste). Conferir isso no n8n de produção fica para quando ele existir.
+
 ## Demonstração
 
 Para a demonstração do painel, o comando `preparar-demonstracao` troca os leads por uma massa fictícia:
@@ -282,7 +317,7 @@ cd web && npm run lint                   # ESLint
 cd web && npm run format                 # Prettier; format:check só confere
 ```
 
-O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`).
+O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os da anonimização também usam bancos só deles, porque uma importação processando, de qualquer teste, faz a anonimização responder 409. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`).
 
 No Windows PowerShell 5.1, use `npm.cmd` no lugar de `npm` (a política de execução bloqueia o `npm.ps1`) e rode os comandos em linhas separadas, porque o `&&` não existe nele: `cd web` e, depois, `npm.cmd test`.
 
@@ -318,11 +353,12 @@ docker compose down -v                                            # para o banco
 
 ```
 src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo em Features/: Usuarios/ (acesso e cadastro),
-                             Leads/ (leads, entrada, rodízio, normalização, campanhas, interações e linha do tempo),
+                             Leads/ (leads, entrada, rodízio, normalização, campanhas, interações, linha do tempo,
+                             exportação em CSV e LGPD: dados do titular, anonimização e exclusão de leads de teste),
                              Funil/ (etapas, motivos de perda, mudança de etapa com histórico e quadro),
                              Notificacoes/ (sino e quem é avisado de cada acontecimento), Integracoes/ (chave e rotas do n8n),
                              Painel/ (métricas da seção 8 e o relatório por campanha)
-src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
+src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria e a consulta dela (Auditoria/), .env e configurações do sistema
                              (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
                              importação CSV, com a leitura do arquivo e o processamento em segundo plano (Importacoes/),
                              hub do tempo real, com a conferência das conexões e os avisos depois do commit (TempoReal/),
@@ -331,7 +367,7 @@ src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditor
                              o comando que prepara a demonstração do painel (Demonstracao/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, relatorio, funil, leads,
+web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, relatorio, auditoria, funil, leads,
                              importacao, notificacoes, tempo-real, configuracoes, usuarios), components/ui/ do shadcn/ui,
                              api/ com o cliente e os tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
@@ -393,6 +429,7 @@ O serviço `migracoes` aplica as migrations novas antes de a API subir. As sess�
 - Todo dia às 03:00 (horário de Brasília), o serviço `backup` grava um `pg_dump` em `./backups` (ou na pasta de `BACKUP_PASTA`, no `.env`) e apaga os que têm mais de 14 dias.
 - Backup na hora: `docker compose -f docker-compose.prod.yml exec backup sh /backup/backup.sh agora`.
 - Os backups têm dados pessoais: a pasta fica só no servidor, e a cópia de fora precisa ser criptografada.
+- A anonimização não mexe nos backups: os dados de quem foi anonimizado continuam neles até serem apagados, em 14 dias.
 - Cópia fora do servidor: com o [rclone](https://rclone.org/) instalado no servidor e um remoto criptografado configurado (`rclone config`, com um remoto do tipo `crypt` por cima do Google Drive da empresa, do Backblaze B2 ou do S3), um cron diário copia a pasta. O destino ainda precisa ser escolhido.
 
   ```bash
@@ -417,6 +454,12 @@ docker compose -f docker-compose.prod.yml stop api
 docker compose -f docker-compose.prod.yml exec backup sh -c 'dropdb crm && createdb crm && pg_restore --no-owner --exit-on-error --dbname=crm /backups/crm-AAAA-MM-DD-HHMMSS.dump'
 docker compose -f docker-compose.prod.yml start api
 ```
+
+Restaurar desfaz as anonimizações e as exclusões de leads de teste feitas depois do backup. A auditoria do banco restaurado também volta ao dia do backup, então faça a lista antes:
+
+1. Em Auditoria, filtre as ações "Lead anonimizado" e "Lead de teste excluído" a partir do dia do backup e anote os leads.
+2. Restaure.
+3. Anonimize de novo, pela ficha, cada lead da lista. Os leads de teste que voltaram podem ser excluídos de novo.
 
 ### Cuidados
 
