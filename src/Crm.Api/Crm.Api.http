@@ -98,6 +98,27 @@ Content-Type: application/json
 
 { "responsavelId": "{{responsavelId}}" }
 
+### Leads da lista em CSV, para o Excel, com os mesmos filtros e sem paginação (admin; entra na auditoria)
+GET {{host}}/api/leads/exportacao?origem=meta_lead_ads&ordem=Recentes
+
+### Dados do titular em JSON, para entregar à pessoa (admin; entra na auditoria)
+# @prompt id
+GET {{host}}/api/leads/{{id}}/dados-titular
+
+### Anonimizar o lead, SEM VOLTA: tira os dados pessoais e mantém os números do painel (admin; entra na auditoria)
+# Com uma importação processando, responde 409: tente de novo quando ela terminar.
+# @prompt id
+POST {{host}}/api/leads/{{id}}/anonimizar
+
+### Excluir de vez um lead de teste (admin; um lead real responde 400)
+# @prompt id
+DELETE {{host}}/api/leads/{{id}}
+
+### Auditoria de um lead, do mais recente para o mais antigo (admin)
+# Outros filtros: de, ate (dias no horário de Brasília), usuarioId e acao, como lead.anonimizado.
+# @prompt id
+GET {{host}}/api/auditoria?entidade=lead&entidadeId={{id}}&pagina=1&tamanho=50
+
 ### Painel dos últimos 30 dias, com hoje (a atendente vê só os próprios números)
 GET {{host}}/api/painel
 
