@@ -439,7 +439,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8. Filtros: `de`, `ate`, `origem`, `campanhaId` e, para o admin, `responsavelId` ou `semResponsavel` |
 | `GET /api/relatorios/campanhas`, `GET /api/relatorios/campanhas/csv` | Admin | Relatório por campanha (seção 8), em JSON e no CSV para o Excel. Filtros: `de` e `ate` |
-| `GET /api/auditoria` | Admin | Consulta da auditoria |
+| `GET /api/auditoria` | Admin | Consulta da auditoria, do registro mais recente para o mais antigo, com o nome de quem fez e paginação (50 por página, até 100). Filtros: `de` e `ate` (dias no horário de Brasília), `usuarioId`, `acao`, `entidade` e `entidadeId` |
 | `POST /api/integracoes/leads`, `GET /api/integracoes/relatorios/campanhas`, `GET /api/integracoes/relatorios/campanhas/csv` | Integração | Seções 4.2 e 4.4 |
 | `/hubs/notificacoes` | Admin e atendente | Hub do SignalR, com um grupo por usuário e um grupo de admins. Exige a senha definitiva, como o resto da API, e só manda ids: `LeadsAlterados`, `NotificacaoNova` e `FunilAlterado` (3.6) |
 | `GET /health` | Público | Monitoramento |

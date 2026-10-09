@@ -1,7 +1,11 @@
+using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Auditoria;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Datas;
 using Crm.IntegrationTests.Infra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +29,17 @@ public class AuditoriaTests(CrmApiFactory fabrica)
 
     private static string? Motivo(RegistroAuditoria registro) =>
         registro.Detalhes?.RootElement.GetProperty("motivo").GetString();
+
+    /// <summary><c>GET /api/auditoria</c> com os filtros da query string.</summary>
+    private static async Task<JsonElement> AuditoriaAsync(HttpClient admin, string query)
+    {
+        var resposta = await admin.GetAsync($"/api/auditoria?{query}", Ct);
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        return await resposta.LerJsonAsync();
+    }
+
+    private static List<string?> Acoes(JsonElement lista) =>
+        [.. lista.GetProperty("itens").EnumerateArray().Select(r => r.GetProperty("acao").GetString())];
 
     [Fact]
     public async Task Login_com_falha_e_com_sucesso_fica_na_auditoria()
@@ -115,6 +130,66 @@ public class AuditoriaTests(CrmApiFactory fabrica)
             ["nome", "ativo"],
             registros[1].Detalhes!.RootElement.GetProperty("campos").EnumerateArray().Select(c => c.GetString()));
         Assert.All(registros, r => Assert.DoesNotContain("Nome", r.Detalhes?.RootElement.GetRawText() ?? "", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_consulta_traz_do_mais_recente_para_o_mais_antigo_com_quem_fez_e_os_filtros()
+    {
+        var eu = await fabrica.CriarUsuarioAsync(Perfil.Admin, nome: "Admin da consulta");
+        using var admin = await fabrica.LogarAsync(eu);
+        var id = await admin.CriarLeadIdAsync();
+        var ficha = await (await admin.GetAsync($"/api/leads/{id}", Ct)).LerJsonAsync();
+        var edicao = new Dictionary<string, object?>
+        {
+            ["nome"] = "Maria Souza Lima",
+            ["email"] = ficha.GetProperty("email").GetString(),
+            ["telefone"] = null,
+            ["cpfCnpj"] = null,
+            ["uf"] = null,
+            ["empresa"] = null,
+            ["versao"] = ficha.GetProperty("versao").GetUInt32(),
+        };
+        (await admin.PutAsJsonAsync($"/api/leads/{id}", edicao, Ct)).EnsureSuccessStatusCode();
+        (await admin.GetAsync($"/api/leads/{id}/dados-titular", Ct)).EnsureSuccessStatusCode();
+        var doLead = $"entidade=lead&entidadeId={id}";
+        var hoje = HorarioBrasilia.Dia(DateTimeOffset.UtcNow);
+
+        var lista = await AuditoriaAsync(admin, doLead);
+        var editado = await AuditoriaAsync(admin, $"usuarioId={eu.Id}&acao={AcoesAuditoria.LeadEditado}");
+        var segundaPagina = await AuditoriaAsync(admin, $"{doLead}&tamanho=1&pagina=2");
+        var noPeriodo = await AuditoriaAsync(admin, $"{doLead}&de={hoje.AddDays(-1):yyyy-MM-dd}&ate={hoje.AddDays(1):yyyy-MM-dd}");
+        var depois = await AuditoriaAsync(admin, $"{doLead}&de={hoje.AddDays(2):yyyy-MM-dd}");
+
+        Assert.Equal([AcoesAuditoria.LeadDadosExportados, AcoesAuditoria.LeadEditado, AcoesAuditoria.LeadCriado], Acoes(lista));
+        Assert.Equal(3, lista.GetProperty("total").GetInt32());
+        var primeiro = lista.GetProperty("itens")[0];
+        Assert.Equal((eu.Id, "Admin da consulta"), (primeiro.GetProperty("usuario").GetProperty("id").GetGuid(), primeiro.GetProperty("usuario").GetProperty("nome").GetString()));
+        Assert.Equal(("lead", id.ToString(CultureInfo.InvariantCulture)), (primeiro.GetProperty("entidade").GetString(), primeiro.GetProperty("entidadeId").GetString()));
+        Assert.Equal(JsonValueKind.Null, primeiro.GetProperty("detalhes").ValueKind);
+        var registroDaEdicao = Assert.Single(editado.GetProperty("itens").EnumerateArray());
+        Assert.Equal(id.ToString(CultureInfo.InvariantCulture), registroDaEdicao.GetProperty("entidadeId").GetString());
+        Assert.Equal(["nome"], registroDaEdicao.GetProperty("detalhes").GetProperty("campos").EnumerateArray().Select(c => c.GetString()));
+        Assert.Equal(
+            (3, 2, 1, AcoesAuditoria.LeadEditado),
+            (segundaPagina.GetProperty("total").GetInt32(), segundaPagina.GetProperty("pagina").GetInt32(), segundaPagina.GetProperty("tamanho").GetInt32(), Acoes(segundaPagina).Single()));
+        Assert.Equal(3, noPeriodo.GetProperty("total").GetInt32());
+        Assert.Equal(0, depois.GetProperty("total").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("de=2026-10-10&ate=2026-10-01", "ate")]
+    [InlineData("de=1999-12-31", "de")]
+    [InlineData("ate=9999-12-31", "ate")]
+    [InlineData("tamanho=101", "tamanho")]
+    [InlineData("pagina=0", "pagina")]
+    public async Task Parametros_invalidos_da_consulta_respondem_400(string query, string campo)
+    {
+        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+
+        var resposta = await admin.GetAsync($"/api/auditoria?{query}", Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.NotEmpty(await resposta.LerErrosDoCampoAsync(campo));
     }
 
     [Fact]
