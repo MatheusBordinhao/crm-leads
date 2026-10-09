@@ -61,7 +61,7 @@ public class FrontTests(CrmApiFactory fabrica)
                 (HttpMethod.Post, "/api/nao-existe", HttpStatusCode.NotFound),
 
                 // Uma rota que existe, com o método errado, continua respondendo 405, como sem o front.
-                (HttpMethod.Delete, "/api/leads/1", HttpStatusCode.MethodNotAllowed),
+                (HttpMethod.Patch, "/api/leads/1", HttpStatusCode.MethodNotAllowed),
                 (HttpMethod.Get, "/api/auth/login", HttpStatusCode.MethodNotAllowed),
             };
 
