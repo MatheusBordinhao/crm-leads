@@ -39,7 +39,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
 - No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Além dos 60 leads da massa, há o que a Adriana criou na validação do Passo 8. Para voltar aos 60 antes da demonstração, é só rodar o comando de novo.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
-- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 603 de 603 em 09/10/2026, e os do front, 177 de 177.
+- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 654 de 654 em 09/10/2026, com o Passo 10, e os do front, 197 de 197.
 - Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
   - testes automáticos dos dois critérios de aceite: o lead da integração chega à responsável do rodízio em menos de 5 s (`TempoRealRodizioTests`), e a atendente não recebe o id de lead de outra pessoa em nenhum caso (`TempoRealTests`, com um lead da outra atendente como sentinela);
   - no Chrome sem janela, contra o Compose de produção local: o cartão apareceu no funil da atendente 1,6 s depois do envio pela integração com a API ainda fria e 0,35 s com ela quente, pelo WebSocket `wss://localhost:8444/hubs/notificacoes` (handshake 101); a outra atendente não recebeu o id do lead; o console ficou sem erros e sem issues da CSP;
@@ -101,6 +101,31 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a Adriana não tem o item no menu, e `/relatorio` a leva ao funil;
   - pela integração, sem datas e com a chave, veio a semana de 28/09 a 04/10; sem a chave, a resposta foi 401.
 - Do Passo 9, só o fluxo `CRM - Relatório semanal Gama` fica pendente, para o n8n de produção.
+- Passo 10 implementado em 09/10/2026 e conferido pelo Claude. Por decisão minha:
+  - a anonimização guarda só um hash do id externo (`anon:` e o SHA-256), e não o id da Meta ou do Google. O reenvio e a reimportação continuam respondendo "já recebido";
+  - a anonimização apaga também o detalhe do motivo de perda e o gclid, e os eventos do lead em `eventos_saida`;
+  - as notificações ficam como estão, porque o título nunca teve dados do lead;
+  - com uma importação processando, anonimizar responde 409, porque o arquivo dela ainda tem os dados das pessoas;
+  - no CSV de leads, o telefone do Brasil sai no formato nacional, e o CPF/CNPJ com a máscara.
+- Conferências do Passo 10:
+  - os dois critérios de aceite têm testes automáticos, em bancos próprios:
+    - uma varredura de todas as colunas de texto, JSON, lista e bytes de todas as tabelas acha os dados do lead antes da anonimização e nada depois, nem o id da Meta (`AnonimizacaoTests`, com a `VarreduraDoBanco`);
+    - o painel (sem filtros, por atendente, por campanha e sem responsável), o relatório em JSON e em CSV e os totais do funil saem iguais antes e depois de anonimizar todos os leads;
+  - num Compose de produção descartável (`-p crm-lgpd`, portas 8092 e 8457), no Chrome sem janela:
+    - login pela tela, a ficha com o cartão Privacidade, a anonimização e a exclusão pela tela, a lista com o Exportar CSV e a auditoria;
+    - sem rolagem lateral em 1280 e em 360 px;
+    - no console, só o 401 esperado do `/api/auth/eu` no login;
+    - os issues são só os `FormEmptyIdAndNameAttributesForInputError` que já existiam, na busca da lista e no funil;
+  - no banco e nos logs da API desse Compose, nenhum dado dos dois leads anonimizados. O painel e o CSV do relatório ficaram iguais byte a byte, e o reenvio do lead anonimizado respondeu `ja_recebido`;
+  - no Excel, aberto como no clique duplo:
+    - os acentos certos;
+    - o telefone do Brasil e o CPF/CNPJ como texto, com o zero do começo do CPF;
+    - o apóstrofo no telefone de fora e no nome que começava com `=`;
+    - a entrada como data.
+- Do Passo 10, fica pendente a revisão das configurações de execução dos fluxos no n8n de produção:
+  - conferir que as execuções de produção que deram certo não são salvas (os JSONs já levam `saveDataSuccessExecution: none`);
+  - apontar o fluxo de erro do Alertas para o id novo do `CRM - Erros`;
+  - ver por quanto tempo ficam as execuções com erro.
 
 ## Arquitetura
 
@@ -124,7 +149,7 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 ```
 src/Crm.Api/                 API, organizada por módulo em Features/ (Leads, Funil, Usuarios, Integracoes, Painel, Notificacoes)
-src/Crm.Api/Infra/           DbContext, migrations, despachante de eventos, importação CSV, tempo real, proxy, chaves da sessão, front e o comando da demonstração
+src/Crm.Api/Infra/           DbContext, migrations, auditoria, despachante de eventos, importação CSV, tempo real, proxy, chaves da sessão, front e o comando da demonstração
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
@@ -219,12 +244,27 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - A `MassaDoPainel` é criada uma vez (`ObterAsync`) e lida pelos testes do painel e do relatório. Nenhum teste pode mudá-la.
 - Sem `de` e `ate`, as rotas do relatório na integração devolvem a semana anterior, e as do admin, os últimos 30 dias. Um teste que cria leads agora e chama a integração passa as datas, como o `RelatorioTests`.
 - Para abrir um CSV no Excel por automação (COM) como no clique duplo, passe `Local` verdadeiro no `Workbooks.Open` (o 14º parâmetro). Sem ele, o Excel separa as colunas pela vírgula, e não pelo ponto e vírgula do Windows em português.
+  - Enquanto o arquivo abre, o Excel recusa chamadas (`RPC_E_CALL_REJECTED`): repita a chamada.
+  - Uma função do PowerShell que devolve um `Range` o desenrola em células: devolva com a vírgula (`return , $resultado`).
+  - Um Excel de automação que fica aberto não tem janela: encerre só esse, nunca um do usuário.
 - Nos testes do front, o hub é falso (`test/hubFalso.ts`, devolvido pelo `renderizarApp`): emita os avisos com `hub.emitir`. O MSW recusa requisições não tratadas, e o hub de verdade faria uma. O jsdom não tem a `Notification`: os testes da notificação nativa a trocam por uma falsa (`vi.stubGlobal`) e controlam o `document.visibilityState`.
 - A reconexão automática do SignalR não tenta de novo quando o primeiro início falha nem quando o servidor encerra a conexão (sessão encerrada, perfil trocado). O `TempoReal` faz a própria, conferindo a sessão antes de cada tentativa: só um 401 leva ao login.
 - Com a aba escondida e a notificação nativa ligada, o `TempoReal` busca a lista do sino pelo `fetchQuery`, para ter o título. Uma invalidação com `cancelRefetch` (o padrão) cancelaria essa busca, e a notificação não apareceria: a recarga do sino usa `cancelRefetch: false`.
 - Nos testes do front, numa seleção cuja lista vem de outra consulta (campanhas, usuários), espere a opção aparecer (`findByRole('option')`) antes do `selectOptions`: com a suíte inteira rodando, a lista pode chegar depois.
 - No Git Bash, um caminho como `/backup/backup.sh` num `docker compose exec` vira um caminho do Windows. Rode com `MSYS_NO_PATHCONV=1`.
 - Com a API de desenvolvimento rodando, o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio.
+  - Para só conferir que compila, use `dotnet build Crm.sln --artifacts-path <pasta do scratchpad>`, que não escreve no `bin/`.
+  - Para gerar os tipos do front sem parar a API, suba a API nova no contêiner do SDK, em Development, contra um PostgreSQL descartável e numa outra porta:
+    - `docker compose -f docker-compose.testes.yml run --rm -p 127.0.0.1:5081:5081 --entrypoint sh` com `ASPNETCORE_ENVIRONMENT=Development`, `ASPNETCORE_URLS`, `ConnectionStrings__Crm` e `Admin__*` fictícios;
+    - e `-c "dotnet build src/Crm.Api --artifacts-path /artefatos && cd /src/src/Crm.Api && dotnet /artefatos/bin/Crm.Api/debug/Crm.Api.dll"`.
+
+    Depois, rode `npx openapi-typescript http://127.0.0.1:5081/openapi/v1.json -o src/api/schema.d.ts`.
+- No Windows, um argumento com acento passado ao `curl` perde o UTF-8, e a API responde 400. Mande o corpo de um arquivo (`--data-binary @arquivo`).
+- Com uma importação processando, de qualquer teste, anonimizar responde 409. Os testes que anonimizam usam um banco só deles: o `AnonimizacaoTests` e o caso da LGPD no `LogsTests`.
+- A entrada de um lead anonimizado guarda `anon:` e o SHA-256 do id externo (`IdExternoAnonimo`), e a idempotência procura pelo id e pelo hash. O hash não pode mudar: se mudasse, o reenvio de um lead anonimizado criaria a pessoa de novo. O `IdExternoAnonimoTests` fixa o valor.
+- O `jsonb` reordena as chaves e põe espaços. Nos testes, compare os detalhes da auditoria pelos valores, e não pelo texto.
+- A ordem das linhas do painel desempata pelo nome, e os testes do banco compartilhado repetem nomes, como a campanha "Outubro | Serviço Y" e a "Atendente de teste". Num `UPDATE`, a ordem dos empatados pode mudar. Para comparar o JSON inteiro do painel, use um banco próprio e nomes únicos.
+- O JSON do titular é escrito com o `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, porque o codificador padrão escreve `Conceição`. Isso é seguro aqui: o arquivo é baixado como `application/json`.
 - O contêiner dos testes (`docker-compose.testes.yml`) monta o código só para leitura, compila com `--artifacts-path` num volume e usa `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, porque o PostgreSQL dos testes sobe no Docker do computador. Teste que precisa achar o repositório parte do próprio arquivo de código (`[CallerFilePath]`, como no `PublicacaoTests`), e não do `AppContext.BaseDirectory`, que no contêiner fica fora dele.
 - O comando `preparar-demonstracao` apaga todos os leads, as campanhas e as importações.
   - Ele só roda com `Demo__Permitir=true` no ambiente e com o `Crm__UrlPublica` em `localhost`.
@@ -237,7 +277,7 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - O servidor MCP `n8n` do `.mcp.json` aponta para a instância de desenvolvimento, que acaba em 06/10/2026, e fica desconectado até o n8n de produção existir. Até lá, não crie nem altere fluxos, e liste como pendente o que depender do n8n. Quando o `.mcp.json` apontar para o n8n de produção, use o MCP para criar, validar e testar os fluxos da seção 4.5 da especificação.
 - Nunca publique, ative nem execute um fluxo sem confirmação do usuário: um fluxo ativo pode mandar e-mail de verdade.
 - Todo fluxo do CRM tem o nome começando por `CRM - `. Credenciais ficam no n8n, nunca dentro do fluxo.
-- Depois de criar ou alterar um fluxo, salve o JSON dele em `n8n/<nome-do-fluxo>.json`.
+- Depois de criar ou alterar um fluxo, salve o JSON dele em `n8n/<nome-do-fluxo>.json`. O `FluxosN8nTests` confere que cada JSON é de um fluxo `CRM - ` e não salva as execuções de produção que deram certo (`saveDataSuccessExecution: none`).
 
 ## Como trabalhar
 
