@@ -39,7 +39,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
 - No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Além dos 60 leads da massa, há o que a Adriana criou na validação do Passo 8. Para voltar aos 60 antes da demonstração, é só rodar o comando de novo.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
-- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 552 de 552 em 08/10/2026.
+- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 603 de 603 em 09/10/2026, e os do front, 177 de 177.
 - Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
   - testes automáticos dos dois critérios de aceite: o lead da integração chega à responsável do rodízio em menos de 5 s (`TempoRealRodizioTests`), e a atendente não recebe o id de lead de outra pessoa em nenhum caso (`TempoRealTests`, com um lead da outra atendente como sentinela);
   - no Chrome sem janela, contra o Compose de produção local: o cartão apareceu no funil da atendente 1,6 s depois do envio pela integração com a API ainda fria e 0,35 s com ela quente, pelo WebSocket `wss://localhost:8444/hubs/notificacoes` (handshake 101); a outra atendente não recebeu o id do lead; o console ficou sem erros e sem issues da CSP;
@@ -78,6 +78,22 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a tabela por atendente mostra a Adriana com 31 leads e a Pietra com 29;
   - a Adriana cai no funil, e o Painel dela mostra só os números dela, sem o filtro de responsável e sem a tabela por atendente;
   - com o painel do admin aberto, um lead criado pela Adriana subiu os leads novos de 60 para 61, sem recarregar a página.
+- Passo 9 implementado em 08/10/2026 e conferido pelo Claude em 09/10/2026. Por decisão minha:
+  - os leads sem campanha entram no relatório numa linha por origem, sempre no fim;
+  - a integração entrega também o CSV pronto (`/api/integracoes/relatorios/campanhas/csv`), que o fluxo semanal vai anexar ao e-mail da Gama;
+  - sem `de` e `ate`, as rotas da integração devolvem a semana anterior inteira, de segunda a domingo no horário de Brasília, e o fluxo não calcula data. A tela continua com os últimos 30 dias.
+- Conferências do Passo 9:
+  - os dois critérios de aceite têm testes automáticos:
+    - cada linha do CSV bate com o painel filtrado por ela, e o total, com o painel sem filtros, na massa conhecida (`RelatorioMassaConhecidaTests`);
+    - nenhum dado pessoal no JSON e no CSV das quatro rotas (`RelatorioTests`) nem no log (`LogsTests`);
+  - a semana anterior é testada com o relógio parado numa segunda às 8h e numa quarta (`RelatorioSemanaAnteriorTests`);
+  - num Compose de produção descartável (`-p crm-relatorio`, portas 8091 e 8455), com a massa da demonstração:
+    - pela API, as 5 campanhas e o total bateram com o painel, e a integração sem datas devolveu a semana de 28/09 a 04/10;
+    - no Chrome sem janela, o `/relatorio` ficou sem rolagem lateral em 1280 e em 360 px, sem erros no console e sem issues, e o Baixar CSV trouxe os mesmos bytes da API;
+    - no Excel, aberto como no clique duplo, as colunas e os acentos ficaram certos, e a taxa e a mediana viraram números;
+    - uma campanha "-20% Black Friday" apareceu no Excel com o apóstrofo na frente.
+  - O Excel desta máquina confirmou que o apóstrofo é necessário: sem ele, "+Leads outubro" vira `#NOME?`, e "=1+1", "-2+3" e "@SOMA(1;2)" viram contas.
+- Falta a minha validação do Passo 9 pela tela. O fluxo `CRM - Relatório semanal Gama` fica para o n8n de produção.
 
 ## Arquitetura
 
@@ -193,6 +209,9 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - O Vitest 5 não mostra o console dos testes que passam, nem o aviso do MSW de uma requisição sem tratador, que só faz a requisição falhar. Para vê-los, rode `npx vitest run --silent=false`.
 - Nos testes do front, o admin em `/` vai para o painel, que chama `/api/painel`: registre o `comPainel()`. A atendente em `/` vai para o funil (`comQuadro()`).
 - Teste que confere os totais do admin, como os do painel, usa um banco só dele (`MassaDoPainel`): no banco compartilhado, os leads dos outros testes entram na conta. Lá, isole os números por uma campanha única ou por uma atendente nova.
+- A `MassaDoPainel` é criada uma vez (`ObterAsync`) e lida pelos testes do painel e do relatório. Nenhum teste pode mudá-la.
+- Sem `de` e `ate`, as rotas do relatório na integração devolvem a semana anterior, e as do admin, os últimos 30 dias. Um teste que cria leads agora e chama a integração passa as datas, como o `RelatorioTests`.
+- Para abrir um CSV no Excel por automação (COM) como no clique duplo, passe `Local` verdadeiro no `Workbooks.Open` (o 14º parâmetro). Sem ele, o Excel separa as colunas pela vírgula, e não pelo ponto e vírgula do Windows em português.
 - Nos testes do front, o hub é falso (`test/hubFalso.ts`, devolvido pelo `renderizarApp`): emita os avisos com `hub.emitir`. O MSW recusa requisições não tratadas, e o hub de verdade faria uma. O jsdom não tem a `Notification`: os testes da notificação nativa a trocam por uma falsa (`vi.stubGlobal`) e controlam o `document.visibilityState`.
 - A reconexão automática do SignalR não tenta de novo quando o primeiro início falha nem quando o servidor encerra a conexão (sessão encerrada, perfil trocado). O `TempoReal` faz a própria, conferindo a sessão antes de cada tentativa: só um 401 leva ao login.
 - Com a aba escondida e a notificação nativa ligada, o `TempoReal` busca a lista do sino pelo `fetchQuery`, para ter o título. Uma invalidação com `cancelRefetch` (o padrão) cancelaria essa busca, e a notificação não apareceria: a recarga do sino usa `cancelRefetch: false`.

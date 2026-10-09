@@ -176,6 +176,24 @@ O painel é a tela inicial do admin. A atendente o abre pelo menu e vê só os p
 - Os leads de teste ficam de fora de tudo, e os anonimizados continuam contando.
 - O painel se atualiza sozinho quando um lead muda, como o funil.
 
+### Relatório por campanha
+
+Em Relatório (só admin) fica o relatório que a Gama recebe, sem dados pessoais. As definições estão na seção 8 da especificação.
+
+- Cada campanha tem uma linha com:
+  - os leads novos e as entradas;
+  - quantos estão em andamento, ganhos e perdidos, ou seja, onde os leads novos estão hoje (os três somam os leads novos);
+  - a conversão e a mediana do primeiro contato.
+- Os leads sem campanha (cadastro manual, site, indicação e outros) ficam no fim, numa linha por origem. A última linha é o total.
+- Os números são os do painel no mesmo período: cada campanha bate com o painel filtrado por ela, e o total, com o painel sem filtros.
+- O período funciona como no painel e fica no endereço. O botão Baixar CSV baixa o mesmo relatório, no período da tela, pronto para o Excel: ponto e vírgula, acentos certos e a conversão como porcentagem.
+- Uma campanha cujo nome começa com `=`, `+`, `-` ou `@` sai no CSV com um apóstrofo na frente, que o Excel mostra na célula (`'+Leads outubro`). Sem ele, o Excel leria o nome como fórmula e mostraria `#NOME?`.
+- A tela se atualiza sozinha quando um lead muda, como o painel.
+- O n8n busca o mesmo relatório com a chave de integração, em `GET /api/integracoes/relatorios/campanhas` (JSON) ou `.../csv`.
+  - Sem datas, vem a semana anterior inteira, de segunda a domingo.
+  - É o que o fluxo `CRM - Relatório semanal Gama` vai mandar à Gama toda segunda, quando houver o n8n de produção.
+  - Para testar pela API, use as requisições do relatório no [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http).
+
 ### Rodízio, notificações e alertas
 
 - Em Configurações › Usuários, o cartão Rodízio liga e desliga a distribuição automática e mostra para quem vai o próximo lead. A coluna Rodízio da lista escolhe quem participa: nas férias ou folgas, desligue a da pessoa.
@@ -303,18 +321,19 @@ src/Crm.Api/                 API (ASP.NET Core, .NET 10), organizada por módulo
                              Leads/ (leads, entrada, rodízio, normalização, campanhas, interações e linha do tempo),
                              Funil/ (etapas, motivos de perda, mudança de etapa com histórico e quadro),
                              Notificacoes/ (sino e quem é avisado de cada acontecimento), Integracoes/ (chave e rotas do n8n),
-                             Painel/ (métricas da seção 8)
+                             Painel/ (métricas da seção 8 e o relatório por campanha)
 src/Crm.Api/Infra/           DbContext e migrations (Dados/), auditoria (Auditoria/), .env e configurações do sistema
                              (Configuracao/), eventos para o n8n e o despachante (Eventos/), horário de Brasília (Datas/),
                              importação CSV, com a leitura do arquivo e o processamento em segundo plano (Importacoes/),
                              hub do tempo real, com a conferência das conexões e os avisos depois do commit (TempoReal/),
-                             ProblemDetails, validação, proxy, chaves da sessão e o front servido pela API (Web/),
+                             ProblemDetails, validação, CSV para o Excel, proxy, chaves da sessão e o front servido pela
+                             API (Web/),
                              o comando que prepara a demonstração do painel (Demonstracao/)
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
-web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, funil, leads, importacao,
-                             notificacoes, tempo-real, configuracoes, usuarios), components/ui/ do shadcn/ui, api/ com o
-                             cliente e os tipos gerados
+web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, relatorio, funil, leads,
+                             importacao, notificacoes, tempo-real, configuracoes, usuarios), components/ui/ do shadcn/ui,
+                             api/ com o cliente e os tipos gerados
 n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
 docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo para a importação (exemplos/)
