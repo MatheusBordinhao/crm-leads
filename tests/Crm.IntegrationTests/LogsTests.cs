@@ -247,6 +247,53 @@ public class LogsTests(CrmApiFactory fabrica)
             ]);
     }
 
+    [Fact]
+    public async Task A_LGPD_a_exportacao_e_a_auditoria_nunca_poem_dados_pessoais_no_log_nem_no_nivel_trace()
+    {
+        // Num banco próprio: com uma importação de outro teste processando, a anonimização responderia 409.
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.ApiNoBanco(await fabrica.CriarBancoAsync("logs_lgpd"), builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        using var n8n = api.CriarClienteIntegracao();
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        corpo["nome"] = $"Nome Sigiloso {marca}";
+        corpo["empresa"] = $"Empresa Sigilosa {marca}";
+        corpo["cpfCnpj"] = LeadsDeTeste.CpfUnico();
+        corpo["gclid"] = $"gclid-sigiloso-{marca}";
+        corpo["respostasExtras"] = new Dictionary<string, string> { ["Pergunta"] = $"Resposta sigilosa {marca}" };
+        var id = await n8n.EnviarLeadIdAsync(corpo);
+        (await admin.RegistrarInteracaoAsync(id, "ligacao", $"Conversa sigilosa {marca}")).EnsureSuccessStatusCode();
+        var deTeste = LeadsDeTeste.CorpoIntegracao();
+        deTeste["teste"] = true;
+        deTeste["nome"] = $"Teste Sigiloso {marca}";
+        var idDeTeste = await n8n.EnviarLeadIdAsync(deTeste);
+
+        // Exportar a lista e os dados do titular, anonimizar, excluir o lead de teste e consultar a auditoria.
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/leads/exportacao", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/leads/{id}/dados-titular", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.AnonimizarAsync(id)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/leads/{idDeTeste}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/auditoria?entidade=lead&entidadeId={id}", Ct)).StatusCode);
+
+        AssertSemVazamento(
+            captura,
+            [
+                (string)corpo["nome"]!,
+                (string)corpo["email"]!,
+                (string)corpo["telefone"]!,
+                (string)corpo["cpfCnpj"]!,
+                $"Empresa Sigilosa {marca}",
+                $"gclid-sigiloso-{marca}",
+                $"Resposta sigilosa {marca}",
+                $"Conversa sigilosa {marca}",
+                (string)corpo["idExterno"]!,
+                (string)deTeste["nome"]!,
+                (string)deTeste["email"]!,
+            ]);
+    }
+
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)
     {
         var registros = captura.Registros.ToList();
