@@ -290,6 +290,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auditoria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    de?: string;
+                    ate?: string;
+                    usuarioId?: string;
+                    acao?: string;
+                    entidade?: string;
+                    entidadeId?: string;
+                    pagina?: number;
+                    tamanho?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ListaAuditoriaResponse"];
+                        "application/json": components["schemas"]["ListaAuditoriaResponse"];
+                        "text/json": components["schemas"]["ListaAuditoriaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -1228,7 +1284,36 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1314,6 +1399,159 @@ export interface paths {
                     "application/*+json": components["schemas"]["TrocarResponsavelRequest"];
                 };
             };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LeadResponse"];
+                        "application/json": components["schemas"]["LeadResponse"];
+                        "text/json": components["schemas"]["LeadResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leads/exportacao": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    busca?: string;
+                    etapaId?: number;
+                    origem?: components["schemas"]["Origem"];
+                    campanhaId?: number;
+                    responsavelId?: string;
+                    semResponsavel?: boolean;
+                    de?: string;
+                    ate?: string;
+                    ordem?: components["schemas"]["OrdemLeads"];
+                    pagina?: number;
+                    tamanho?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leads/{id}/dados-titular": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DadosTitularResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leads/{id}/anonimizar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -2227,6 +2465,100 @@ export interface components {
             participaRodizio: boolean;
             senhaProvisoria: string;
         };
+        DadosTitularEntrada: {
+            origem: components["schemas"]["Origem"];
+            idExterno: null | string;
+            campanha: null | string;
+            conjunto: null | components["schemas"]["JsonElement"];
+            anuncio: null | components["schemas"]["JsonElement"];
+            formulario: null | components["schemas"]["JsonElement"];
+            utmSource: null | string;
+            utmMedium: null | string;
+            utmCampaign: null | string;
+            utmContent: null | string;
+            utmTerm: null | string;
+            gclid: null | string;
+            respostasExtras: null | components["schemas"]["JsonElement"];
+            payloadBruto: null | components["schemas"]["JsonElement"];
+            situacao: components["schemas"]["SituacaoEntrada"];
+            teste: boolean;
+            /** Format: date-time */
+            recebidoEm: string;
+            /** Format: date-time */
+            processadoEm: string;
+        };
+        DadosTitularEnvio: {
+            tipo: components["schemas"]["TipoEvento"];
+            situacao: components["schemas"]["SituacaoEvento"];
+            /** Format: date-time */
+            criadoEm: string;
+            /** Format: date-time */
+            entregueEm: null | string;
+        };
+        DadosTitularInteracao: {
+            tipo: components["schemas"]["TipoInteracao"];
+            descricao: null | string;
+            /** Format: date-time */
+            ocorridoEm: string;
+            registradaPor: string;
+            /** Format: date-time */
+            criadoEm: string;
+        };
+        DadosTitularLead: {
+            /** Format: int64 */
+            id: number;
+            nome: string;
+            email: null | string;
+            telefone: null | string;
+            cpfCnpj: null | string;
+            uf: null | string;
+            empresa: null | string;
+            origem: components["schemas"]["Origem"];
+            plataforma: null | string;
+            campanha: null | string;
+            utmSource: null | string;
+            utmMedium: null | string;
+            utmCampaign: null | string;
+            utmContent: null | string;
+            utmTerm: null | string;
+            gclid: null | string;
+            respostasExtras: null | components["schemas"]["JsonElement"];
+            etapa: string;
+            responsavel: null | string;
+            motivoPerda: null | string;
+            motivoPerdaDetalhe: null | string;
+            teste: boolean;
+            /** Format: date-time */
+            criadoEm: string;
+            /** Format: date-time */
+            atualizadoEm: string;
+            /** Format: date-time */
+            primeiroContatoEm: null | string;
+            /** Format: date-time */
+            convertidoEm: null | string;
+            /** Format: date-time */
+            perdidoEm: null | string;
+            /** Format: date-time */
+            anonimizadoEm: null | string;
+        };
+        DadosTitularMudancaEtapa: {
+            de: string;
+            para: string;
+            motivoPerda: null | string;
+            motivoPerdaDetalhe: null | string;
+            por: null | string;
+            /** Format: date-time */
+            ocorridoEm: string;
+        };
+        DadosTitularResponse: {
+            /** Format: date-time */
+            geradoEm: string;
+            lead: components["schemas"]["DadosTitularLead"];
+            entradas: components["schemas"]["DadosTitularEntrada"][];
+            interacoes: components["schemas"]["DadosTitularInteracao"][];
+            historicoEtapas: components["schemas"]["DadosTitularMudancaEtapa"][];
+            enviosAoN8n: components["schemas"]["DadosTitularEnvio"][];
+        };
         DesativarEtapaRequest: {
             /** Format: int32 */
             moverLeadsParaId: null | number;
@@ -2375,6 +2707,7 @@ export interface components {
             etapa: null | components["schemas"]["MudancaEtapaNaLinhaDoTempo"];
             responsavel: null | components["schemas"]["TrocaResponsavelNaLinhaDoTempo"];
         };
+        JsonElement: unknown;
         LeadDaNotificacao: {
             /** Format: int64 */
             id: number;
@@ -2452,6 +2785,15 @@ export interface components {
             taxaConversao: null | number;
             /** Format: double */
             medianaPrimeiroContatoMinutos: null | number;
+        };
+        ListaAuditoriaResponse: {
+            itens: components["schemas"]["RegistroAuditoriaResponse"][];
+            /** Format: int32 */
+            total: number;
+            /** Format: int32 */
+            pagina: number;
+            /** Format: int32 */
+            tamanho: number;
         };
         ListaLeadsResponse: {
             itens: components["schemas"]["LeadResumoResponse"][];
@@ -2589,6 +2931,18 @@ export interface components {
             /** Format: date-time */
             ocorridoEm: string;
         };
+        RegistroAuditoriaResponse: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            ocorridoEm: string;
+            usuario: null | components["schemas"]["UsuarioResumo"];
+            acao: string;
+            entidade: null | string;
+            entidadeId: null | string;
+            detalhes: null | components["schemas"]["JsonElement"];
+            ip: null | string;
+        };
         RelatorioCampanhasResponse: {
             /** Format: date */
             de: string;
@@ -2625,9 +2979,13 @@ export interface components {
         /** @enum {unknown} */
         SituacaoEntrada: "criado" | "vinculado" | "erro";
         /** @enum {unknown} */
+        SituacaoEvento: "pendente" | "entregue" | "falhou";
+        /** @enum {unknown} */
         SituacaoImportacao: "processando" | "concluida";
         /** @enum {unknown} */
         TipoEtapa: "aberta" | "ganho" | "perdido";
+        /** @enum {unknown} */
+        TipoEvento: "lead.criado" | "lead.entrada_repetida" | "lead.reatribuido" | "lead.etapa_alterada";
         /** @enum {unknown} */
         TipoInteracao: "nota" | "ligacao" | "whatsapp" | "email" | "reuniao";
         /** @enum {unknown} */

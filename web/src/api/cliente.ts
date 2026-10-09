@@ -50,6 +50,9 @@ export type LinhaRelatorioResponse = Schemas['LinhaRelatorioResponse']
 export type FiltrosRelatorio = NonNullable<
   paths['/api/relatorios/campanhas']['get']['parameters']['query']
 >
+export type RegistroAuditoriaResponse = Schemas['RegistroAuditoriaResponse']
+export type ListaAuditoriaResponse = Schemas['ListaAuditoriaResponse']
+export type FiltrosAuditoria = NonNullable<paths['/api/auditoria']['get']['parameters']['query']>
 
 /** ProblemDetails da API. Nas respostas 400, `errors` traz as mensagens de cada campo. */
 export type Problema = Schemas['ProblemDetails'] & { errors?: Record<string, string[]> }
