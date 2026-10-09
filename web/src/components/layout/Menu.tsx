@@ -3,6 +3,7 @@ import {
   ContactRoundIcon,
   FileSpreadsheetIcon,
   FileUpIcon,
+  ScrollTextIcon,
   SlidersHorizontalIcon,
   SquareKanbanIcon,
   UsersIcon,
@@ -33,6 +34,7 @@ function gruposDoMenu(perfil: Perfil): Grupo[] {
         LEADS,
         { para: '/relatorio', rotulo: 'Relatório', icone: FileSpreadsheetIcon },
         { para: '/importacao', rotulo: 'Importação', icone: FileUpIcon },
+        { para: '/auditoria', rotulo: 'Auditoria', icone: ScrollTextIcon },
       ],
     },
     {

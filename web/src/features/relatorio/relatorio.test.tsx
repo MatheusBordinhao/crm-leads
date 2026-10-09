@@ -48,6 +48,7 @@ describe('relatório por campanha', () => {
       'Leads',
       'Relatório',
       'Importação',
+      'Auditoria',
       'Usuários',
       'Etapas e motivos',
     ])

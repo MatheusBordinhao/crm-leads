@@ -41,6 +41,7 @@ describe('painel', () => {
       'Leads',
       'Relatório',
       'Importação',
+      'Auditoria',
       'Usuários',
       'Etapas e motivos',
     ])

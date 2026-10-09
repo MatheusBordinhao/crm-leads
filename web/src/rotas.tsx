@@ -4,6 +4,7 @@ import { NaoEncontradaPage } from '@/components/NaoEncontradaPage'
 import { LoginPage } from '@/features/acesso/LoginPage'
 import { RotaAdmin, RotaProtegida, TelaInicial } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
+import { AuditoriaPage } from '@/features/auditoria/AuditoriaPage'
 import { ConfiguracaoFunilPage } from '@/features/configuracoes/ConfiguracaoFunilPage'
 import { FunilPage } from '@/features/funil/FunilPage'
 import { ImportacaoPage } from '@/features/importacao/ImportacaoPage'
@@ -37,6 +38,7 @@ export const rotas: RouteObject[] = [
               { path: '/relatorio', element: <RelatorioPage /> },
               { path: '/importacao', element: <ImportacaoPage /> },
               { path: '/importacao/:id', element: <ResultadoImportacaoPage /> },
+              { path: '/auditoria', element: <AuditoriaPage /> },
               { path: '/configuracoes/usuarios', element: <UsuariosPage /> },
               { path: '/configuracoes/funil', element: <ConfiguracaoFunilPage /> },
             ],
