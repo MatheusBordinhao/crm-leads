@@ -93,7 +93,14 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - no Excel, aberto como no clique duplo, as colunas e os acentos ficaram certos, e a taxa e a mediana viraram números;
     - uma campanha "-20% Black Friday" apareceu no Excel com o apóstrofo na frente.
   - O Excel desta máquina confirmou que o apóstrofo é necessário: sem ele, "+Leads outubro" vira `#NOME?`, e "=1+1", "-2+3" e "@SOMA(1;2)" viram contas.
-- Falta a minha validação do Passo 9 pela tela. O fluxo `CRM - Relatório semanal Gama` fica para o n8n de produção.
+- Passo 9 validado manualmente por mim em 09/10/2026, em desenvolvimento, com a massa da demonstração:
+  - o Relatório só aparece no menu do admin;
+  - nos últimos 30 dias, o total do relatório (59 leads novos, 64 entradas, 42 em andamento, 10 ganhos, 7 perdidos e 16,9% de conversão) bate com o painel;
+  - as linhas sem campanha ficam no fim;
+  - o CSV abriu no Excel com um clique duplo, com os acentos certos e a taxa como número;
+  - a Adriana não tem o item no menu, e `/relatorio` a leva ao funil;
+  - pela integração, sem datas e com a chave, veio a semana de 28/09 a 04/10; sem a chave, a resposta foi 401.
+- Do Passo 9, só o fluxo `CRM - Relatório semanal Gama` fica pendente, para o n8n de produção.
 
 ## Arquitetura
 
