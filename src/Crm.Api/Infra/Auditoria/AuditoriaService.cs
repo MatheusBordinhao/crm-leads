@@ -31,6 +31,12 @@ internal static class AcoesAuditoria
     /// <summary>Exclusão de um lead de teste, sem detalhes: o lead e o que dependia dele saíram do banco.</summary>
     public const string LeadExcluido = "lead.excluido";
 
+    /// <summary>
+    /// Exportação da lista de leads em CSV, com <c>detalhes { linhas, filtros }</c>. Da busca, só <c>busca: true</c>: o texto
+    /// pode ser um nome ou um e-mail.
+    /// </summary>
+    public const string LeadsExportados = "leads.exportados";
+
     public const string EtapaCriada = "etapa.criada";
     public const string EtapaEditada = "etapa.editada";
     public const string EtapasReordenadas = "etapas.reordenadas";

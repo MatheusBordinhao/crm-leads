@@ -154,7 +154,13 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - **Processamento em segundo plano:** a importação é gravada e processada linha a linha, e a tela acompanha o andamento. Se a API parar no meio, a importação continua de onde parou, e as linhas que já tinham entrado respondem "já importado" sem mudar as contagens. O arquivo fica guardado só até o fim do processamento.
 - O resultado mostra quantos leads foram criados, vinculados a leads existentes, já importados antes e com erro (com linha e motivo), e quantos dos criados ficaram sem responsável. O relatório de erros pode ser baixado: um CSV para o Excel (UTF-8 com BOM e ponto e vírgula) com a linha e o motivo, sem dados pessoais.
 - A importação entra na auditoria (`importacao.criada`, com a origem e o número de linhas, sem o nome do arquivo), e cada lead criado, como `lead.criado` do admin que importou.
-- **Exportação (admin):** CSV dos leads com os filtros da lista. Cada exportação entra na auditoria.
+- **Exportação (admin):** CSV dos leads com os filtros e a ordem da lista, sem paginação, no formato do Excel da seção 8 (UTF-8 com BOM, ponto e vírgula, CRLF e o apóstrofo contra fórmula), com o nome `leads-2026-10-09.csv`:
+  - as colunas são Id, Nome, E-mail, Telefone, CPF/CNPJ, UF, Empresa, Etapa, Motivo da perda, Responsável, Origem, Plataforma, Campanha, as cinco UTMs, GCLID, Respostas do formulário (`Pergunta: resposta | …`), Entrada, Primeiro contato, Ganho em, Perdido em, Teste (Sim ou Não) e Anonimizado em;
+  - o telefone do Brasil sai no formato nacional, `(51) 99999-8888`; o de outro país, no internacional; e o não reconhecido, como foi guardado;
+  - o CPF e o CNPJ saem com a máscara, como `529.982.247-25` e `12.ABC.345/01DE-35`, porque sem ela o Excel tira os zeros do começo e mostra o CNPJ em notação científica;
+  - as datas saem no horário de Brasília, como `05/10/2026 14:03`.
+
+  Cada exportação entra na auditoria (`leads.exportados`), com o número de linhas e os filtros. Da busca, a auditoria guarda só que houve uma, porque o texto pode ser um nome ou um e-mail.
 - **Relatório por campanha:** CSV sem dados pessoais (seção 8).
 
 ### 3.8 LGPD

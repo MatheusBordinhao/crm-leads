@@ -27,6 +27,22 @@ public static class Telefones
     public static bool Valido(string? normalizado) =>
         normalizado is not null && TentarE164(normalizado, out var e164) && e164 == normalizado;
 
+    /// <summary>
+    /// O telefone guardado como uma pessoa lê, numa planilha: no formato nacional quando é do Brasil (<c>(51) 99999-8888</c>),
+    /// no internacional quando é de outro país (<c>+1 650-253-0000</c>) e como foi guardado quando não foi reconhecido.
+    /// </summary>
+    public static string? ParaLeitura(string? normalizado)
+    {
+        if (!Valido(normalizado))
+        {
+            return normalizado;
+        }
+
+        var numero = Util.Parse(normalizado, RegiaoPadrao);
+        var doBrasil = numero.CountryCode == Util.GetCountryCodeForRegion(RegiaoPadrao);
+        return Util.Format(numero, doBrasil ? PhoneNumberFormat.NATIONAL : PhoneNumberFormat.INTERNATIONAL);
+    }
+
     private static bool TentarE164(string texto, out string e164)
     {
         e164 = string.Empty;

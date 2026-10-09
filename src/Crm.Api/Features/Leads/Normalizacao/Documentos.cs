@@ -22,6 +22,19 @@ public static class Documentos
         return normalizado.Length == 0 ? null : normalizado;
     }
 
+    /// <summary>
+    /// O documento guardado com a máscara, como uma pessoa lê numa planilha: <c>529.982.247-25</c>, <c>11.222.333/0001-81</c>
+    /// e <c>12.ABC.345/01DE-35</c>. Vale pelo tamanho de um valor só de letras e números; outro valor sai como foi guardado.
+    /// </summary>
+    public static string? ParaLeitura(string? normalizado) => normalizado switch
+    {
+        { Length: 11 } when normalizado.All(char.IsAsciiLetterOrDigit) =>
+            $"{normalizado[..3]}.{normalizado[3..6]}.{normalizado[6..9]}-{normalizado[9..]}",
+        { Length: 14 } when normalizado.All(char.IsAsciiLetterOrDigit) =>
+            $"{normalizado[..2]}.{normalizado[2..5]}.{normalizado[5..8]}/{normalizado[8..12]}-{normalizado[12..]}",
+        _ => normalizado,
+    };
+
     /// <summary>Confere os dígitos verificadores de um valor já normalizado.</summary>
     public static bool Valido(string? normalizado) => normalizado?.Length switch
     {

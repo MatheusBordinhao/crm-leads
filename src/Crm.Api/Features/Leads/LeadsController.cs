@@ -40,16 +40,10 @@ public sealed class LeadsController(
     public async Task<ActionResult<ListaLeadsResponse>> Listar([FromQuery] FiltroLeads filtro)
     {
         var ct = HttpContext.RequestAborted;
-        var consulta = Filtrar(visibilidade.Visiveis(), filtro);
+        var consulta = FiltrosLeads.DaLista(visibilidade.Visiveis(), filtro, visibilidade.EhAdmin);
         var total = await consulta.CountAsync(ct);
 
-        IOrderedQueryable<Lead> ordenada = filtro.Ordem switch
-        {
-            OrdemLeads.Antigos => consulta.OrderBy(l => l.CriadoEm).ThenBy(l => l.Id),
-            OrdemLeads.Nome => consulta.OrderBy(l => l.Nome).ThenBy(l => l.Id),
-            _ => consulta.OrderByDescending(l => l.CriadoEm).ThenByDescending(l => l.Id),
-        };
-        var itens = await ordenada
+        var itens = await FiltrosLeads.Ordenar(consulta, filtro.Ordem)
             .Skip((filtro.Pagina - 1) * filtro.Tamanho)
             .Take(filtro.Tamanho)
             .Select(l => new LeadResumoResponse(
@@ -302,28 +296,75 @@ public sealed class LeadsController(
         return NoContent();
     }
 
-    private IQueryable<Lead> Filtrar(IQueryable<Lead> consulta, FiltroLeads filtro)
+    /// <summary>
+    /// Os leads da lista em CSV para o Excel (só admin), com os mesmos filtros e a mesma ordem, sem paginação. A exportação
+    /// entra na auditoria com os filtros e o número de linhas. Da busca, a auditoria guarda só que houve uma: o texto pode
+    /// ser um nome ou um e-mail.
+    /// </summary>
+    [HttpGet("exportacao")]
+    [Authorize(Policy = Politicas.Admin)]
+    [ProducesResponseType<string>(StatusCodes.Status200OK, "text/csv")]
+    public async Task<IActionResult> Exportar([FromQuery] FiltroLeads filtro)
     {
-        consulta = FiltrosLeads.Aplicar(consulta, filtro, visibilidade.EhAdmin);
+        var ct = HttpContext.RequestAborted;
+        var consulta = FiltrosLeads.DaLista(visibilidade.Visiveis(), filtro, visibilidade.EhAdmin);
+        var leads = await FiltrosLeads.Ordenar(consulta, filtro.Ordem)
+            .AsNoTracking()
+            .Include(l => l.Etapa)
+            .Include(l => l.Responsavel)
+            .Include(l => l.Campanha)
+            .Include(l => l.MotivoPerda)
+            .ToListAsync(ct);
+        auditoria.Registrar(AcoesAuditoria.LeadsExportados, detalhes: new { linhas = leads.Count, filtros = FiltrosNaAuditoria(filtro) });
+        await db.SaveChangesAsync(ct);
+
+        return ExportacaoLeadsCsv.Arquivo(leads, HorarioBrasilia.Dia(relogio.GetUtcNow()));
+    }
+
+    /// <summary>Os filtros usados numa exportação, só com ids, datas e a origem. Da busca, só que ela foi usada.</summary>
+    private static Dictionary<string, object> FiltrosNaAuditoria(FiltroLeads filtro)
+    {
+        var filtros = new Dictionary<string, object>();
+        if (!string.IsNullOrWhiteSpace(filtro.Busca))
+        {
+            filtros["busca"] = true;
+        }
 
         if (filtro.EtapaId is { } etapaId)
         {
-            consulta = consulta.Where(l => l.EtapaId == etapaId);
+            filtros["etapaId"] = etapaId;
+        }
+
+        if (filtro.Origem is { } origem)
+        {
+            filtros["origem"] = EnumTexto<Origem>.Nome(origem);
+        }
+
+        if (filtro.CampanhaId is { } campanhaId)
+        {
+            filtros["campanhaId"] = campanhaId;
+        }
+
+        if (filtro.SemResponsavel)
+        {
+            filtros["semResponsavel"] = true;
+        }
+        else if (filtro.ResponsavelId is { } responsavelId)
+        {
+            filtros["responsavelId"] = responsavelId;
         }
 
         if (filtro.De is { } de)
         {
-            var inicio = HorarioBrasilia.InicioDoDia(de);
-            consulta = consulta.Where(l => l.CriadoEm >= inicio);
+            filtros["de"] = de.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
         if (filtro.Ate is { } ate)
         {
-            var fim = HorarioBrasilia.InicioDoDia(ate.AddDays(1));
-            consulta = consulta.Where(l => l.CriadoEm < fim);
+            filtros["ate"] = ate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
-        return consulta;
+        return filtros;
     }
 
     private void ConferirFormatosAlterados(Lead lead, DadosPessoa novos)

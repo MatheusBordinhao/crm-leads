@@ -1,3 +1,4 @@
+using Crm.Api.Infra.Datas;
 using Microsoft.EntityFrameworkCore;
 
 namespace Crm.Api.Features.Leads;
@@ -53,6 +54,42 @@ internal static class FiltrosLeads
 
         return consulta;
     }
+
+    /// <summary>
+    /// Os filtros da lista de leads, os mesmos na exportação: os comuns, a etapa e o período de entrada, em dias no horário
+    /// de Brasília.
+    /// </summary>
+    public static IQueryable<Lead> DaLista(IQueryable<Lead> consulta, FiltroLeads filtro, bool ehAdmin)
+    {
+        consulta = Aplicar(consulta, filtro, ehAdmin);
+
+        if (filtro.EtapaId is { } etapaId)
+        {
+            consulta = consulta.Where(l => l.EtapaId == etapaId);
+        }
+
+        if (filtro.De is { } de)
+        {
+            var inicio = HorarioBrasilia.InicioDoDia(de);
+            consulta = consulta.Where(l => l.CriadoEm >= inicio);
+        }
+
+        if (filtro.Ate is { } ate)
+        {
+            var fim = HorarioBrasilia.InicioDoDia(ate.AddDays(1));
+            consulta = consulta.Where(l => l.CriadoEm < fim);
+        }
+
+        return consulta;
+    }
+
+    /// <summary>A ordem escolhida na lista, com o id para desempatar.</summary>
+    public static IOrderedQueryable<Lead> Ordenar(IQueryable<Lead> consulta, OrdemLeads ordem) => ordem switch
+    {
+        OrdemLeads.Antigos => consulta.OrderBy(l => l.CriadoEm).ThenBy(l => l.Id),
+        OrdemLeads.Nome => consulta.OrderBy(l => l.Nome).ThenBy(l => l.Id),
+        _ => consulta.OrderByDescending(l => l.CriadoEm).ThenByDescending(l => l.Id),
+    };
 
     /// <summary>Nome e empresa sem acento, e-mail, e os dígitos no telefone e no CPF/CNPJ.</summary>
     private static IQueryable<Lead> Buscar(IQueryable<Lead> consulta, string busca)
