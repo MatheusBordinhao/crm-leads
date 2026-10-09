@@ -56,15 +56,15 @@ internal abstract class ValidadorPeriodo<T> : Validador<T>
 {
     protected ValidadorPeriodo(TimeProvider relogio)
     {
-        RuleFor(f => f.De).Must(PeriodoPainel.DataAceita).WithMessage(PeriodoPainel.MensagemData);
-        RuleFor(f => f.Ate).Must(PeriodoPainel.DataAceita).WithMessage(PeriodoPainel.MensagemData);
+        RuleFor(f => f.De).Must(HorarioBrasilia.DataAceita).WithMessage(HorarioBrasilia.MensagemData);
+        RuleFor(f => f.Ate).Must(HorarioBrasilia.DataAceita).WithMessage(HorarioBrasilia.MensagemData);
         RuleFor(f => f.Ate)
             .Must((filtro, _) =>
             {
                 var periodo = PeriodoPainel.Resolver(filtro.De, filtro.Ate, HorarioBrasilia.Dia(relogio.GetUtcNow()));
                 return periodo.De <= periodo.Ate;
             })
-            .When(f => PeriodoPainel.DataAceita(f.De) && PeriodoPainel.DataAceita(f.Ate))
+            .When(f => HorarioBrasilia.DataAceita(f.De) && HorarioBrasilia.DataAceita(f.Ate))
             .WithMessage(PeriodoPainel.MensagemPeriodo);
     }
 }

@@ -287,7 +287,7 @@ public class RelatorioTests(CrmApiFactory fabrica)
             Assert.Equal(HttpStatusCode.BadRequest, invertido.StatusCode);
             Assert.Equal([PeriodoPainel.MensagemPeriodo], await invertido.LerErrosDoCampoAsync("ate"));
             Assert.Equal(HttpStatusCode.BadRequest, antigo.StatusCode);
-            Assert.Equal([PeriodoPainel.MensagemData], await antigo.LerErrosDoCampoAsync("de"));
+            Assert.Equal([HorarioBrasilia.MensagemData], await antigo.LerErrosDoCampoAsync("de"));
         }
     }
 }

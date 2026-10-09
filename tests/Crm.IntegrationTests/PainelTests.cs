@@ -141,8 +141,8 @@ public class PainelTests(CrmApiFactory fabrica)
         Assert.Equal(HttpStatusCode.BadRequest, invertido.StatusCode);
         Assert.Equal([PeriodoPainel.MensagemPeriodo], await invertido.LerErrosDoCampoAsync("ate"));
         Assert.Equal(HttpStatusCode.BadRequest, antigo.StatusCode);
-        Assert.Equal([PeriodoPainel.MensagemData], await antigo.LerErrosDoCampoAsync("de"));
+        Assert.Equal([HorarioBrasilia.MensagemData], await antigo.LerErrosDoCampoAsync("de"));
         Assert.Equal(HttpStatusCode.BadRequest, extremo.StatusCode);
-        Assert.Equal([PeriodoPainel.MensagemData], await extremo.LerErrosDoCampoAsync("ate"));
+        Assert.Equal([HorarioBrasilia.MensagemData], await extremo.LerErrosDoCampoAsync("ate"));
     }
 }

@@ -13,14 +13,7 @@ public readonly record struct PeriodoPainel(DateOnly De, DateOnly Ate)
 {
     public const int DiasPadrao = 30;
 
-    public const string MensagemData = "Informe uma data entre 01/01/2000 e 31/12/2099.";
-
     public const string MensagemPeriodo = "O fim do período vem depois do início.";
-
-    /// <summary>As datas aceitas: o CRM não tem nada antes, e as extremas estourariam o <see cref="DateOnly"/>.</summary>
-    public static readonly DateOnly MenorData = new(2000, 1, 1);
-
-    public static readonly DateOnly MaiorData = new(2099, 12, 31);
 
     /// <summary>Instante, em UTC, em que o período começa: 00:00 do primeiro dia em Brasília.</summary>
     public DateTimeOffset Inicio => HorarioBrasilia.InicioDoDia(De);
@@ -44,8 +37,6 @@ public readonly record struct PeriodoPainel(DateOnly De, DateOnly Ate)
         var segundaDestaSemana = hoje.AddDays(-(((int)hoje.DayOfWeek + 6) % 7));
         return new PeriodoPainel(segundaDestaSemana.AddDays(-7), segundaDestaSemana.AddDays(-1));
     }
-
-    public static bool DataAceita(DateOnly? dia) => dia is null || (dia >= MenorData && dia <= MaiorData);
 }
 
 /// <summary>Um lead novo do período, só com o que as métricas usam.</summary>

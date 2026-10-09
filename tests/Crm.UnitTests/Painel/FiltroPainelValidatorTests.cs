@@ -1,4 +1,5 @@
 using Crm.Api.Features.Painel;
+using Crm.Api.Infra.Datas;
 
 namespace Crm.UnitTests.Painel;
 
@@ -36,8 +37,8 @@ public class FiltroPainelValidatorTests
     [Fact]
     public void Datas_fora_de_2000_a_2099_sao_recusadas()
     {
-        Assert.Equal([("De", PeriodoPainel.MensagemData)], Erros(new(1999, 12, 31), new(2026, 9, 30)));
-        Assert.Equal([("Ate", PeriodoPainel.MensagemData)], Erros(null, DateOnly.MaxValue));
+        Assert.Equal([("De", HorarioBrasilia.MensagemData)], Erros(new(1999, 12, 31), new(2026, 9, 30)));
+        Assert.Equal([("Ate", HorarioBrasilia.MensagemData)], Erros(null, DateOnly.MaxValue));
         Assert.Empty(Erros(new(2000, 1, 1), new(2099, 12, 31)));
     }
 }

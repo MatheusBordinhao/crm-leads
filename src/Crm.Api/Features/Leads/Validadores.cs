@@ -1,5 +1,6 @@
 using Crm.Api.Features.Leads.Normalizacao;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Datas;
 using Crm.Api.Infra.Web;
 using FluentValidation;
 
@@ -76,6 +77,8 @@ internal sealed class FiltroLeadsValidator : Validador<FiltroLeads>
             .InclusiveBetween(1, FiltroLeads.TamanhoMaximo)
             .WithMessage($"O tamanho da página vai de 1 a {FiltroLeads.TamanhoMaximo}.");
         RuleFor(f => f.Ordem).IsInEnum().WithMessage("Ordem inválida.");
+        RuleFor(f => f.De).Must(HorarioBrasilia.DataAceita).WithMessage(HorarioBrasilia.MensagemData);
+        RuleFor(f => f.Ate).Must(HorarioBrasilia.DataAceita).WithMessage(HorarioBrasilia.MensagemData);
         RuleFor(f => f.Ate)
             .GreaterThanOrEqualTo(f => f.De)
             .When(f => f.De is not null && f.Ate is not null)

@@ -324,6 +324,8 @@ public class LeadsTests(CrmApiFactory fabrica)
     [InlineData("tamanho=101", "tamanho")]
     [InlineData("pagina=0", "pagina")]
     [InlineData("de=2026-10-10&ate=2026-10-01", "ate")]
+    [InlineData("de=1999-12-31", "de")]
+    [InlineData("ate=9999-12-31", "ate")]
     public async Task Parametros_invalidos_da_lista_respondem_400(string query, string campo)
     {
         using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);
