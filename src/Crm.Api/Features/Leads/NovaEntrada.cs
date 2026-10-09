@@ -72,8 +72,11 @@ public sealed record NovaEntrada
     /// <summary>A importação de CSV que trouxe a entrada.</summary>
     public long? ImportacaoId { get; init; }
 
-    /// <summary>Sem dados pessoais nem o payload, para a entrada nunca ir inteira para um log.</summary>
-    public override string ToString() => $"{nameof(NovaEntrada)} {{ Origem = {Origem}, IdExterno = {IdExterno} }}";
+    /// <summary>
+    /// Sem dados pessoais, o payload e o id externo, que leva até a pessoa na Meta ou no Google (seção 3.8), para a entrada
+    /// nunca ir inteira para um log.
+    /// </summary>
+    public override string ToString() => $"{nameof(NovaEntrada)} {{ Origem = {Origem} }}";
 }
 
 /// <param name="LeadId">O lead criado, o lead ao qual a entrada foi vinculada ou o da entrada já recebida.</param>

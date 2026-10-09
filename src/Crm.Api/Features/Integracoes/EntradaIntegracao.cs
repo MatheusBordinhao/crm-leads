@@ -37,8 +37,11 @@ public sealed record EntradaIntegracaoRequest(
     string? Gclid = null,
     Dictionary<string, JsonElement>? RespostasExtras = null)
 {
-    /// <summary>Sem dados pessoais: o MVC imprime os argumentos da action no log de nível Trace.</summary>
-    public override string ToString() => $"{nameof(EntradaIntegracaoRequest)} {{ Origem = {Origem}, IdExterno = {IdExterno} }}";
+    /// <summary>
+    /// Sem dados pessoais nem o id externo, que leva até a pessoa na Meta ou no Google (seção 3.8): o MVC imprime os
+    /// argumentos da action no log de nível Trace.
+    /// </summary>
+    public override string ToString() => $"{nameof(EntradaIntegracaoRequest)} {{ Origem = {Origem} }}";
 }
 
 /// <param name="Situacao"><c>criado</c> (201), <c>vinculado</c> ou <c>ja_recebido</c> (200).</param>
