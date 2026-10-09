@@ -21,6 +21,7 @@ import { EtapaDoLead } from './EtapaDoLead'
 import { CAMPOS_DADOS, camposDados, dadosIniciais, dadosParaApi, validarDados } from './esquema'
 import { InteracaoDialog } from './InteracaoDialog'
 import { LinhaDoTempo } from './LinhaDoTempo'
+import { PrivacidadeDoLead } from './PrivacidadeDoLead'
 import { ResponsavelDoLead } from './ResponsavelDoLead'
 import { ROTULOS_ORIGEM, rotuloPlataforma } from './rotulos'
 import { SeloEtapa } from './SeloEtapa'
@@ -108,10 +109,11 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
         </p>
       </header>
 
-      <BotoesContato lead={lead} aoContatar={setRegistrando} />
+      {/* O lead anonimizado não tem mais com quem falar e não recebe interações. */}
+      {!lead.anonimizadoEm && <BotoesContato lead={lead} aoContatar={setRegistrando} />}
 
-      {/* No celular, uma coluna: etapa (e responsável, para o admin), dados, linha do tempo e origem. No
-          computador, dados e linha do tempo à esquerda; etapa, responsável e origem à direita. */}
+      {/* No celular, uma coluna: etapa (e responsável, para o admin), dados, linha do tempo, origem e privacidade. No
+          computador, dados e linha do tempo à esquerda; etapa, responsável, origem e privacidade à direita. */}
       <div className="grid items-start gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4 lg:col-start-2 lg:row-start-1">
           <EtapaDoLead lead={lead} />
@@ -122,27 +124,45 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
             <CardTitle>Dados</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {mudouPorFora && (
+            {lead.anonimizadoEm ? (
               <Alert>
-                <AlertDescription className="flex flex-col items-start gap-2">
-                  Outra pessoa alterou os dados deste lead.
-                  <Button type="button" variant="outline" size="sm" onClick={() => setBase(null)}>
-                    Ver a versão atual
-                  </Button>
+                <AlertDescription>
+                  Os dados pessoais deste lead foram removidos em{' '}
+                  {formatarDataHora(lead.anonimizadoEm)}, pela LGPD. Eles não voltam: o lead não
+                  aceita edição nem interações novas. A etapa, as datas, a origem e a campanha
+                  continuam, para os números do painel.
                 </AlertDescription>
               </Alert>
+            ) : (
+              <>
+                {mudouPorFora && (
+                  <Alert>
+                    <AlertDescription className="flex flex-col items-start gap-2">
+                      Outra pessoa alterou os dados deste lead.
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBase(null)}
+                      >
+                        Ver a versão atual
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <FormularioDados
+                  key={chaveDosDados(base ?? lead)}
+                  lead={base ?? lead}
+                  // A versão mais recente, para uma mudança de etapa feita aqui mesmo não contar como conflito. Se
+                  // outra pessoa mudou os dados, vai a da base, e a API responde o conflito em vez de apagar a mudança.
+                  versao={mudouPorFora ? base.versao : lead.versao}
+                  editar={editar}
+                  aoEditar={() => setBase((atual) => atual ?? lead)}
+                  aoTerminar={() => setBase(null)}
+                  aoRecarregar={aoRecarregar}
+                />
+              </>
             )}
-            <FormularioDados
-              key={chaveDosDados(base ?? lead)}
-              lead={base ?? lead}
-              // A versão mais recente, para uma mudança de etapa feita aqui mesmo não contar como conflito. Se
-              // outra pessoa mudou os dados, vai a da base, e a API responde o conflito em vez de apagar a mudança.
-              versao={mudouPorFora ? base.versao : lead.versao}
-              editar={editar}
-              aoEditar={() => setBase((atual) => atual ?? lead)}
-              aoTerminar={() => setBase(null)}
-              aoRecarregar={aoRecarregar}
-            />
           </CardContent>
         </Card>
         <Card className="lg:col-start-1 lg:row-start-3">
@@ -161,6 +181,9 @@ function FichaLead({ lead, aoRecarregar }: { lead: LeadResponse; aoRecarregar: (
             <DadosDaOrigem lead={lead} />
           </CardContent>
         </Card>
+        {eu?.perfil === 'Admin' && (
+          <PrivacidadeDoLead lead={lead} className="lg:col-start-2 lg:row-start-3" />
+        )}
       </div>
 
       {registrando && (

@@ -149,6 +149,65 @@ export function useTrocarResponsavel(id: number) {
   })
 }
 
+/**
+ * Anonimiza o lead, sem volta (só admin). A ficha fica com a versão anonimizada, e a lista, o quadro e a linha do tempo,
+ * que perdeu as descrições, são recarregados.
+ */
+export function useAnonimizarLead(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () =>
+      exigirSucesso(api.POST('/api/leads/{id}/anonimizar', { params: { path: { id } } })),
+    onSuccess: (lead) => {
+      queryClient.setQueryData(chaveFicha(id), lead)
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: chaveLista }),
+        queryClient.invalidateQueries({ queryKey: chaveLinhaDoTempo(id) }),
+        queryClient.invalidateQueries({ queryKey: chaveFunil }),
+      ])
+    },
+  })
+}
+
+/** Exclui de vez um lead de teste (só admin). A ficha sai do cache, e a lista e o quadro são recarregados. */
+export function useExcluirLead(id: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => exigirSucesso(api.DELETE('/api/leads/{id}', { params: { path: { id } } })),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: chaveFicha(id) })
+      queryClient.removeQueries({ queryKey: chaveLinhaDoTempo(id) })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: chaveLista }),
+        queryClient.invalidateQueries({ queryKey: chaveFunil }),
+      ])
+    },
+  })
+}
+
+/** O arquivo com os dados do titular. A sessão vai no cookie, como no CSV do relatório. */
+export function linkDosDadosDoTitular(id: number) {
+  return `/api/leads/${id}/dados-titular`
+}
+
+/** A lista em CSV, com os filtros e a ordem da tela, sem a página: a exportação traz todos os leads. */
+export function linkDaExportacao(filtros: FiltrosLeads) {
+  const params = new URLSearchParams()
+  for (const [nome, valor] of Object.entries(filtros)) {
+    if (
+      valor !== undefined &&
+      valor !== null &&
+      valor !== '' &&
+      nome !== 'pagina' &&
+      nome !== 'tamanho'
+    ) {
+      params.set(nome, String(valor))
+    }
+  }
+  const query = params.toString()
+  return `/api/leads/exportacao${query ? `?${query}` : ''}`
+}
+
 export function useLinhaDoTempo(id: number) {
   return useQuery({
     queryKey: chaveLinhaDoTempo(id),
