@@ -45,6 +45,10 @@ public class LgpdTests(CrmApiFactory fabrica)
         Assert.Equal($"dados-titular-lead-{id}.json", resposta.Content.Headers.ContentDisposition?.FileName);
         var texto = await resposta.Content.ReadAsStringAsync(Ct);
         Assert.Contains("\n  \"lead\": {", texto, StringComparison.Ordinal);
+
+        // Para ser lido por uma pessoa: os acentos e os símbolos como são, sem ç nem +.
+        Assert.Contains("\"campanha\": \"Outubro | Serviço Y\"", texto, StringComparison.Ordinal);
+        Assert.Contains($"\"telefone\": \"{corpo["telefone"]}\"", texto, StringComparison.Ordinal);
         var dados = JsonSerializer.Deserialize<JsonElement>(texto);
 
         var lead = dados.GetProperty("lead");

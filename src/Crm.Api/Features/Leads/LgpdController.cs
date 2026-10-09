@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Crm.Api.Features.Usuarios;
@@ -21,9 +22,17 @@ public sealed class LgpdController(
     AuditoriaService auditoria,
     TimeProvider relogio) : ControllerBase
 {
-    /// <summary>O arquivo para o titular, indentado para ser lido, com os nomes do resto da API.</summary>
-    private static readonly JsonSerializerOptions JsonDoArquivo =
-        new(JsonSerializerOptions.Web) { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
+    /// <summary>
+    /// O arquivo para o titular, indentado e com os acentos como são, para ser lido por uma pessoa: o codificador padrão
+    /// escreveria <c>Conceição</c>. Sem o escape de HTML, que serve para JSON dentro de uma página: o arquivo é
+    /// baixado como <c>application/json</c>.
+    /// </summary>
+    private static readonly JsonSerializerOptions JsonDoArquivo = new(JsonSerializerOptions.Web)
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     /// <summary>
     /// Todos os dados que o CRM guarda do lead, para entregar ao titular, num arquivo <c>dados-titular-lead-{id}.json</c>:
