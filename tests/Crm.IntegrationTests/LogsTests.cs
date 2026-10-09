@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Crm.Api.Features.Usuarios;
+using Crm.Api.Infra.Datas;
 using Crm.Api.Infra.TempoReal;
 using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
@@ -197,6 +198,53 @@ public class LogsTests(CrmApiFactory fabrica)
         AssertSemVazamento(
             captura,
             [(string)corpo["nome"]!, (string)corpo["email"]!, (string)corpo["telefone"]!, (string)corpo["cpfCnpj"]!, $"Empresa Sigilosa {marca}"]);
+    }
+
+    [Fact]
+    public async Task O_relatorio_por_campanha_nunca_poe_dados_pessoais_no_log_nem_no_nivel_trace()
+    {
+        var captura = new CapturaDeLogs();
+        using var api = fabrica.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+            logging.AddProvider(captura).AddFilter<CapturaDeLogs>(_ => true)));
+        var marca = Guid.NewGuid().ToString("N")[..10];
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        using var n8n = api.CriarClienteIntegracao();
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        corpo["nome"] = $"Nome Sigiloso {marca}";
+        corpo["empresa"] = $"Empresa Sigilosa {marca}";
+        corpo["cpfCnpj"] = LeadsDeTeste.CpfUnico();
+        corpo["campanha"] = new { id = LeadsDeTeste.IdExternoUnico(), nome = $"Campanha {marca}" };
+        corpo["respostasExtras"] = new Dictionary<string, string> { ["Pergunta"] = $"Resposta sigilosa {marca}" };
+        await n8n.EnviarLeadIdAsync(corpo);
+        var hoje = HorarioBrasilia.Dia(DateTimeOffset.UtcNow);
+        var periodo = $"de={hoje.AddDays(-1):yyyy-MM-dd}&ate={hoje.AddDays(1):yyyy-MM-dd}";
+
+        // As quatro rotas com o lead no período, a integração sem datas e um período recusado pela validação.
+        foreach (var (cliente, caminho) in new[]
+        {
+            (admin, $"/api/relatorios/campanhas?{periodo}"),
+            (admin, $"/api/relatorios/campanhas/csv?{periodo}"),
+            (n8n, $"/api/integracoes/relatorios/campanhas?{periodo}"),
+            (n8n, $"/api/integracoes/relatorios/campanhas/csv?{periodo}"),
+            (n8n, "/api/integracoes/relatorios/campanhas/csv"),
+        })
+        {
+            Assert.Equal(HttpStatusCode.OK, (await cliente.GetAsync(caminho, Ct)).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await n8n.GetAsync("/api/integracoes/relatorios/campanhas?de=2026-09-30&ate=2026-09-01", Ct)).StatusCode);
+
+        AssertSemVazamento(
+            captura,
+            [
+                (string)corpo["nome"]!,
+                (string)corpo["email"]!,
+                (string)corpo["telefone"]!,
+                (string)corpo["cpfCnpj"]!,
+                $"Empresa Sigilosa {marca}",
+                $"Resposta sigilosa {marca}",
+                CrmApiFactory.ChaveIntegracao,
+            ]);
     }
 
     private static void AssertSemVazamento(CapturaDeLogs captura, IEnumerable<string> sensiveis)
