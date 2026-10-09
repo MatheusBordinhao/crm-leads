@@ -1,4 +1,4 @@
-import { ListFilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { DownloadIcon, ListFilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { FiltrosLeads, LeadResumoResponse, OrdemLeads, Origem } from '@/api/cliente'
@@ -21,7 +21,7 @@ import { useEu } from '@/features/acesso/sessao'
 import { useUsuarios } from '@/features/usuarios/dados'
 import { formatarDataHora } from '@/lib/datas'
 import { cn } from '@/lib/utils'
-import { useCampanhas, useEtapas, useLeads } from './dados'
+import { linkDaExportacao, useCampanhas, useEtapas, useLeads } from './dados'
 import { ORIGENS, ROTULOS_ORIGEM } from './rotulos'
 import { SeloEtapa } from './SeloEtapa'
 
@@ -66,7 +66,8 @@ export function LeadsPage() {
   const { data: eu } = useEu()
   const ehAdmin = eu?.perfil === 'Admin'
   const [params, setParams] = useSearchParams()
-  const { data, isPending, isError, refetch } = useLeads(lerFiltros(params))
+  const filtros = lerFiltros(params)
+  const { data, isPending, isError, refetch } = useLeads(filtros)
 
   /** Muda um filtro e volta para a primeira página. */
   const mudar: Mudar = (nome, valor) => {
@@ -88,12 +89,23 @@ export function LeadsPage() {
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Leads</h1>
-        <Button asChild>
-          <Link to="/leads/novo">
-            <PlusIcon aria-hidden />
-            Novo lead
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {/* Com os filtros da tela e sem a página; a exportação entra na auditoria. */}
+          {ehAdmin && (
+            <Button asChild variant="outline">
+              <a href={linkDaExportacao(filtros)} download>
+                <DownloadIcon aria-hidden />
+                Exportar CSV
+              </a>
+            </Button>
+          )}
+          <Button asChild>
+            <Link to="/leads/novo">
+              <PlusIcon aria-hidden />
+              Novo lead
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Filtros params={params} mudar={mudar} limpar={limpar} ehAdmin={ehAdmin} />

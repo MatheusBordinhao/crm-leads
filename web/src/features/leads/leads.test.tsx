@@ -137,6 +137,32 @@ describe('lista de leads', () => {
     expect(screen.getByRole('button', { name: 'Próxima' })).toBeDisabled()
   })
 
+  it('o admin exporta o CSV com os filtros e a ordem da tela, sem a página', async () => {
+    comSessao(admin)
+    comCadastros()
+    comLista([leadResumo()], 60)
+
+    renderizarApp('/leads?busca=maria&etapa=2&responsavel=sem&ordem=Nome&pagina=2')
+
+    const exportar = await screen.findByRole('link', { name: 'Exportar CSV' })
+    expect(exportar).toHaveAttribute(
+      'href',
+      '/api/leads/exportacao?busca=maria&etapaId=2&semResponsavel=true&ordem=Nome',
+    )
+    expect(exportar).toHaveAttribute('download')
+  })
+
+  it('a atendente não exporta a lista', async () => {
+    comSessao(atendente)
+    comCadastros()
+    comLista([leadResumo()])
+
+    renderizarApp('/leads')
+
+    expect((await tabela()).getByText('Maria Souza')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Exportar CSV' })).not.toBeInTheDocument()
+  })
+
   it('avisa quando nenhum lead passa nos filtros', async () => {
     comSessao(atendente)
     comCadastros()
