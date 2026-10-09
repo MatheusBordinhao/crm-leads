@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace Crm.UnitTests.Infra;
@@ -6,9 +5,7 @@ namespace Crm.UnitTests.Infra;
 /// <summary>Os arquivos da publicação (Passo 5): segredos fora da imagem e do Compose, o proxy certo e o Caddy.</summary>
 public class PublicacaoTests
 {
-    private static readonly string Raiz = AcharRaiz();
-
-    private static string Ler(string arquivo) => File.ReadAllText(Path.Combine(Raiz, arquivo));
+    private static string Ler(string arquivo) => File.ReadAllText(Path.Combine(Repositorio.Raiz, arquivo));
 
     private static List<string> Linhas(string arquivo) => [.. Ler(arquivo).Split('\n').Select(l => l.TrimEnd('\r'))];
 
@@ -68,22 +65,5 @@ public class PublicacaoTests
     public void O_Caddy_manda_HSTS_e_os_cabecalhos_de_seguranca(string trecho)
     {
         Assert.Contains(trecho, Ler(Path.Combine("deploy", "Caddyfile")), StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// A pasta do Crm.sln, subindo a partir deste arquivo de código. Vale também com o build fora do repositório, como no
-    /// contêiner dos testes (docker-compose.testes.yml).
-    /// </summary>
-    private static string AcharRaiz([CallerFilePath] string esteArquivo = "")
-    {
-        for (var pasta = new DirectoryInfo(Path.GetDirectoryName(esteArquivo)!); pasta is not null; pasta = pasta.Parent)
-        {
-            if (File.Exists(Path.Combine(pasta.FullName, "Crm.sln")))
-            {
-                return pasta.FullName;
-            }
-        }
-
-        throw new InvalidOperationException("Não achei a pasta do Crm.sln.");
     }
 }
