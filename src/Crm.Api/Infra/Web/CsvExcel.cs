@@ -24,8 +24,9 @@ internal sealed class CsvExcel
 
     /// <summary>
     /// O campo como vai no arquivo. Um texto que começa com =, +, - ou @ (ou com tab ou CR) ganha um apóstrofo na
-    /// frente: sem ele, o Excel lê o campo como fórmula, e uma campanha "-20% Black Friday" viraria #NOME?. Depois, o
-    /// campo vai entre aspas se tiver ponto e vírgula, aspas ou quebra de linha.
+    /// frente, que o Excel mostra na célula. Sem ele, o Excel pode ler o campo como fórmula: conferido no Excel,
+    /// uma campanha "+Leads outubro" vira #NOME?, "=1+1" e "-2+3" viram contas, e "@SOMA(1;2)" vira =SOMA(1;2).
+    /// Depois, o campo vai entre aspas se tiver ponto e vírgula, aspas ou quebra de linha.
     /// </summary>
     public static string Campo(string? valor)
     {

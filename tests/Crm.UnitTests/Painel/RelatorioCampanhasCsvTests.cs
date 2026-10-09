@@ -53,13 +53,14 @@ public class RelatorioCampanhasCsvTests
     [Fact]
     public void Campanha_que_o_Excel_leria_como_formula_ganha_o_apostrofo()
     {
+        // Sem o apóstrofo, o Excel mostraria #NOME? no lugar do nome da campanha.
         var relatorio = new RelatorioCampanhasResponse(
             De,
             Ate,
-            [new(Origem.MetaLeadAds, new CampanhaResumo(1, "-20% Black Friday"), 1, 1, 1, 0, 0, 0, null)],
+            [new(Origem.MetaLeadAds, new CampanhaResumo(1, "+Leads outubro"), 1, 1, 1, 0, 0, 0, null)],
             new TotalRelatorioResponse(1, 1, 1, 0, 0, 0, null));
 
-        Assert.Contains("\r\nMeta;'-20% Black Friday;1;", Texto(relatorio), StringComparison.Ordinal);
+        Assert.Contains("\r\nMeta;'+Leads outubro;1;", Texto(relatorio), StringComparison.Ordinal);
     }
 
     [Fact]

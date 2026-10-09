@@ -36,18 +36,24 @@ public class CsvExcelTests
         Assert.Equal("\"Primeira linha\r\nSegunda linha\"", CsvExcel.Campo("Primeira linha\r\nSegunda linha"));
     }
 
+    /// <summary>
+    /// Conferido no Excel: sem o apóstrofo, "+Leads outubro" vira #NOME?, "=1+1" vira 2 e "-2+3" vira 1. O CSV não tenta
+    /// adivinhar o que o Excel lê como fórmula: todo texto que começa com esses sinais ganha o apóstrofo.
+    /// </summary>
     [Theory]
-    [InlineData("=1+1", "'=1+1")]
     [InlineData("+Leads outubro", "'+Leads outubro")]
+    [InlineData("=1+1", "'=1+1")]
+    [InlineData("-2+3", "'-2+3")]
     [InlineData("-20% Black Friday", "'-20% Black Friday")]
     [InlineData("@campanha", "'@campanha")]
     [InlineData("\tcom tab", "'\tcom tab")]
-    public void Texto_que_o_Excel_leria_como_formula_ganha_um_apostrofo(string valor, string esperado) =>
+    public void Texto_que_comeca_como_formula_ganha_um_apostrofo(string valor, string esperado) =>
         Assert.Equal(esperado, CsvExcel.Campo(valor));
 
     [Fact]
     public void Formula_com_ponto_e_virgula_ganha_o_apostrofo_dentro_das_aspas()
     {
+        Assert.Equal("\"'@SOMA(1;2)\"", CsvExcel.Campo("@SOMA(1;2)"));
         Assert.Equal("\"'=HIPERLINK(\"\"x\"\";\"\"y\"\")\"", CsvExcel.Campo("=HIPERLINK(\"x\";\"y\")"));
     }
 
