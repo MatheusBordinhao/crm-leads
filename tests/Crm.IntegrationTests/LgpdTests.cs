@@ -10,6 +10,7 @@ using Crm.Api.Infra.Eventos;
 using Crm.IntegrationTests.Infra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Crm.IntegrationTests;
 
@@ -159,6 +160,40 @@ public class LgpdTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Entrada_de_teste_que_esperava_a_trava_do_lead_excluido_vira_um_lead_novo()
+    {
+        using var n8n = fabrica.CriarClienteIntegracao();
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        corpo["teste"] = true;
+        var id = await n8n.EnviarLeadIdAsync(corpo);
+
+        // A exclusão, numa conexão à parte, segura a linha do lead enquanto a mesma pessoa de teste entra de novo.
+        await using var conexao = new NpgsqlConnection(fabrica.ConnectionString);
+        await conexao.OpenAsync(Ct);
+        await using var transacao = await conexao.BeginTransactionAsync(Ct);
+        await using (var trava = new NpgsqlCommand($"SELECT 1 FROM leads WHERE id = {id} FOR UPDATE", conexao))
+        {
+            await trava.ExecuteNonQueryAsync(Ct);
+        }
+
+        await using var pid = new NpgsqlCommand("SELECT pg_backend_pid()", conexao);
+        var processo = (int)(await pid.ExecuteScalarAsync(Ct))!;
+        var envio = n8n.EnviarLeadAsync(new Dictionary<string, object?>(corpo) { ["idExterno"] = LeadsDeTeste.IdExternoUnico() });
+        await AguardarBloqueadaPorAsync(processo);
+        await using (var exclusao = new NpgsqlCommand($"DELETE FROM leads WHERE id = {id}", conexao))
+        {
+            await exclusao.ExecuteNonQueryAsync(Ct);
+        }
+
+        await transacao.CommitAsync(Ct);
+        var resposta = await envio;
+
+        // Antes, o lead que sumiu na espera respondia 500; agora, a busca recomeça e cria o lead de teste de novo.
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        Assert.NotEqual(id, (await resposta.LerJsonAsync()).GetProperty("leadId").GetInt64());
+    }
+
+    [Fact]
     public async Task Lead_real_nao_e_excluido_e_a_atendente_recebe_403()
     {
         using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
@@ -181,4 +216,19 @@ public class LgpdTests(CrmApiFactory fabrica)
     }
 
     private static string? Texto(JsonElement objeto, string propriedade) => objeto.GetProperty(propriedade).GetString();
+
+    /// <summary>Espera alguma conexão ficar parada numa trava que o processo <paramref name="processo"/> segura.</summary>
+    private async Task AguardarBloqueadaPorAsync(int processo)
+    {
+        await using var conexao = new NpgsqlConnection(fabrica.ConnectionString);
+        await conexao.OpenAsync(Ct);
+        await using var comando = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE @processo = ANY(pg_blocking_pids(pid)))", conexao);
+        comando.Parameters.AddWithValue("processo", processo);
+        var limite = DateTime.UtcNow.AddSeconds(15);
+        while (!(bool)(await comando.ExecuteScalarAsync(Ct))!)
+        {
+            Assert.True(DateTime.UtcNow < limite, "A entrada não chegou a esperar a trava do lead.");
+            await Task.Delay(50, Ct);
+        }
+    }
 }
