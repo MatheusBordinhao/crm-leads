@@ -194,7 +194,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - exportações e anonimizações;
   - exclusão de lead de teste;
   - mudanças em usuários e configurações.
-- No n8n, os fluxos `CRM - ` ficam com "salvar execuções de produção com sucesso" desligado, para não guardar dados pessoais sem necessidade.
+- No n8n, os fluxos `CRM - ` ficam com "salvar execuções de produção com sucesso" desligado, para não guardar dados pessoais sem necessidade. Os JSONs de `n8n/` já levam o ajuste (`saveDataSuccessExecution: none`), e um teste confere cada fluxo guardado. No n8n de produção, falta conferir o ajuste depois de importar os fluxos e ver por quanto tempo ficam as execuções com erro, que guardam o payload: no n8n Cloud, é o prazo do plano; no Community, `EXECUTIONS_DATA_PRUNE` e `EXECUTIONS_DATA_MAX_AGE`.
 
 ## 4. Integração com o n8n
 
@@ -426,8 +426,8 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `GET /api/leads/{id}/linha-do-tempo`, `POST /api/leads/{id}/interacoes` | Admin e atendente | Linha do tempo e interações |
 | `POST /api/importacoes/analise` | Admin | Lê o arquivo (em base64, no JSON) e devolve a codificação, o separador, a prévia de 10 linhas e a sugestão de mapeamento, sem gravar nada |
 | `POST /api/importacoes`, `GET /api/importacoes/{id}`, `GET /api/importacoes/{id}/erros` | Admin | Importação CSV: cria (202, processada em segundo plano), andamento e resultado, e relatório de erros em CSV |
-| `GET /api/leads/exportacao` | Admin | CSV com os filtros da lista |
-| `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD |
+| `GET /api/leads/exportacao` | Admin | CSV com os filtros e a ordem da lista, sem paginação (3.7) |
+| `GET /api/leads/{id}/dados-titular`, `POST /api/leads/{id}/anonimizar` | Admin | LGPD (3.8): o JSON do titular, para baixar, e a anonimização, que devolve a ficha e responde 409 com uma importação processando |
 | `DELETE /api/leads/{id}` | Admin | Só para leads de teste |
 | `GET /api/usuarios`, `GET /api/usuarios/{id}`, `POST /api/usuarios`, `PUT /api/usuarios/{id}`, `POST /api/usuarios/{id}/redefinir-senha` | Admin | Criar, editar, desativar (`ativo = false`) e redefinir a senha provisória, o que também tira o bloqueio. O admin não pode desativar a si mesmo nem tirar o próprio perfil de Admin. A lista diz quem recebe o próximo lead do rodízio (`proximoDaVez`) |
 | `GET /api/funil` | Admin e atendente | Quadro do funil: as colunas abertas, com até 100 leads cada e o total, e quantos leads foram para Ganho e para Perdido nos últimos 30 dias. Filtros da lista: busca, origem, campanha e responsável (admin) |
@@ -448,15 +448,21 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 
 - **Login e troca de senha.**
 - **Funil:** quadro com uma coluna por etapa aberta e Ganho e Perdido como áreas de soltar. As colunas mostram todos os leads em andamento, de qualquer data, para nenhum lead parado sumir (até 100 por coluna, com um link para a lista); Ganho e Perdido mostram quantos leads foram para lá nos últimos 30 dias, no horário de Brasília (hoje incluído). Cada cartão mostra nome, empresa, origem, tempo desde a entrada e, para o admin, a responsável. Tem filtros por responsável (admin), origem, campanha e busca. Soltar em Perdido pede o motivo, e cancelar devolve o cartão; um Ganho recusado devolve o cartão e mostra a mensagem. O teclado também arrasta, pela alça do cartão: espaço pega, as setas para a direita e para a esquerda escolhem a etapa e espaço solta. O quadro não rola para o lado: as colunas dividem a largura e passam para a linha de baixo quando não cabem. No celular, vira uma lista por etapa com seletor, sem arrastar, e um "Mover para" em cada cartão. É a tela inicial da atendente, que trabalha nele.
-- **Leads:** tabela com busca sem acento (nome, e-mail, telefone, empresa, documento), filtros e ordenação. No celular, cartões.
+- **Leads:** tabela com busca sem acento (nome, e-mail, telefone, empresa, documento), filtros e ordenação. No celular, cartões. O admin baixa a lista em CSV pelo botão Exportar CSV, com os filtros e a ordem da tela (3.7).
 - **Ficha do lead:** dados editáveis, avisos, botões de contato, etapa, responsável (o admin troca por uma seleção de usuários ativos), linha do tempo e registro de interação.
+  - Para o admin, o cartão Privacidade traz:
+    - o "Exportar dados", que baixa o JSON do titular;
+    - o "Anonimizar", com uma confirmação que diz o que sai e o que fica, avisa que não tem volta e sugere exportar antes;
+    - num lead de teste, no lugar dele, o "Excluir lead de teste", que volta para a lista;
+    - o link para a auditoria do lead.
+  - O lead anonimizado mostra um aviso no lugar do formulário de dados, sem os botões de contato e sem o registro de interação.
 - **Novo lead:** o admin escolhe a responsável ou deixa com o rodízio.
 - **Painel** (seção 8): a tela inicial do admin. A atendente o abre pelo menu e vê só os próprios números. Os filtros ficam numa linha acima de tudo, com o período primeiro: últimos 7, 30 e 90 dias, este mês, mês passado ou personalizado. Embaixo vêm os indicadores (leads novos, entradas, conversão e primeiro contato), as barras da situação atual, dos motivos de perda e das quebras por origem e por campanha, e a tabela por atendente (só admin). Em Por campanha, os leads sem campanha, que não vieram de anúncio, ficam sempre por último, com o rótulo "Sem campanha (não veio de anúncio)".
 - **Relatório por campanha** (admin), em Relatório no menu: a tabela da seção 8, com uma linha por campanha, as dos leads sem campanha no fim (uma por origem, com a origem embaixo do rótulo) e o total. O período fica acima, com os mesmos atalhos do painel, e o botão "Baixar CSV" baixa o mesmo relatório, no período da tela. A tela lembra que é o relatório da Gama, sem dados pessoais. No celular, cada linha vira um cartão.
 - **Notificações:** sino com contador no topo de todas as telas. Clicar numa notificação a marca como lida e abre a ficha do lead. O resumo da importação abre o resultado dela, e os leads que uma importação deixou com a pessoa abrem a lista de leads.
 - **Importação** (admin): o arquivo é lido assim que escolhido, e a tela mostra a codificação, o separador, a prévia, o campo sugerido para cada coluna e as opções (origem, campanha padrão, coluna de id externo e distribuição). Depois de importar, o resultado acompanha o andamento e mostra os números, os leads que ficaram sem responsável e as linhas com erro, com o relatório para baixar.
 - **Configurações** (admin): usuários (com o cartão Rodízio, que liga e desliga a distribuição automática), etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho) e campanhas.
-- **Auditoria** (admin).
+- **Auditoria** (admin), em Auditoria no menu: os registros do mais recente para o mais antigo, com quando, quem, a ação, o registro afetado (os leads pelo número, com o link da ficha), os detalhes em português e o IP. Os filtros, de ação, de quem fez e de período, ficam no endereço, e a paginação é de 50 em 50. A ficha abre a tela filtrada pelo lead. No celular, cada registro vira um cartão.
 
 Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem a lista, a ficha, a mudança de etapa, o registro de interação e as notificações. O visual é neutro, com espaço para o logo da empresa.
 
@@ -500,7 +506,7 @@ O relatório por campanha usa as mesmas definições, sobre os leads novos do pe
 - **Limites de requisição:** 10 logins por minuto por IP e 120 requisições por minuto na integração.
 - **Caddy:** HTTPS automático, HSTS de um ano (sem `includeSubDomains`) e cabeçalhos de segurança: CSP só com a própria origem (os estilos inline são do sonner e do Radix, e o `connect-src` repete o domínio com `wss://`, porque o Safari anterior a 2022 não cobre o WebSocket do tempo real pelo `'self'`), `nosniff`, `X-Frame-Options: DENY`, Referrer-Policy e Permissions-Policy. É o único serviço com portas expostas; a API serve o build do React por trás dele.
 - **Tempo real:** o hub do SignalR roda na própria API, numa instância só, sem backplane (Redis).
-- **Backup:** `pg_dump` diário, com 14 dias guardados e cópia fora do servidor. A restauração é testada uma vez por mês. No Compose de produção, o serviço `backup` faz o dump às 03:00 (horário de Brasília) numa pasta do servidor (`BACKUP_PASTA`), e o `testar-restauracao.sh` restaura o backup mais recente num banco à parte e compara as contagens. A cópia fora do servidor sai dessa pasta, criptografada (rclone, por exemplo), para o destino que a empresa definir.
+- **Backup:** `pg_dump` diário, com 14 dias guardados e cópia fora do servidor. A restauração é testada uma vez por mês. No Compose de produção, o serviço `backup` faz o dump às 03:00 (horário de Brasília) numa pasta do servidor (`BACKUP_PASTA`), e o `testar-restauracao.sh` restaura o backup mais recente num banco à parte e compara as contagens. A cópia fora do servidor sai dessa pasta, criptografada (rclone, por exemplo), para o destino que a empresa definir. Os backups guardam os dados de quem foi anonimizado até serem apagados, em 14 dias, e restaurar um backup desfaz as anonimizações e as exclusões de leads de teste feitas depois dele: antes de restaurar, liste-as na auditoria e refaça-as depois (README › Restaurar de verdade).
 - **Migrations em produção:** o serviço `migracoes` do Compose de produção roda o migration bundle do EF e termina; a API só sobe depois dele. A API só aplica as migrations sozinha em desenvolvimento.
 - **Logs e monitoramento:** logs estruturados sem dados pessoais e `/health` para monitorar. No Compose de produção, o log de cada contêiner gira em 5 arquivos de 10 MB.
 
