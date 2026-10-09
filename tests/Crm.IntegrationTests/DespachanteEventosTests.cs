@@ -157,6 +157,35 @@ public class DespachanteEventosTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Evento_apagado_durante_o_envio_fica_de_lado_e_a_rodada_continua()
+    {
+        // Na última tentativa e com o n8n respondendo erro: se ainda existisse, o evento falharia de vez e avisaria os admins.
+        var n8n = new N8nFalso { Status = HttpStatusCode.InternalServerError };
+        await using var api = await CriarApiAsync(n8n);
+        var apagado = await api.CriarEventoAsync();
+        var outro = await api.CriarEventoAsync();
+        var admin = await api.Fabrica.CriarUsuarioAsync(Perfil.Admin);
+        await api.DeixarNaUltimaTentativaAsync(apagado.Id);
+
+        // A anonimização do lead apaga o evento enquanto ele está a caminho do n8n.
+        n8n.AoReceber = async requisicao =>
+        {
+            if (requisicao.EventoId == apagado.Id.ToString())
+            {
+                await api.ApagarAsync(apagado.Id);
+            }
+        };
+
+        var tentados = await api.DespacharAsync();
+
+        Assert.Equal(2, tentados);
+        Assert.Null(await api.EventoOuNuloAsync(apagado.Id));
+        Assert.DoesNotContain(await api.Fabrica.NotificacoesDoUsuarioAsync(admin.Id), n => n.Tipo == TipoNotificacao.EventoFalhou);
+        var seguinte = await api.EventoAsync(outro.Id);
+        Assert.Equal((SituacaoEvento.Pendente, 1, "HTTP 500"), (seguinte.Situacao, seguinte.Tentativas, seguinte.UltimoErro));
+    }
+
+    [Fact]
     public async Task Sem_N8n__WebhookUrl_nada_e_enviado_e_o_evento_fica_pendente()
     {
         var n8n = new N8nFalso();
@@ -290,12 +319,29 @@ public class DespachanteEventosTests(CrmApiFactory fabrica)
             return Assert.Single(await fabrica.EventosDoLeadAsync(entrada.LeadId));
         }
 
-        public async Task<EventoSaida> EventoAsync(Guid id)
+        public async Task<EventoSaida> EventoAsync(Guid id) => (await EventoOuNuloAsync(id))!;
+
+        public async Task<EventoSaida?> EventoOuNuloAsync(Guid id)
         {
             await using var escopo = fabrica.Services.CreateAsyncScope();
             return await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().EventosSaida
                 .AsNoTracking()
-                .SingleAsync(e => e.Id == id, Ct);
+                .SingleOrDefaultAsync(e => e.Id == id, Ct);
+        }
+
+        /// <summary>Como se as outras tentativas já tivessem falhado: o próximo envio é o último.</summary>
+        public async Task DeixarNaUltimaTentativaAsync(Guid id)
+        {
+            await using var escopo = fabrica.Services.CreateAsyncScope();
+            await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().EventosSaida
+                .Where(e => e.Id == id)
+                .ExecuteUpdateAsync(e => e.SetProperty(x => x.Tentativas, RegrasDespacho.MaximoDeTentativas - 1), Ct);
+        }
+
+        public async Task ApagarAsync(Guid id)
+        {
+            await using var escopo = fabrica.Services.CreateAsyncScope();
+            await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().EventosSaida.Where(e => e.Id == id).ExecuteDeleteAsync(Ct);
         }
 
         /// <summary>Espera, em tempo real, o serviço em segundo plano deixar o evento como o teste quer.</summary>

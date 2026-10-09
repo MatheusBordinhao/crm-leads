@@ -12,7 +12,7 @@ namespace Crm.Api.Infra.Eventos;
 /// reservado por um minuto, para outro despachante não pegá-lo, e enviado fora da transação. Qualquer resposta
 /// 2xx conta como entregue. Se falhar, o evento é tentado de novo depois das esperas de <see cref="RegrasDespacho"/>;
 /// depois da última, fica como <c>falhou</c> e os admins são avisados. A entrega é "pelo menos uma vez", sem
-/// garantia de ordem.
+/// garantia de ordem. Um evento apagado durante o envio, pela anonimização do lead, é deixado de lado.
 /// </summary>
 public sealed class DespachanteEventos(
     CrmDbContext db,
@@ -113,7 +113,17 @@ public sealed class DespachanteEventos(
                 ct);
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A anonimização do lead (LGPD) apaga os eventos dele, inclusive um que estava a caminho do n8n: não há mais o
+            // que atualizar, nem um aviso de falha a dar.
+            db.ChangeTracker.Clear();
+            logger.LogInformation("Evento {EventoId} ({Tipo}) foi apagado durante o envio", evento.Id, evento.Tipo);
+        }
     }
 
     /// <summary>

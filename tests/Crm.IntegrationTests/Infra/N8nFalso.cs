@@ -25,15 +25,23 @@ public sealed class N8nFalso : HttpMessageHandler
     /// <summary>Não responde: o envio espera até o tempo limite do despachante.</summary>
     public bool Demorar { get; set; }
 
+    /// <summary>Roda enquanto a requisição chega, antes da resposta: o que acontece no CRM durante o envio.</summary>
+    public Func<RequisicaoAoN8n, Task>? AoReceber { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        Recebidas.Enqueue(new RequisicaoAoN8n(
+        var recebida = new RequisicaoAoN8n(
             request.Method,
             request.RequestUri!,
             Cabecalho(request, DespachanteEventos.CabecalhoChave),
             Cabecalho(request, DespachanteEventos.CabecalhoEventoId),
             request.Content?.Headers.ContentType?.MediaType,
-            request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken)));
+            request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken));
+        Recebidas.Enqueue(recebida);
+        if (AoReceber is not null)
+        {
+            await AoReceber(recebida);
+        }
 
         if (ForaDoAr)
         {
