@@ -40,6 +40,13 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Além dos 60 leads da massa, há o que a Adriana criou na validação do Passo 8. Para voltar aos 60 antes da demonstração, é só rodar o comando de novo.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração.
 - Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 654 de 654 em 09/10/2026, com o Passo 10, e os do front, 197 de 197.
+- Em 12/10/2026, o bloqueio chegou ao `EFCore.NamingConventions.dll`, e o `dotnet run` da API passou a falhar ao subir (`FileLoadException`, 0x800711C7). Desde então, no Windows, tudo o que carrega as DLLs do projeto roda em contêiner: a API de desenvolvimento e o `dotnet ef` pelo `docker-compose.yml` (serviços `api` e `ef`, README › Dia a dia), e os testes pelo `docker-compose.testes.yml`. O `dotnet build`, o `dotnet format` e o front continuam no Windows, porque só leem as DLLs. A API de desenvolvimento roda no contêiner, contra o banco de desenvolvimento. Conferido pelo Claude em 12/10/2026:
+  - pelo proxy do Vite, numa API descartável do serviço `api`: login, troca de senha, o negotiate do hub, o WebSocket com o handshake 101 e o aviso `LeadsAlterados` de um lead novo;
+  - a sessão continuou valendo depois de recriar o contêiner, com as chaves num volume;
+  - o `preparar-demonstracao` pelo serviço, num banco descartável: recusou sem o `Demo__Permitir` e gravou os 60 leads com ele;
+  - o `--N8n:WebhookUrl=` depois do nome do serviço desligou o envio ao n8n;
+  - o `dotnet ef`: `migrations list`, `has-pending-model-changes` e uma migration de teste criada e removida, sem mudar nada fora da pasta das migrations;
+  - o `npm run api:tipos` gerou o mesmo `schema.d.ts`.
 - Passo 7 implementado em 06/10/2026 e conferido pelo Claude:
   - testes automáticos dos dois critérios de aceite: o lead da integração chega à responsável do rodízio em menos de 5 s (`TempoRealRodizioTests`), e a atendente não recebe o id de lead de outra pessoa em nenhum caso (`TempoRealTests`, com um lead da outra atendente como sentinela);
   - no Chrome sem janela, contra o Compose de produção local: o cartão apareceu no funil da atendente 1,6 s depois do envio pela integração com a API ainda fria e 0,35 s com ela quente, pelo WebSocket `wss://localhost:8444/hubs/notificacoes` (handshake 101); a outra atendente não recebeu o id do lead; o console ficou sem erros e sem issues da CSP;
@@ -157,6 +164,7 @@ n8n/                         JSON exportado dos fluxos do n8n
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
 docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo da importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
+docker-compose.yml           desenvolvimento: PostgreSQL, e a API e o dotnet ef num contêiner Linux
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
 .claude/                     permissões do projeto e o comando /passo
@@ -167,17 +175,22 @@ docker-compose.testes.yml    os testes .NET num contêiner Linux
 
 ```bash
 docker compose up -d db                                  # PostgreSQL local (precisa do .env; veja o README)
-dotnet run --project src/Crm.Api                         # API em http://localhost:5080 (lê o .env e aplica migrations em dev)
+docker compose up -d api                                 # API de dev num contêiner, em http://localhost:5080, com o banco (nesta máquina, o jeito que roda)
+docker compose logs -f api                               # log da API do contêiner
+docker compose restart api                               # recompila e sobe de novo, depois de mudar o código da API
+docker compose stop api                                  # para a API do contêiner (o docker compose down para ela e o banco)
+dotnet run --project src/Crm.Api                         # API no Windows, onde as DLLs carregam (lê o .env e aplica migrations em dev)
 cd web && npm run dev                                    # front em http://localhost:5173, com proxy de /api e /hubs
 dotnet test                                              # testes da API (os de integração precisam do Docker)
 docker compose -f docker-compose.testes.yml run --rm testes   # os testes .NET num contêiner Linux (nesta máquina, o jeito que roda)
 cd web && npm test                                       # testes do front (vitest run, sem modo watch)
 dotnet format                                            # formata o C# (--verify-no-changes só confere)
 cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
-dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef
+docker compose run --rm ef migrations add <NomeDescritivo>   # dotnet ef num contêiner (nesta máquina, o jeito que roda)
+dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef no Windows
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
-dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=    # API sem mandar eventos ao n8n (para o npm run api:tipos)
-Demo__Permitir=true dotnet run --project src/Crm.Api -- preparar-demonstracao   # APAGA os leads e grava a massa da demonstração (README › Demonstração)
+docker compose run --rm --service-ports api --N8n:WebhookUrl=   # API sem mandar eventos ao n8n, com o api parado (no Windows: dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=)
+docker compose run --rm -e Demo__Permitir=true api preparar-demonstracao   # APAGA os leads e grava a massa da demonstração, com o api parado (README › Demonstração)
 docker compose -f docker-compose.prod.yml up -d --build  # produção, no servidor (README › Publicação)
 docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC
 ```
@@ -252,13 +265,15 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
 - Com a aba escondida e a notificação nativa ligada, o `TempoReal` busca a lista do sino pelo `fetchQuery`, para ter o título. Uma invalidação com `cancelRefetch` (o padrão) cancelaria essa busca, e a notificação não apareceria: a recarga do sino usa `cancelRefetch: false`.
 - Nos testes do front, numa seleção cuja lista vem de outra consulta (campanhas, usuários), espere a opção aparecer (`findByRole('option')`) antes do `selectOptions`: com a suíte inteira rodando, a lista pode chegar depois.
 - No Git Bash, um caminho como `/backup/backup.sh` num `docker compose exec` vira um caminho do Windows. Rode com `MSYS_NO_PATHCONV=1`.
-- Com a API de desenvolvimento rodando, o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio.
-  - Para só conferir que compila, use `dotnet build Crm.sln --artifacts-path <pasta do scratchpad>`, que não escreve no `bin/`.
-  - Para gerar os tipos do front sem parar a API, suba a API nova no contêiner do SDK, em Development, contra um PostgreSQL descartável e numa outra porta:
-    - `docker compose -f docker-compose.testes.yml run --rm -p 127.0.0.1:5081:5081 --entrypoint sh` com `ASPNETCORE_ENVIRONMENT=Development`, `ASPNETCORE_URLS`, `ConnectionStrings__Crm` e `Admin__*` fictícios;
-    - e `-c "dotnet build src/Crm.Api --artifacts-path /artefatos && cd /src/src/Crm.Api && dotnet /artefatos/bin/Crm.Api/debug/Crm.Api.dll"`.
-
-    Depois, rode `npx openapi-typescript http://127.0.0.1:5081/openapi/v1.json -o src/api/schema.d.ts`.
+  - Vale também para um `-e NOME=/caminho` do `docker compose run`: o `-e DataProtection__Pasta=/tmp/chaves` virou `C:/Users/.../Temp/chaves`, a pasta caiu dentro do código, que no contêiner é só leitura, e o login deu 500.
+  - Com o `MSYS_NO_PATHCONV=1` exportado no script, é o contrário: o curl, que é do Windows, não entende um caminho `/c/...`, como o do `-c` dos cookies, e a sessão se perde. Para ele, use `C:/...`.
+- Com a API rodando no Windows (`dotnet run`), o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio. Para só conferir que compila, use `dotnet build Crm.sln --artifacts-path <pasta do scratchpad>`, que não escreve no `bin/`. A API do contêiner não trava nada no Windows: o build dela fica no volume `artefatos-api`.
+- Para gerar os tipos do front com a API do contêiner, rode `docker compose restart api`, para ela compilar o código novo, e depois o `npm run api:tipos`.
+- O serviço `api` e um `docker compose run ... api` (o `preparar-demonstracao`, a API sem o n8n) compilam no mesmo volume e usam a porta 5080: pare o `api` antes.
+- Para testar a API do contêiner sem tocar no banco de desenvolvimento, suba um PostgreSQL descartável na rede `crm-leads_default` e passe no `docker compose run`:
+  - `-e ConnectionStrings__Crm=...` com o nome dele e `Admin__*` fictícios;
+  - `-e DataProtection__Pasta=/tmp/chaves`, para as chaves não irem para o volume `chaves-sessao`;
+  - e o `--N8n:WebhookUrl=` no fim, porque a API descartável lê o `.env` de verdade: o que não for trocado assim vem dele, inclusive a URL do n8n, quando houver.
 - No Windows, um argumento com acento passado ao `curl` perde o UTF-8, e a API responde 400. Mande o corpo de um arquivo (`--data-binary @arquivo`).
 - Com uma importação processando, de qualquer teste, anonimizar responde 409. Os testes que anonimizam usam um banco só deles: o `AnonimizacaoTests` e o caso da LGPD no `LogsTests`.
 - A entrada de um lead anonimizado guarda `anon:` e o SHA-256 do id externo (`IdExternoAnonimo`), e a idempotência procura pelo id e pelo hash. O hash não pode mudar: se mudasse, o reenvio de um lead anonimizado criaria a pessoa de novo. O `IdExternoAnonimoTests` fixa o valor.
