@@ -123,6 +123,8 @@ dotnet run --project src/Crm.Api         # API em http://localhost:5080
 cd web && npm run dev                    # front em http://localhost:5173
 ```
 
+Num Windows que bloqueia as DLLs do projeto, a API sobe num contêiner, no lugar do `dotnet run` (veja "API e dotnet ef num contêiner Linux", logo abaixo).
+
 | Endereço | O que é |
 | --- | --- |
 | http://localhost:5173 | Front. `/api` e `/hubs` são repassados para a API |
@@ -136,6 +138,39 @@ Com o `N8n__WebhookUrl` preenchido, a API manda ao n8n os eventos pendentes assi
 
 ```bash
 dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=
+```
+
+### API e dotnet ef num contêiner Linux
+
+Com o Controle Inteligente de Aplicativos do Windows ligado, o `dotnet run` e o `dotnet ef` falham quando precisam carregar uma DLL que não é assinada, como a `EFCore.NamingConventions.dll`, com "Uma política de Controle de Aplicativo bloqueou este arquivo". O [docker-compose.yml](docker-compose.yml) tem a API de desenvolvimento e o `dotnet ef` num contêiner Linux, sem mexer na segurança do Windows. O front continua no Windows (`npm run dev`), e o proxy do Vite chega à API no mesmo endereço, `http://localhost:5080`.
+
+```powershell
+docker compose up -d api          # compila e sobe a API (o banco sobe junto)
+docker compose logs -f api        # acompanha o log; o Ctrl+C sai do log, e a API continua no ar
+docker compose restart api        # depois de mudar o código da API: recompila e sobe de novo
+docker compose stop api           # para a API
+```
+
+- A configuração é a mesma do `dotnet run`: a API lê o mesmo `.env` e o `appsettings.Development.json`. O Compose só troca a conexão com o banco, que vai pelo nome do serviço (`db`) com a senha do `POSTGRES_PASSWORD`, e guarda as chaves da sessão num volume, para o login continuar valendo quando o contêiner é recriado.
+- O código entra só para leitura, e o build fica num volume do Docker: as pastas `bin/` e `obj/` do Windows não mudam.
+- A primeira subida baixa a imagem do SDK e os pacotes, o que leva alguns minutos. Nas seguintes, o build só recompila o que mudou.
+- Depois de mudar o `.env`, use o `restart`: a API lê o arquivo quando sobe. Depois de mudar o `docker-compose.yml`, use `docker compose up -d api`, que recria o contêiner com a configuração nova.
+- O log mostra a hora de Brasília, como no Windows.
+- Na auditoria, o IP de quem acessa aparece como o do Docker (o gateway da rede do Compose, como `172.18.0.1`), e não como `127.0.0.1`.
+- O que vier depois do nome do serviço num `docker compose run` vai para a API, como o `preparar-demonstracao` (veja "Demonstração"). Pare o `api` antes, porque os dois compilam no mesmo volume e usam a porta 5080. Para subir sem mandar eventos ao n8n:
+
+  ```powershell
+  docker compose stop api
+  docker compose run --rm --service-ports api --N8n:WebhookUrl=
+  ```
+
+  Para voltar à de sempre, pare essa com o Ctrl+C e rode `docker compose start api`.
+
+O `dotnet ef` roda pelo serviço `ef`, na pasta da API e com a mesma configuração dela. Só a pasta das migrations aceita escrita:
+
+```powershell
+docker compose run --rm ef migrations add <NomeDescritivo>
+docker compose run --rm ef migrations list
 ```
 
 ### Primeiro acesso
@@ -272,7 +307,15 @@ Nenhum lead é de teste, porque lead de teste fica fora do painel, e o comando n
 
 Ele só roda com `Demo__Permitir=true` no ambiente do próprio comando, nunca no `.env`, e com o `Crm__UrlPublica` em `localhost`. Sem uma dessas condições, ou sem nenhuma atendente ativa, ele se recusa e não mexe em nada.
 
-No banco de desenvolvimento, com o banco no ar (`docker compose up -d db`) e a API parada, porque o build do Windows não sobrescreve o `Crm.Api.exe` em uso:
+No banco de desenvolvimento, com a API no contêiner (veja "API e dotnet ef num contêiner Linux"), pare a API, rode o comando pelo serviço dela e suba a API de novo. Ela precisa estar parada porque o comando compila no mesmo volume:
+
+```powershell
+docker compose stop api
+docker compose run --rm -e Demo__Permitir=true api preparar-demonstracao
+docker compose start api
+```
+
+Com o `dotnet run`, com o banco no ar (`docker compose up -d db`) e a API parada, porque o build do Windows não sobrescreve o `Crm.Api.exe` em uso:
 
 ```powershell
 $env:Demo__Permitir = 'true'; dotnet run --project src/Crm.Api -- preparar-demonstracao; Remove-Item Env:Demo__Permitir
@@ -282,7 +325,7 @@ $env:Demo__Permitir = 'true'; dotnet run --project src/Crm.Api -- preparar-demon
 Demo__Permitir=true dotnet run --project src/Crm.Api -- preparar-demonstracao
 ```
 
-Depois, suba a API como sempre (`dotnet run --project src/Crm.Api`).
+Depois, suba a API de novo.
 
 No Compose de produção no próprio computador (o plano B), com ele no ar:
 
@@ -302,6 +345,8 @@ Os tipos das chamadas à API, em `web/src/api/schema.d.ts`, são gerados a parti
 ```bash
 cd web && npm run api:tipos
 ```
+
+Com a API no contêiner, rode antes o `docker compose restart api`, para ela compilar o código novo.
 
 O arquivo gerado vai para o Git, para o build do front não depender da API. O cliente `api` de [web/src/api/cliente.ts](web/src/api/cliente.ts) usa esses tipos.
 
@@ -342,8 +387,9 @@ docker compose -f docker-compose.testes.yml run --rm testes
 
 ```bash
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api   # nova migration, em src/Crm.Api/Infra/Dados/Migrations
-docker compose down                                               # para o banco e mantém os dados
-docker compose down -v                                            # para o banco e APAGA os dados
+docker compose run --rm ef migrations add <NomeDescritivo>        # o mesmo, pelo contêiner (veja Dia a dia)
+docker compose down                                               # para o banco e a API do contêiner e mantém os dados
+docker compose down -v                                            # para os dois e APAGA os dados, as chaves da sessão e o build do contêiner
 ```
 
 - Uma migration por mudança, com nome descritivo. Nunca edite uma migration já aplicada.

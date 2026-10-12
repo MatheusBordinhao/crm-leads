@@ -17,5 +17,72 @@ services:
       timeout: 3s
       retries: 10
 
+  # A API de desenvolvimento num contêiner Linux, para o Windows que não deixa carregar as DLLs do projeto (o Controle
+  # Inteligente de Aplicativos, README › Dia a dia): docker compose up -d api. Onde o dotnet run funciona, suba só o
+  # banco (docker compose up -d db).
+  # A configuração é a mesma do dotnet run no Windows: a própria API lê o mesmo .env (ArquivoEnv) e o
+  # appsettings.Development.json. Daqui saem só a conexão com o banco, pelo nome do serviço e com a senha do .env, e a
+  # pasta das chaves da sessão, num volume, para o login não cair quando o contêiner reinicia. O código entra só para
+  # leitura, e o build fica num volume.
+  api:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src
+    # Compila e sobe a API. Num "docker compose run", o que vier depois do nome do serviço vai para ela, como o
+    # preparar-demonstracao. Pare o api antes: os dois compilam no mesmo volume.
+    entrypoint:
+      - sh
+      - -c
+      - dotnet build src/Crm.Api --artifacts-path /artefatos -v q -nologo && cd /src/src/Crm.Api && exec dotnet /artefatos/bin/Crm.Api/debug/Crm.Api.dll "$$@"
+      - api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # A mesma porta do dotnet run. A imagem do SDK vem com a 8080, como a de produção.
+      ASPNETCORE_HTTP_PORTS: "5080"
+      ConnectionStrings__Crm: Host=db;Port=5432;Database=crm;Username=crm;Password=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (veja o README)}
+      DataProtection__Pasta: /chaves
+      # Só para o log mostrar a hora de Brasília, como no Windows. As datas da aplicação não dependem do fuso.
+      TZ: America/Sao_Paulo
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+    ports:
+      # Só no próprio computador, como o banco. O proxy do Vite (web/vite.config.ts) chega por aqui.
+      - "127.0.0.1:5080:5080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/src:ro
+      - nuget:/root/.nuget/packages
+      - artefatos-api:/artefatos
+      - chaves-sessao:/chaves
+
+  # O dotnet ef num contêiner Linux, pelo mesmo motivo: docker compose run --rm ef migrations add <Nome>.
+  # Roda na pasta da API, com a mesma configuração dela. Só a pasta das migrations aceita escrita, e o build fica num
+  # volume (o ArtifactsPath, que o MSBuild lê do ambiente).
+  ef:
+    profiles: [ferramentas]
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src/src/Crm.Api
+    # O dotnet ef lê o projeto antes de compilar e precisa do restore feito no volume.
+    entrypoint: [sh, -c, 'dotnet tool restore > /dev/null && dotnet restore -v q && dotnet ef "$$@"', ef]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ArtifactsPath: /artefatos
+      ConnectionStrings__Crm: Host=db;Port=5432;Database=crm;Username=crm;Password=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (veja o README)}
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/src:ro
+      - ./src/Crm.Api/Infra/Dados/Migrations:/src/src/Crm.Api/Infra/Dados/Migrations
+      - nuget:/root/.nuget/packages
+      - artefatos-ef:/artefatos
+
 volumes:
   dados-postgres:
+  nuget:
+  artefatos-api:
+  artefatos-ef:
+  chaves-sessao:
