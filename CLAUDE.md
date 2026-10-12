@@ -144,7 +144,11 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - conferir que as execuções de produção que deram certo não são salvas (os JSONs já levam `saveDataSuccessExecution: none`);
   - apontar o fluxo de erro do Alertas para o id novo do `CRM - Erros`;
   - ver por quanto tempo ficam as execuções com erro.
-- Do Passo 10, fica também para eu decidir: o lead anonimizado ainda aceita o detalhe do motivo ao ir para Perdido, que é texto livre e pode trazer um dado pessoal de volta. A especificação (3.8) deixa a etapa mudar para o admin fechar o lead. A proposta é recusar o detalhe (400) num lead anonimizado e esconder o campo na tela, mantendo o motivo. Ganho já é impossível, porque exige o CPF/CNPJ.
+- Do Passo 10, fica também uma mudança que decidi em 12/10/2026, para fazer só depois da reunião de 13/10/2026. Até lá, o código da mudança de etapa não muda, porque a demonstração usa o funil.
+  - O problema: o lead anonimizado ainda aceita o detalhe do motivo ao ir para Perdido. O detalhe é texto livre e pode trazer um dado pessoal de volta. A especificação (3.8) deixa a etapa mudar, para o admin fechar o lead.
+  - A mudança: num lead anonimizado, a mudança para Perdido recusa um detalhe preenchido com 400, como a edição e a interação. O motivo continua obrigatório. O `MotivoPerdaDialog`, aberto pela ficha (`EtapaDoLead`) e pelo quadro (`useMovimento`), esconde o campo do detalhe.
+  - No mesmo commit: a seção 3.8 da especificação, um teste de integração (400 com o detalhe e 200 sem ele) e os testes do front, na ficha e no quadro.
+  - Ganho já é impossível num lead anonimizado, porque exige o CPF/CNPJ.
 
 ## Arquitetura
 
