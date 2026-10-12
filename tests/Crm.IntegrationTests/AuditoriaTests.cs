@@ -193,6 +193,24 @@ public class AuditoriaTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task A_atendente_recebe_403_na_consulta_mesmo_filtrando_pelos_proprios_registros()
+    {
+        var usuario = await fabrica.CriarUsuarioAsync();
+        using var atendente = await fabrica.LogarAsync(usuario);
+        var leadId = await atendente.CriarLeadIdAsync();
+
+        // O login dela já está na auditoria, e o filtro pelo lead é o do "Ver na auditoria" da ficha.
+        Assert.Contains(AcoesAuditoria.LoginSucesso, (await RegistrosDoUsuarioAsync(usuario.Id)).Select(r => r.Acao));
+        foreach (var query in new[] { string.Empty, $"usuarioId={usuario.Id}", $"entidade=lead&entidadeId={leadId}" })
+        {
+            var resposta = await atendente.GetAsync($"/api/auditoria?{query}", Ct);
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+            Assert.False((await resposta.LerProblemaAsync()).TryGetProperty("itens", out _));
+        }
+    }
+
+    [Fact]
     public async Task Nenhum_registro_da_auditoria_tem_email_ou_senha()
     {
         using var cliente = await fabrica.LogarComoAsync(Perfil.Atendente);
