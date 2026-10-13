@@ -64,7 +64,8 @@ export function Menu({ perfil, aoNavegar }: { perfil: Perfil; aoNavegar?: () => 
               onClick={aoNavegar}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent',
+                  // 40 px de altura no celular, para o toque.
+                  'flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent max-md:py-2.5',
                   isActive && 'bg-accent font-medium',
                 )
               }

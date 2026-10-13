@@ -28,7 +28,11 @@ export function CartaoLead({ cartao, mostrarResponsavel, alca, rodape, className
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <Link to={`/leads/${cartao.id}`} className="block truncate font-medium hover:underline">
+          {/* No celular, o link ganha 40 px de altura para o toque, sem mudar o lugar do texto. */}
+          <Link
+            to={`/leads/${cartao.id}`}
+            className="block truncate font-medium hover:underline max-md:-my-2.5 max-md:py-2.5"
+          >
             {cartao.nome}
           </Link>
           {cartao.empresa && <div className="truncate text-muted-foreground">{cartao.empresa}</div>}
