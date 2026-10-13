@@ -8,6 +8,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 
 - Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
 - Em 05/10/2026, a ordem do projeto mudou: a empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração para o chefe, que vem logo depois do Passo 8. A ordem nova está em "Como trabalhar" e na seção 10 da especificação.
+- A reunião da demonstração com o chefe é na quinta, 15/10/2026. O código congela na quarta, 14/10/2026, às 18h: depois disso, só documentação, até a reunião.
 - Ainda não há servidor, domínio, n8n de produção, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
 - Os usuários de teste usam aliases com "+" de matheusbordinhao11@gmail.com, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
@@ -144,7 +145,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - conferir que as execuções de produção que deram certo não são salvas (os JSONs já levam `saveDataSuccessExecution: none`);
   - apontar o fluxo de erro do Alertas para o id novo do `CRM - Erros`;
   - ver por quanto tempo ficam as execuções com erro.
-- Do Passo 10, fica também uma mudança que decidi em 12/10/2026, para fazer só depois da reunião de 13/10/2026. Até lá, o código da mudança de etapa não muda, porque a demonstração usa o funil.
+- Do Passo 10, fica também uma mudança que decidi em 12/10/2026, para depois da reunião. Com a reunião em 15/10/2026, ela entra antes do congelamento do código, junto com o Passo 11.
   - O problema: o lead anonimizado ainda aceita o detalhe do motivo ao ir para Perdido. O detalhe é texto livre e pode trazer um dado pessoal de volta. A especificação (3.8) deixa a etapa mudar, para o admin fechar o lead.
   - A mudança: num lead anonimizado, a mudança para Perdido recusa um detalhe preenchido com 400, como a edição e a interação. O motivo continua obrigatório. O `MotivoPerdaDialog`, aberto pela ficha (`EtapaDoLead`) e pelo quadro (`useMovimento`), esconde o campo do detalhe.
   - No mesmo commit: a seção 3.8 da especificação, um teste de integração (400 com o detalhe e 200 sem ele) e os testes do front, na ficha e no quadro.
