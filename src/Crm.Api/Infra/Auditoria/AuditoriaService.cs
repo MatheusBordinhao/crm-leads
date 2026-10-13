@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Web;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Crm.Api.Infra.Auditoria;
@@ -83,7 +84,7 @@ public sealed class AuditoriaService(CrmDbContext db, IHttpContextAccessor http,
             Entidade = entidade,
             EntidadeId = entidadeId,
             Detalhes = detalhes is null ? null : JsonSerializer.SerializeToDocument(detalhes, JsonSerializerOptions.Web),
-            Ip = http.HttpContext?.Connection.RemoteIpAddress?.ToString(),
+            Ip = IpDoCliente.Texto(http.HttpContext),
             OcorridoEm = relogio.GetUtcNow(),
         });
     }

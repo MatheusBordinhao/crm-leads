@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
 using Crm.Api.Infra.Dados;
+using Crm.Api.Infra.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -103,7 +104,7 @@ internal static class AcessoExtensions
             opcoes.AddPolicy(PoliticaLimiteLogin, contexto =>
             {
                 var limite = contexto.RequestServices.GetRequiredService<IOptions<AcessoOptions>>().Value.LoginsPorMinuto;
-                var ip = contexto.Connection.RemoteIpAddress?.ToString() ?? "desconhecido";
+                var ip = IpDoCliente.Texto(contexto) ?? "desconhecido";
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = limite,

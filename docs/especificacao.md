@@ -408,7 +408,7 @@ Nomes em snake_case. O banco usa a extensão `unaccent` para a busca sem acento.
 | interacoes | id, lead_id, usuario_id, tipo, descricao, ocorrido_em, criado_em | |
 | notificacoes | id, usuario_id, tipo, titulo, lead_id, importacao_id, lida_em, criado_em | `importacao_id` só no resumo da importação, para quem importou |
 | eventos_saida | id (uuid), tipo, lead_id, payload (jsonb), situacao, tentativas, proxima_tentativa_em, entregue_em, ultimo_erro, criado_em | Situação: `pendente`, `entregue` ou `falhou`. Índice em (situacao, proxima_tentativa_em). O `lead_id` liga o evento ao lead, para o aviso de falha e para a LGPD: a anonimização apaga os eventos do lead. O payload leva nome e empresa do lead, e `ultimo_erro` só o código HTTP ou o tipo da falha |
-| auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui. No login com e-mail desconhecido, usuario_id fica nulo e o e-mail digitado não é gravado |
+| auditoria | id, usuario_id, acao, entidade, entidade_id, detalhes (jsonb, sem dados pessoais), ip, ocorrido_em | As trocas de responsável da linha do tempo vêm daqui. No login com e-mail desconhecido, usuario_id fica nulo e o e-mail digitado não é gravado. O ip de um cliente IPv4 é gravado sem o prefixo `::ffff:`, mesmo quando a conexão chega por um socket IPv6, e conta assim também no limite de logins |
 | configuracoes | chave, valor | `distribuicao_automatica`, `exigir_documento_para_ganho` |
 
 ## 6. API

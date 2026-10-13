@@ -90,6 +90,57 @@ public class ProxyTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Conexao_IPv4_num_socket_IPv6_grava_o_IPv4_sem_o_prefixo()
+    {
+        // O Kestrel escuta em [::], e uma conexão IPv4 chega mapeada, como na API de desenvolvimento no contêiner.
+        var usuario = await fabrica.CriarUsuarioAsync();
+
+        var login = await LoginAsync(fabrica, $"::ffff:{IpDoCliente}", null, usuario.Email!, UsuariosDeTeste.SenhaPadrao);
+
+        Assert.Equal(StatusCodes.Status200OK, login.Response.StatusCode);
+        Assert.Equal(IpDoCliente, await IpDoUltimoLoginAsync(usuario));
+    }
+
+    [Fact]
+    public async Task IPv6_de_verdade_fica_como_esta()
+    {
+        var usuario = await fabrica.CriarUsuarioAsync();
+
+        var login = await LoginAsync(fabrica, "2001:db8::7", null, usuario.Email!, UsuariosDeTeste.SenhaPadrao);
+
+        Assert.Equal(StatusCodes.Status200OK, login.Response.StatusCode);
+        Assert.Equal("2001:db8::7", await IpDoUltimoLoginAsync(usuario));
+    }
+
+    [Fact]
+    public async Task O_Caddy_conectando_por_IPv4_mapeado_continua_aceito_como_proxy()
+    {
+        using var api = ApiAtrasDoCaddy();
+        var usuario = await api.CriarUsuarioAsync();
+
+        var login = await LoginAsync(api, $"::ffff:{IpDoCaddy}", IpDoCliente, usuario.Email!, UsuariosDeTeste.SenhaPadrao);
+
+        Assert.Equal(StatusCodes.Status200OK, login.Response.StatusCode);
+        Assert.Equal(IpDoCliente, await IpDoUltimoLoginAsync(usuario));
+    }
+
+    [Fact]
+    public async Task O_limite_de_logins_conta_o_IPv4_mapeado_e_o_IPv4_como_o_mesmo_IP()
+    {
+        // Fábrica à parte, com um contador só dela e um limite pequeno.
+        using var api = ApiAtrasDoCaddy(loginsPorMinuto: 2);
+        const string ip = "198.51.100.30";
+
+        var mapeado = await LoginAsync(api, $"::ffff:{ip}", null, "ninguem@example.com", "senha-errada-123");
+        var ipv4 = await LoginAsync(api, ip, null, "ninguem@example.com", "senha-errada-123");
+        var terceiro = await LoginAsync(api, $"::ffff:{ip}", null, "ninguem@example.com", "senha-errada-123");
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, mapeado.Response.StatusCode);
+        Assert.Equal(StatusCodes.Status401Unauthorized, ipv4.Response.StatusCode);
+        Assert.Equal(StatusCodes.Status429TooManyRequests, terceiro.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task O_limite_de_logins_e_por_IP_de_quem_acessa_e_nao_do_Caddy()
     {
         // Fábrica à parte, com um contador só dela e um limite pequeno.
