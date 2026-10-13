@@ -69,6 +69,7 @@ export function useMovimento(filtros: FiltrosFunil) {
   const dialogo = pendente && (
     <MotivoPerdaDialog
       nomeDoLead={pendente.cartao.nome}
+      anonimizado={pendente.cartao.anonimizado}
       salvando={mover.isPending}
       erro={erroDoMotivo}
       aoConfirmar={(motivo) =>

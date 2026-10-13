@@ -21,10 +21,12 @@ public static class RegrasFunil
 
     /// <summary>
     /// Confere se o lead pode ir para o <paramref name="destino"/>: Perdido exige um motivo ativo, e Ganho exige
-    /// CPF/CNPJ válido quando a configuração <c>exigir_documento_para_ganho</c> está ligada.
+    /// CPF/CNPJ válido quando a configuração <c>exigir_documento_para_ganho</c> está ligada. Num lead anonimizado, Perdido
+    /// vai sem o detalhe: é texto livre e poderia trazer de volta um dado pessoal (seção 3.8).
     /// </summary>
     /// <param name="motivoPerdaId">O motivo pedido.</param>
     /// <param name="motivo">O motivo encontrado com esse id, ou nulo se não existe.</param>
+    /// <param name="detalhe">O detalhe já limpo: só espaços chega nulo.</param>
     public static ErroMudancaEtapa? Conferir(
         Lead lead,
         Etapa destino,
@@ -43,6 +45,11 @@ public static class RegrasFunil
             if (motivo is not { Ativo: true })
             {
                 return new ErroMudancaEtapa("motivoPerdaId", MensagemMotivoInvalido);
+            }
+
+            if (detalhe is not null && lead.AnonimizadoEm is not null)
+            {
+                return new ErroMudancaEtapa("motivoPerdaDetalhe", Anonimizacao.MensagemSemDetalhePerda);
             }
         }
         else if (motivoPerdaId is not null || detalhe is not null)

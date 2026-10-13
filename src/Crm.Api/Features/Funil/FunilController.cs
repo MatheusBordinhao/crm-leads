@@ -27,8 +27,16 @@ public sealed class FiltroFunil : IFiltroLeads
 }
 
 /// <summary>Cartão do quadro: o que a atendente precisa para reconhecer o lead, sem e-mail, telefone nem documento.</summary>
+/// <param name="Anonimizado">O titular foi removido (seção 3.8): a perda vai sem o detalhe, e o pedido do motivo não o oferece.</param>
 public sealed record CartaoFunilResponse(
-    long Id, string Nome, string? Empresa, Origem Origem, ResponsavelResumo? Responsavel, bool Teste, DateTimeOffset CriadoEm);
+    long Id,
+    string Nome,
+    string? Empresa,
+    Origem Origem,
+    ResponsavelResumo? Responsavel,
+    bool Teste,
+    bool Anonimizado,
+    DateTimeOffset CriadoEm);
 
 /// <param name="Total">Quantos leads estão na etapa, mesmo os que não cabem na coluna.</param>
 /// <param name="Leads">Os mais recentes primeiro, até <see cref="FunilController.CartoesPorColuna"/>.</param>
@@ -86,6 +94,7 @@ public sealed class FunilController(CrmDbContext db, VisibilidadeLeads visibilid
                     l.Origem,
                     l.Responsavel == null ? null : new ResponsavelResumo(l.Responsavel.Id, l.Responsavel.Nome),
                     l.Teste,
+                    l.AnonimizadoEm != null,
                     l.CriadoEm))
                 .ToListAsync(ct);
             colunas.Add(new ColunaFunilResponse(Resumo(etapa), totais.GetValueOrDefault(etapa.Id), cartoes));

@@ -43,8 +43,8 @@ function posicionarAreas() {
  * Servidor com o estado do quadro: a mudança de etapa leva o lead para a etapa pedida, e o quadro
  * recarregado já mostra o lead lá. Devolve os pedidos de mudança.
  */
-function comServidorDoQuadro() {
-  let quadro: QuadroFunilResponse = quadroFunil()
+function comServidorDoQuadro(inicial: QuadroFunilResponse = quadroFunil()) {
+  let quadro = inicial
   const mudancas: (MudarEtapaRequest & { leadId: number })[] = []
   comQuadro(quadro)
   servidor.use(
@@ -178,6 +178,36 @@ describe('quadro do funil', () => {
     expect(mudancas).toEqual([
       { leadId: 1024, etapaId: 6, motivoPerdaId: 1, motivoPerdaDetalhe: null },
     ])
+  })
+
+  it('no lead anonimizado, Perdido pede só o motivo, no quadro e na lista do celular', async () => {
+    comSessao(admin)
+    const inicial = quadroFunil()
+    inicial.colunas[0].leads = [
+      cartao({ nome: 'Titular removido', empresa: null, anonimizado: true }),
+    ]
+    const mudancas = comServidorDoQuadro(inicial)
+    posicionarAreas()
+    const { usuario } = renderizarApp('/funil')
+    await screen.findByRole('region', { name: 'Quadro do funil' })
+
+    await arrastar(usuario, 'Titular removido', 5)
+    const doQuadro = within(await screen.findByRole('dialog', { name: 'Motivo da perda' }))
+    expect(doQuadro.queryByLabelText('Detalhe (opcional)')).not.toBeInTheDocument()
+    await usuario.click(doQuadro.getByRole('button', { name: 'Cancelar' }))
+
+    const lista = within(screen.getByRole('region', { name: 'Leads por etapa' }))
+    await usuario.selectOptions(lista.getByLabelText('Mover Titular removido para'), 'Perdido')
+    const doCelular = within(await screen.findByRole('dialog', { name: 'Motivo da perda' }))
+    expect(doCelular.queryByLabelText('Detalhe (opcional)')).not.toBeInTheDocument()
+    await usuario.selectOptions(doCelular.getByLabelText('Motivo'), 'Sem resposta')
+    await usuario.click(doCelular.getByRole('button', { name: 'Marcar como perdido' }))
+
+    await waitFor(() =>
+      expect(mudancas).toEqual([
+        { leadId: 1024, etapaId: 6, motivoPerdaId: 1, motivoPerdaDetalhe: null },
+      ]),
+    )
   })
 
   it('arrastar para outra coluna move o cartão', async () => {

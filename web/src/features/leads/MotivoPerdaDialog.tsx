@@ -30,6 +30,11 @@ export type MotivoEscolhido = { motivoPerdaId: number; motivoPerdaDetalhe: strin
 
 type Props = {
   nomeDoLead: string
+  /**
+   * O titular foi removido (seção 3.8): a perda vai só com o motivo. O detalhe é texto livre e poderia trazer de volta
+   * um dado pessoal, e a API o recusa.
+   */
+  anonimizado?: boolean
   salvando?: boolean
   /** Falha ao salvar, mostrada no diálogo. */
   erro?: string | null
@@ -41,7 +46,14 @@ type Props = {
  * Pedido do motivo ao levar um lead para Perdido (seção 3.4), na ficha e no quadro. Cancelar não muda nada:
  * o lead continua na etapa em que estava.
  */
-export function MotivoPerdaDialog({ nomeDoLead, salvando, erro, aoConfirmar, aoCancelar }: Props) {
+export function MotivoPerdaDialog({
+  nomeDoLead,
+  anonimizado = false,
+  salvando,
+  erro,
+  aoConfirmar,
+  aoCancelar,
+}: Props) {
   const { data: motivos } = useMotivosPerda()
   const {
     register,
@@ -50,7 +62,10 @@ export function MotivoPerdaDialog({ nomeDoLead, salvando, erro, aoConfirmar, aoC
   } = useForm({ resolver: zodResolver(esquema), defaultValues: { motivoPerdaId: '', detalhe: '' } })
 
   const confirmar = handleSubmit(({ motivoPerdaId, detalhe }) =>
-    aoConfirmar({ motivoPerdaId: Number(motivoPerdaId), motivoPerdaDetalhe: detalhe || null }),
+    aoConfirmar({
+      motivoPerdaId: Number(motivoPerdaId),
+      motivoPerdaDetalhe: anonimizado ? null : detalhe || null,
+    }),
   )
 
   return (
@@ -58,7 +73,11 @@ export function MotivoPerdaDialog({ nomeDoLead, salvando, erro, aoConfirmar, aoC
       <DialogContent className="max-h-svh overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Motivo da perda</DialogTitle>
-          <DialogDescription>Por que o lead de {nomeDoLead} foi perdido?</DialogDescription>
+          <DialogDescription>
+            {anonimizado
+              ? 'Por que este lead foi perdido? Os dados do titular foram removidos, então a perda leva só o motivo, sem o detalhe.'
+              : `Por que o lead de ${nomeDoLead} foi perdido?`}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={confirmar} noValidate>
           <FieldGroup>
@@ -82,15 +101,17 @@ export function MotivoPerdaDialog({ nomeDoLead, salvando, erro, aoConfirmar, aoC
                   </option>
                 ))}
             </CampoSelecao>
-            <Field data-invalid={errors.detalhe ? true : undefined}>
-              <FieldLabel htmlFor="motivoPerdaDetalhe">Detalhe (opcional)</FieldLabel>
-              <Textarea
-                id="motivoPerdaDetalhe"
-                aria-invalid={errors.detalhe ? true : undefined}
-                {...register('detalhe')}
-              />
-              <FieldError errors={[errors.detalhe]} />
-            </Field>
+            {!anonimizado && (
+              <Field data-invalid={errors.detalhe ? true : undefined}>
+                <FieldLabel htmlFor="motivoPerdaDetalhe">Detalhe (opcional)</FieldLabel>
+                <Textarea
+                  id="motivoPerdaDetalhe"
+                  aria-invalid={errors.detalhe ? true : undefined}
+                  {...register('detalhe')}
+                />
+                <FieldError errors={[errors.detalhe]} />
+              </Field>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={aoCancelar}>
                 Cancelar

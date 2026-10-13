@@ -154,6 +154,7 @@ export function cartao(parcial: Partial<CartaoFunilResponse> = {}): CartaoFunilR
     origem: 'meta_lead_ads',
     responsavel: { id: atendente.id, nome: 'Adriana' },
     teste: false,
+    anonimizado: false,
     criadoEm: '2026-10-05T17:03:00Z',
     ...parcial,
   }

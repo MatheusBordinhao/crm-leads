@@ -184,7 +184,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - grava `anonimizado_em` e o registro na auditoria, com quantas entradas e interações foram limpas e quantos eventos foram apagados.
 - As notificações ficam como estão: o título nunca leva dados do lead (3.6), e a lista mostra o nome atual, "Titular removido".
 - Com uma importação processando, anonimizar responde 409 e pede para tentar de novo quando ela terminar: o arquivo da importação, que tem os dados das pessoas, só é apagado no fim (3.7).
-- O lead anonimizado não aceita edição dos dados nem interações novas (400), para os dados pessoais não voltarem. A etapa e a responsável continuam mudando, para o admin fechar um lead que estava em andamento. Anonimizar de novo não muda nada.
+- O lead anonimizado não aceita edição dos dados nem interações novas (400), para os dados pessoais não voltarem. A etapa e a responsável continuam mudando, para o admin fechar um lead que estava em andamento. Ir para Perdido leva só o motivo: o detalhe é texto livre e poderia trazer um dado pessoal de volta, então um detalhe preenchido responde 400, e o pedido do motivo, na ficha e no quadro, não oferece o campo. Anonimizar de novo não muda nada.
 - Uma entrada nova da mesma pessoa, com outro id externo, cria um lead novo, porque a busca ignora os anonimizados (3.2).
 - A anonimização é irreversível e pede confirmação.
 - A auditoria registra:
@@ -455,7 +455,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
     - o "Anonimizar", com uma confirmação que diz o que sai e o que fica, avisa que não tem volta e sugere exportar antes;
     - num lead de teste, no lugar dele, o "Excluir lead de teste", que volta para a lista;
     - o link para a auditoria do lead.
-  - O lead anonimizado mostra um aviso no lugar do formulário de dados, sem os botões de contato e sem o registro de interação.
+  - O lead anonimizado mostra um aviso no lugar do formulário de dados, sem os botões de contato e sem o registro de interação. Levado para Perdido, pela ficha ou pelo quadro, ele pede só o motivo, sem o detalhe (3.8).
 - **Novo lead:** o admin escolhe a responsável ou deixa com o rodízio.
 - **Painel** (seção 8): a tela inicial do admin. A atendente o abre pelo menu e vê só os próprios números. Os filtros ficam numa linha acima de tudo, com o período primeiro: últimos 7, 30 e 90 dias, este mês, mês passado ou personalizado. Embaixo vêm os indicadores (leads novos, entradas, conversão e primeiro contato), as barras da situação atual, dos motivos de perda e das quebras por origem e por campanha, e a tabela por atendente (só admin). Em Por campanha, os leads sem campanha, que não vieram de anúncio, ficam sempre por último, com o rótulo "Sem campanha (não veio de anúncio)".
 - **Relatório por campanha** (admin), em Relatório no menu: a tabela da seção 8, com uma linha por campanha, as dos leads sem campanha no fim (uma por origem, com a origem embaixo do rótulo) e o total. O período fica acima, com os mesmos atalhos do painel, e o botão "Baixar CSV" baixa o mesmo relatório, no período da tela. A tela lembra que é o relatório da Gama, sem dados pessoais. No celular, cada linha vira um cartão.

@@ -48,6 +48,24 @@ public class RegrasFunilTests
     }
 
     [Fact]
+    public void Num_lead_anonimizado_Perdido_vai_sem_o_detalhe_e_continua_exigindo_o_motivo()
+    {
+        var anonimizado = NovoLead();
+        anonimizado.AnonimizadoEm = CriadoEm.AddHours(1);
+
+        Assert.Equal(
+            new ErroMudancaEtapa("motivoPerdaDetalhe", Anonimizacao.MensagemSemDetalhePerda),
+            RegrasFunil.Conferir(anonimizado, Perdido, SemResposta.Id, SemResposta, "Ligou de outro número", exigirDocumentoParaGanho: true));
+        Assert.Null(RegrasFunil.Conferir(anonimizado, Perdido, SemResposta.Id, SemResposta, null, exigirDocumentoParaGanho: true));
+        Assert.Equal(
+            new ErroMudancaEtapa("motivoPerdaId", RegrasFunil.MensagemMotivoObrigatorio),
+            RegrasFunil.Conferir(anonimizado, Perdido, null, null, null, exigirDocumentoParaGanho: true));
+
+        // O lead que não foi anonimizado continua aceitando o detalhe.
+        Assert.Null(RegrasFunil.Conferir(NovoLead(), Perdido, SemResposta.Id, SemResposta, "Ligou de outro número", exigirDocumentoParaGanho: true));
+    }
+
+    [Fact]
     public void Motivo_e_detalhe_so_valem_para_Perdido()
     {
         var lead = NovoLead();

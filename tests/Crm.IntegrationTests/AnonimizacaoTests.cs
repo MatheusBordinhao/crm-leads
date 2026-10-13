@@ -351,6 +351,42 @@ public class AnonimizacaoTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Lead_anonimizado_vai_para_Perdido_so_com_o_motivo_e_o_detalhe_responde_400()
+    {
+        using var api = await CriarApiAsync();
+        using var admin = await api.LogarComoAsync(Perfil.Admin);
+        using var atendente = await api.LogarAsync(await api.CriarUsuarioAsync());
+        var id = await atendente.CriarLeadIdAsync();
+        Assert.Equal(HttpStatusCode.OK, (await admin.AnonimizarAsync(id)).StatusCode);
+        var perdido = (await api.EtapaAsync("Perdido")).Id;
+        var motivo = await api.MotivoPerdaIdAsync();
+        var historicoAntes = (await api.HistoricoAsync(id)).Count;
+
+        // O cartão do funil avisa a tela, que não oferece o detalhe no pedido do motivo.
+        var quadro = await atendente.GetFromJsonAsync<JsonElement>("/api/funil", Ct);
+        var cartao = quadro.GetProperty("colunas").EnumerateArray()
+            .SelectMany(c => c.GetProperty("leads").EnumerateArray())
+            .Single(c => c.GetProperty("id").GetInt64() == id);
+        Assert.True(cartao.GetProperty("anonimizado").GetBoolean());
+
+        // O detalhe é texto livre e poderia trazer de volta um dado pessoal.
+        var comDetalhe = await atendente.MudarEtapaAsync(id, perdido, motivo, "Falei com a Maria pelo celular dela");
+
+        Assert.Equal(HttpStatusCode.BadRequest, comDetalhe.StatusCode);
+        Assert.Equal([Anonimizacao.MensagemSemDetalhePerda], await comDetalhe.LerErrosDoCampoAsync("motivoPerdaDetalhe"));
+        Assert.Equal("Novo", (await api.BuscarLeadAsync(id)).Etapa.Nome);
+        Assert.Equal(historicoAntes, (await api.HistoricoAsync(id)).Count);
+
+        var semDetalhe = await atendente.MudarEtapaAsync(id, perdido, motivo);
+
+        Assert.Equal(HttpStatusCode.OK, semDetalhe.StatusCode);
+        var lead = await api.BuscarLeadAsync(id);
+        Assert.Equal((perdido, (int?)motivo, (string?)null), (lead.EtapaId, lead.MotivoPerdaId, lead.MotivoPerdaDetalhe));
+        var historico = (await api.HistoricoAsync(id)).Last();
+        Assert.Equal((perdido, (int?)motivo, (string?)null), (historico.EtapaNovaId, historico.MotivoPerdaId, historico.MotivoPerdaDetalhe));
+    }
+
+    [Fact]
     public async Task Reenvio_e_reimportacao_do_lead_anonimizado_respondem_ja_recebido_sem_trazer_a_pessoa_de_volta()
     {
         using var api = await CriarApiAsync();

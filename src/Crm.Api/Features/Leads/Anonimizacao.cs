@@ -20,6 +20,8 @@ public sealed class Anonimizacao(CrmDbContext db, AuditoriaService auditoria, Ti
 
     public const string MensagemSemInteracoes = "Este lead foi anonimizado e não recebe novas interações.";
 
+    public const string MensagemSemDetalhePerda = "Este lead foi anonimizado e não recebe o detalhe do motivo da perda.";
+
     public const string MensagemImportacaoEmAndamento =
         "Há uma importação em andamento. Tente de novo quando ela terminar: o arquivo dela ainda guarda os dados das pessoas.";
 

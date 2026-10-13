@@ -115,8 +115,10 @@ public class FunilTests(CrmApiFactory fabrica)
 
         // O cartão não leva e-mail, telefone nem documento.
         var cartao = Coluna(quadro, "Novo").GetProperty("leads")[0];
-        Assert.Equal(["id", "nome", "empresa", "origem", "responsavel", "teste", "criadoEm"], cartao.EnumerateObject().Select(p => p.Name));
+        Assert.Equal(
+            ["id", "nome", "empresa", "origem", "responsavel", "teste", "anonimizado", "criadoEm"], cartao.EnumerateObject().Select(p => p.Name));
         Assert.Equal(("Lead no Novo", "Empresa X", "manual"), (cartao.GetProperty("nome").GetString(), cartao.GetProperty("empresa").GetString(), cartao.GetProperty("origem").GetString()));
+        Assert.False(cartao.GetProperty("anonimizado").GetBoolean());
         Assert.Equal(usuario.Nome, cartao.GetProperty("responsavel").GetProperty("nome").GetString());
     }
 

@@ -2403,6 +2403,7 @@ export interface components {
             origem: components["schemas"]["Origem"];
             responsavel: null | components["schemas"]["ResponsavelResumo"];
             teste: boolean;
+            anonimizado: boolean;
             /** Format: date-time */
             criadoEm: string;
         };

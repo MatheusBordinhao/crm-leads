@@ -347,6 +347,31 @@ describe('etapa, contato e interações na ficha', () => {
     expect(mudancas).toEqual([{ etapaId: 6, motivoPerdaId: 3, motivoPerdaDetalhe: 'Achou caro' }])
   })
 
+  it('no lead anonimizado, Perdido pede só o motivo, sem o detalhe', async () => {
+    const anonimizado = fichaLead({
+      nome: 'Titular removido',
+      email: null,
+      telefone: null,
+      empresa: null,
+      anonimizadoEm: '2026-10-09T15:00:00Z',
+      avisos: [],
+    })
+    comSessao(admin)
+    comFicha(anonimizado)
+    const mudancas = comMudancaDeEtapa(anonimizado)
+    const { usuario } = renderizarApp('/leads/1024')
+
+    await usuario.selectOptions(await seletorDeEtapa(), 'Perdido')
+    const dialogo = within(await screen.findByRole('dialog', { name: 'Motivo da perda' }))
+    expect(dialogo.getByText(/a perda leva só o motivo, sem o detalhe/)).toBeInTheDocument()
+    expect(dialogo.queryByLabelText('Detalhe (opcional)')).not.toBeInTheDocument()
+    await usuario.selectOptions(dialogo.getByLabelText('Motivo'), 'Sem resposta')
+    await usuario.click(dialogo.getByRole('button', { name: 'Marcar como perdido' }))
+
+    expect(await screen.findByText('Lead movido para Perdido.')).toBeInTheDocument()
+    expect(mudancas).toEqual([{ etapaId: 6, motivoPerdaId: 1, motivoPerdaDetalhe: null }])
+  })
+
   it('Ganho recusado mostra a mensagem da API e o lead fica onde estava', async () => {
     comSessao(atendente)
     comFicha(comEmail)

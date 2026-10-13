@@ -108,6 +108,7 @@ export function EtapaDoLead({ lead, className }: { lead: LeadResponse; className
       {pedindoMotivo !== null && (
         <MotivoPerdaDialog
           nomeDoLead={lead.nome}
+          anonimizado={lead.anonimizadoEm !== null}
           salvando={mudar.isPending}
           erro={erro}
           aoConfirmar={(motivo) => mover(pedindoMotivo, motivo)}
