@@ -4,6 +4,8 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
 - Regras, contrato com o n8n, modelo de dados e passos de entrega: [docs/especificacao.md](docs/especificacao.md)
 - Como desenvolver com o Claude Code: [docs/guia-claude-code.md](docs/guia-claude-code.md)
+- Guia de uma página para as atendentes: [docs/guia-das-atendentes.md](docs/guia-das-atendentes.md)
+- Operação: [Publicação](#publicação) (com backup, restauração e troca de chaves e senhas), [Plano B da demonstração](#plano-b-o-compose-de-produção-no-próprio-computador) e [Pedido do titular (LGPD)](#pedido-do-titular-lgpd)
 
 ## Pré-requisitos
 
@@ -111,19 +113,27 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 5. Instale as ferramentas e as dependências:
 
    ```bash
-   dotnet tool restore      # dotnet ef, para criar migrations
+   dotnet tool restore      # dotnet ef, para criar migrations (num Windows que bloqueia as DLLs, use o serviço ef)
    cd web && npm ci
    ```
 
 ## Dia a dia
+
+Num Windows com o Controle Inteligente de Aplicativos ligado, como o deste projeto, a API e o `dotnet ef` rodam num contêiner Linux, e o front continua no Windows (veja "API e dotnet ef num contêiner Linux", logo abaixo). No PowerShell 5.1, use `npm.cmd` e rode os comandos em linhas separadas:
+
+```powershell
+docker compose up -d api                 # PostgreSQL 17 e a API em http://localhost:5080
+cd web
+npm.cmd run dev                          # front em http://localhost:5173
+```
+
+Onde o Windows deixa carregar as DLLs do projeto, a API também roda direto:
 
 ```bash
 docker compose up -d db                  # PostgreSQL 17 em localhost:5432
 dotnet run --project src/Crm.Api         # API em http://localhost:5080
 cd web && npm run dev                    # front em http://localhost:5173
 ```
-
-Num Windows que bloqueia as DLLs do projeto, a API sobe num contêiner, no lugar do `dotnet run` (veja "API e dotnet ef num contêiner Linux", logo abaixo).
 
 | Endereço | O que é |
 | --- | --- |
@@ -134,7 +144,7 @@ Num Windows que bloqueia as DLLs do projeto, a API sobe num contêiner, no lugar
 
 Em desenvolvimento, a API lê o `.env` da raiz. Uma variável que já exista no ambiente tem prioridade sobre o arquivo. As migrations são aplicadas quando a API sobe, só em desenvolvimento. O arquivo [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) tem requisições prontas para testar a API pelo VS Code.
 
-Com o `N8n__WebhookUrl` preenchido, a API manda ao n8n os eventos pendentes assim que sobe. Para subir sem mandar nada (para gerar os tipos do front, por exemplo):
+Com o `N8n__WebhookUrl` preenchido, a API manda ao n8n os eventos pendentes assim que sobe. Para subir sem mandar nada (para gerar os tipos do front, por exemplo), pelo contêiner (veja abaixo) ou, onde ele funciona, pelo `dotnet run`:
 
 ```bash
 dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=
@@ -235,8 +245,28 @@ Em Relatório (só admin) fica o relatório que a Gama recebe, sem dados pessoai
 - Os leads da integração, e os que um admin cadastra com "Rodízio" no campo Responsável, vão um de cada vez para quem está no rodízio. Só o rodízio passa a vez: a escolha do admin, a troca de responsável e o lead que a atendente cadastra para si não mexem na ordem.
 - Sem ninguém no rodízio, ou com a distribuição desligada, o lead fica sem responsável, e os admins recebem um aviso no sino, com o motivo.
 - O sino no topo mostra as notificações e se atualiza na hora, pelo tempo real (o hub `/hubs/notificacoes` do SignalR). Quem fez a ação não é avisado dela, e lead de teste não gera aviso.
-- Com a aba em segundo plano, o navegador mostra a notificação nativa, só com o título; o clique abre a ficha. Depois do login, um aviso pergunta uma vez se a pessoa quer ativá-la; quem respondeu "Agora não" ativa pelo sino. No celular, ela chega com o PWA (Passo 11).
+- Com a aba em segundo plano, o navegador mostra a notificação nativa, só com o título; o clique abre a ficha. Depois do login, um aviso pergunta uma vez se a pessoa quer ativá-la; quem respondeu "Agora não" ativa pelo sino.
+  - No build de produção, ela sai pelo service worker do PWA, que também a leva ao celular (veja "Instalar como app"). Em desenvolvimento, sai pelo `new Notification`, só no computador.
+  - Ela chega enquanto o CRM está aberto, mesmo em segundo plano. Com ele fechado, não chega: o push com o app fechado está fora da primeira versão.
 - Os e-mails saem pelo n8n, em segundo plano. Se o n8n estiver fora do ar, o CRM tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h; depois disso, os admins recebem um aviso no sino.
+
+### Instalar como app (PWA)
+
+O CRM se instala como um app, com o nome "CRM de Leads" e o ícone da marca, numa janela própria.
+
+- **No computador:** no Chrome, pelo menu ⋮ › Transmitir, salvar e compartilhar › o item de instalar (o nome dele muda com a versão do Chrome), ou pelo ícone de instalar na barra de endereço, quando aparecer. No Edge, pelo menu … › Aplicativos › Instalar este site como um aplicativo. Funciona no `http://localhost:5173` e, depois da publicação, no domínio.
+- **No celular, só depois da publicação**, porque precisa de HTTPS: no Chrome do Android, pelo menu ⋮ › Instalar app (ou Adicionar à tela inicial); no Safari do iPhone, por Compartilhar › Adicionar à Tela de Início. No iPhone, a notificação nativa só funciona no app instalado.
+- **Service worker** (`web/public/sw.js`):
+  - só existe no build de produção;
+  - não tem evento `fetch` nem cache: não intercepta a API, o tempo real nem os arquivos da tela, e nunca serve uma versão velha;
+  - serve para a instalação e para a notificação nativa, que no celular só sai por ele;
+  - não existe no `localhost:5173` nem no Compose de produção no próprio computador (`https://localhost`), cujo certificado local o Chrome recusa para o service worker. Nos dois, a notificação sai pelo `new Notification`, como antes.
+- **Para testar o service worker no computador**, com a API no ar: em `web/`, `npm.cmd run build` e `npm.cmd run preview`, e abra `http://localhost:4173`, que repassa `/api` e `/hubs` para a API, como o `npm run dev`. Ele fica registrado só no `localhost:4173`; para tirá-lo, use DevTools › Application › Service workers › Unregister.
+- **Ícones:** os PNGs de `web/public` saem dos SVGs (o `favicon.svg` e os de `web/icones`) por um script que roda num contêiner Linux, sem instalar nada no Windows. Rode de novo quando o logo da empresa chegar:
+
+  ```powershell
+  docker run --rm -v "${PWD}/web:/web" -w /web alpine:3.22 sh icones/gerar.sh
+  ```
 
 ### Leads pela integração
 
@@ -293,6 +323,8 @@ Em **Auditoria** (só admin) ficam, do mais recente para o mais antigo, os login
 
 No n8n, os fluxos não salvam as execuções que deram certo (os JSONs de `n8n/` já levam o ajuste). Conferir isso no n8n de produção fica para quando ele existir.
 
+O passo a passo de um pedido do titular, com o que fica fora do CRM, está em "Pedido do titular (LGPD)", no fim deste README.
+
 ## Demonstração
 
 Para a demonstração do painel, o comando `preparar-demonstracao` troca os leads por uma massa fictícia:
@@ -336,6 +368,33 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.e
 - Depois de um ensaio, rode o comando de novo: tudo volta ao estado inicial.
 - O comando roda em outro processo, então recarregue as telas que estiverem abertas.
 - Os nomes das campanhas, das pessoas e das empresas ficam em [src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs](src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs).
+
+### Plano B: o Compose de produção no próprio computador
+
+Se o ambiente de desenvolvimento falhar no dia, a demonstração roda no Compose de produção no próprio computador, o `crm-local`. Ele tem banco, usuários e massa próprios, separados do banco de desenvolvimento.
+
+Na véspera, depois do congelamento do código:
+
+1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088` e `PORTA_HTTPS=8443`, sem o `N8n__WebhookUrl`, para não mandar e-mail:
+
+   ```powershell
+   docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build
+   docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env ps -a
+   ```
+
+   O build leva alguns minutos. O `migracoes` aplica as migrations novas e termina com `Exited (0)`.
+2. Abra `https://localhost:8443`. O Chrome avisa que o certificado não é confiável: siga por Avançado › Ir para localhost (não seguro), sem instalar a autoridade do Caddy.
+3. Entre como admin e confira, em Configurações › Usuários, a Adriana e a Pietra ativas e no rodízio. Num `crm-local` novo, crie as duas e entre uma vez com cada uma, para trocar a senha provisória.
+4. Rode a massa da demonstração, com o comando do Compose de produção acima, e confira o painel: 60 leads novos.
+
+No dia, se o `crm-local` estiver parado, suba sem o `--build`: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d`.
+
+O que muda em relação ao desenvolvimento:
+
+- o aviso do certificado, na primeira vez;
+- sem service worker, porque o Chrome o recusa com o certificado local: a notificação sai pelo `new Notification`, como em desenvolvimento, e a instalação como app pode não aparecer;
+- a auditoria mostra o IP do Docker (`172.30.0.1`) para todo mundo;
+- os dados são os do `crm-local`, e não os do banco de desenvolvimento.
 
 ## Tipos da API no front
 
@@ -414,10 +473,13 @@ tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React + TypeScript + Vite: features/ por módulo (acesso, painel, relatorio, auditoria, funil, leads,
                              importacao, notificacoes, tempo-real, configuracoes, usuarios), components/ui/ do shadcn/ui,
-                             api/ com o cliente e os tipos gerados
+                             api/ com o cliente e os tipos gerados, pwa/ com o registro do service worker; public/ com o
+                             manifesto, os ícones e o service worker do PWA; icones/ com as fontes dos ícones e o script que
+                             gera os PNGs
 n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
-docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo para a importação (exemplos/)
+docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
+                             importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
 ```
 
@@ -425,13 +487,38 @@ Dockerfile                   imagem de produção: a API com o build do React e 
 
 O [docker-compose.prod.yml](docker-compose.prod.yml) sobe tudo num servidor com Docker: o Caddy, com HTTPS automático na frente da API; a API, que também serve o front; o PostgreSQL; as migrations, que rodam antes da API; e o backup diário. Só o Caddy expõe portas (80 e 443).
 
+Nesta seção, **[servidor]** marca o que depende do servidor, e **[domínio]**, o que depende do domínio. Nenhum dos dois existe ainda.
+
+### O que está pronto e o que falta
+
+Pronto e testado no Compose de produção no próprio computador (veja "Plano B" em Demonstração):
+
+- o Compose, com o Caddy, a API, o PostgreSQL, as migrations e o backup;
+- o HTTPS, com a autoridade local do Caddy, os cabeçalhos de segurança e a CSP;
+- a sessão, que continua depois de recriar o contêiner da API;
+- o IP de quem acessa, atrás do Caddy;
+- o backup e o teste da restauração;
+- a importação e o PWA no build de produção.
+
+Falta:
+
+- **[servidor]** a máquina, com o Docker e as portas 80 e 443 abertas, e a pasta dos backups (`BACKUP_PASTA`);
+- **[servidor]** o destino da cópia criptografada dos backups e o cron dela (veja "Backup");
+- **[servidor]** repetir lá o teste da restauração e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
+- **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
+- **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
+- **antes de publicar:** tirar do log do Caddy a query string e os cabeçalhos com dados ou chaves. O log de erro do Caddy, sempre ligado, grava a URL com a busca e o `X-Api-Key` da integração. O caminho é o filtro de campos do log (`format filter`) no `request>uri`, no `request>headers>Referer` e no `request>headers>X-Api-Key`, conferido com a API parada;
+- **junto:** o n8n de produção, com os fluxos de [n8n/](n8n/), as credenciais e o `N8n__WebhookUrl`.
+
 ### O que o servidor precisa
 
-- Linux com Docker Engine e o plugin Compose. Um Ubuntu 24.04 LTS com 2 GB de RAM basta.
-- Portas 80 e 443 abertas para a internet: o Caddy usa a 80 para obter o certificado do Let's Encrypt.
-- Um domínio ou subdomínio, como `crm.empresa.com.br`, com um registro DNS do tipo A apontando para o IP do servidor. Não crie o registro AAAA (IPv6), a não ser que o IPv6 esteja ligado no Docker: sem isso, quem acessa por IPv6 aparece com o IP interno do Docker na auditoria e no limite de logins.
+- **[servidor]** Linux com Docker Engine e o plugin Compose. Um Ubuntu 24.04 LTS com 2 GB de RAM basta.
+- **[servidor]** Portas 80 e 443 abertas para a internet: o Caddy usa a 80 para obter o certificado do Let's Encrypt.
+- **[domínio]** Um domínio ou subdomínio, como `crm.empresa.com.br`, com um registro DNS do tipo A apontando para o IP do servidor. Não crie o registro AAAA (IPv6), a não ser que o IPv6 esteja ligado no Docker: sem isso, quem acessa por IPv6 aparece com o IP interno do Docker na auditoria e no limite de logins.
 
 ### Primeira publicação
+
+Tudo no servidor **[servidor]**, com o domínio já apontando para ele **[domínio]**:
 
 1. Clone o repositório no servidor (por exemplo, em `/opt/crm`) e entre na pasta.
 2. Crie o `.env` de produção. Os comandos geram as senhas e as chaves sem mostrá-las; troque o domínio e o e-mail:
@@ -471,11 +558,11 @@ O serviço `migracoes` aplica as migrations novas antes de a API subir. As sess�
 
 ### Backup
 
-- Todo dia às 03:00 (horário de Brasília), o serviço `backup` grava um `pg_dump` em `./backups` (ou na pasta de `BACKUP_PASTA`, no `.env`) e apaga os que têm mais de 14 dias.
+- Todo dia às 03:00 (horário de Brasília), o serviço `backup` grava um `pg_dump` em `./backups` (ou na pasta de `BACKUP_PASTA`, no `.env`) e apaga os que têm mais de 14 dias. **[servidor]** Escolha a pasta no servidor.
 - Backup na hora: `docker compose -f docker-compose.prod.yml exec backup sh /backup/backup.sh agora`.
 - Os backups têm dados pessoais: a pasta fica só no servidor, e a cópia de fora precisa ser criptografada.
 - A anonimização não mexe nos backups: os dados de quem foi anonimizado continuam neles até serem apagados, em 14 dias.
-- Cópia fora do servidor: com o [rclone](https://rclone.org/) instalado no servidor e um remoto criptografado configurado (`rclone config`, com um remoto do tipo `crypt` por cima do Google Drive da empresa, do Backblaze B2 ou do S3), um cron diário copia a pasta. O destino ainda precisa ser escolhido.
+- **[servidor]** Cópia fora do servidor: com o [rclone](https://rclone.org/) instalado no servidor e um remoto criptografado configurado (`rclone config`, com um remoto do tipo `crypt` por cima do Google Drive da empresa, do Backblaze B2 ou do S3), um cron diário copia a pasta. O destino ainda precisa ser escolhido. O `rclone sync` apaga do destino o que saiu da pasta, mas um destino com versões (o Backblaze B2 guarda todas por padrão, e o S3, se o versionamento estiver ligado) mantém as antigas: configure a regra de ciclo de vida para apagá-las em 14 dias, como na pasta.
 
   ```bash
   # crontab -e
@@ -506,6 +593,71 @@ Restaurar desfaz as anonimizações e as exclusões de leads de teste feitas dep
 2. Restaure.
 3. Anonimize de novo, pela ficha, cada lead da lista. Os leads de teste que voltaram podem ser excluídos de novo.
 
+### Trocar chaves e senhas
+
+Os comandos rodam no servidor **[servidor]**, na pasta do CRM. As chaves e senhas novas vão direto para o `.env`, sem aparecer no terminal, a não ser quando é preciso colá-las em outro lugar.
+
+**Chave da integração (`Integracao__Chave`).** O n8n a manda no `X-Api-Key` para enviar os leads e buscar o relatório.
+
+```bash
+sed -i "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" .env
+docker compose -f docker-compose.prod.yml up -d api
+grep '^Integracao__Chave=' .env   # para colar no n8n
+```
+
+Depois, troque o valor na credencial Header Auth (`X-Api-Key`) que os fluxos de entrada e o do relatório usam no n8n.
+
+- A API sobe de novo em alguns segundos, e as sessões continuam.
+- Entre a troca no CRM e a troca no n8n, as entradas recebem 401, e o n8n não guarda um 401 na fila de pendentes: o lead fica só no e-mail do `CRM - Erros`.
+- Por isso, troque num horário calmo e atualize o n8n logo em seguida. Depois, confira os e-mails do `CRM - Erros` e traga o que ficou de fora pela Importação, com o CSV da Central de Leads da Meta.
+- Aceitar a chave antiga e a nova durante a troca, para nenhuma entrada se perder, está anotado como pendência.
+
+**Chave dos alertas (`N8n__WebhookChave`).** O CRM a manda no `X-Crm-Chave` para o fluxo `CRM - Alertas`.
+
+```bash
+sed -i "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$(openssl rand -hex 24)/" .env
+docker compose -f docker-compose.prod.yml up -d api
+grep '^N8n__WebhookChave=' .env   # para colar no n8n
+```
+
+Depois, troque o valor na credencial Header Auth do Webhook do `CRM - Alertas`.
+
+- Até lá, o n8n recusa os eventos, que ficam pendentes no CRM e são reenviados depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h.
+- Nada se perde se o n8n for atualizado em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
+
+**Senha do banco (`POSTGRES_PASSWORD`).** O PostgreSQL grava a senha quando o volume é criado: trocar só o `.env` deixa a API sem acesso ao banco. Troque no banco e no `.env`, nessa ordem:
+
+```bash
+nova=$(openssl rand -hex 16)
+docker compose -f docker-compose.prod.yml exec db psql -U crm -d crm -c "ALTER USER crm WITH PASSWORD '$nova';"
+sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$nova/" .env
+docker compose -f docker-compose.prod.yml up -d
+```
+
+- O `up -d` recria a API, as migrations, o backup e o banco com a senha nova. O CRM fica fora do ar por alguns segundos, e as sessões continuam.
+- O próximo backup já usa a senha nova. Os backups antigos não dependem dela.
+
+**Senha de um admin.** Cada um troca a própria em Trocar senha, no menu com o seu nome, no canto de cima.
+
+- Quem esqueceu a senha pede ao outro admin: em Configurações › Usuários, no menu de ações da pessoa, Redefinir senha gera uma senha provisória.
+- A sessão de quem teve a senha redefinida termina em até 1 minuto, e o sistema pede uma senha nova no próximo acesso.
+- O `Admin__Email` e o `Admin__SenhaInicial` só valem com o banco sem nenhum admin: não trocam a senha de quem já existe. Por isso, mantenha os dois admins ativos.
+
+**Senha de uma atendente.** O admin usa Redefinir senha, como acima, e passa a senha provisória a ela.
+
+- A sessão dela termina em até 1 minuto, e o sistema pede uma senha nova no próximo acesso.
+- Redefinir também libera o login bloqueado pelas 5 tentativas erradas.
+
+**Chaves da sessão (volume `chaves-sessao`).** Elas protegem o cookie da sessão. O ASP.NET Core cria uma chave nova a cada 90 dias, sem derrubar ninguém. Para trocá-las na hora (por exemplo, se uma cópia do volume vazou):
+
+```bash
+docker compose -f docker-compose.prod.yml rm -sf api
+docker volume rm crm_chaves-sessao
+docker compose -f docker-compose.prod.yml up -d api
+```
+
+Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
+
 ### Cuidados
 
 - Nunca rode `docker compose -f docker-compose.prod.yml down -v` no servidor: o `-v` apaga os volumes, com o banco e as chaves das sessões.
@@ -516,7 +668,7 @@ Restaurar desfaz as anonimizações e as exclusões de leads de teste feitas dep
 
 ### Testar a publicação no próprio computador
 
-Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento:
+É o mesmo Compose do plano B da demonstração (veja "Plano B" em Demonstração). Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento:
 
 ```bash
 # ../crm-teste.env: POSTGRES_PASSWORD, Admin__Email, Admin__SenhaInicial, DOMINIO=localhost, PORTA_HTTP=8088 e
@@ -527,3 +679,34 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.e
 ```
 
 No Docker Desktop, a auditoria registra o gateway da rede (`172.30.0.1`) como o IP de quem acessa; num servidor Linux, aparece o IP de verdade.
+
+## Pedido do titular (LGPD)
+
+Para o admin, quando uma pessoa pede uma cópia dos dados dela ou para apagá-los. As atendentes passam o pedido ao admin, só com o número do lead ([docs/guia-das-atendentes.md](docs/guia-das-atendentes.md)). A LGPD dá até 15 dias, contados do pedido, para a cópia completa (art. 19, II).
+
+### No CRM
+
+1. **Ache o lead:** pelo número que a atendente passou (`/leads/1024`) ou em Leads, pela busca (nome, e-mail, telefone ou CPF/CNPJ).
+2. **Exporte antes de anonimizar:** no cartão Privacidade da ficha, Exportar dados baixa o JSON com tudo o que o CRM guarda da pessoa. Depois da anonimização, não há volta nem o que exportar.
+3. **Pedido de cópia:** entregue o JSON por um canal seguro (por exemplo, compactado com senha, e a senha por outro meio) e apague o arquivo do computador.
+4. **Pedido de exclusão:** Anonimizar, no mesmo cartão.
+   - O nome vira "Titular removido", e os dados pessoais saem do lead, das entradas, das interações e do histórico.
+   - O painel e o relatório continuam com os mesmos números.
+   - Com uma importação processando, tente de novo quando ela terminar.
+5. A auditoria registra a exportação e a anonimização, com quem fez e quando, sem dados pessoais: é o registro de que o pedido foi atendido.
+
+### Fora do CRM
+
+O dado da pessoa também passa por lugares que o CRM não alcança:
+
+| Onde | O que fica | O que fazer |
+| --- | --- | --- |
+| Execuções do n8n | As que deram certo não são salvas. As com erro guardam o que chegou, com nome, e-mail e telefone, pelo prazo do plano (n8n Cloud) ou do `EXECUTIONS_DATA_MAX_AGE` (n8n Community) | Em Executions, filtre as com erro do dia em que o lead entrou e apague as dele |
+| Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
+| Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
+| E-mails de alerta | O nome, a empresa, a origem e a campanha, na caixa da responsável e nos enviados da conta que manda os alertas | Peça à responsável para apagar os e-mails do lead e apague-os dos enviados |
+| Backups | O `pg_dump` diário guarda a pessoa até ser apagado, em 14 dias, no servidor e na cópia de fora | Eles somem sozinhos em 14 dias. Não restaure um backup de antes da anonimização sem anonimizar de novo (veja "Restaurar de verdade") |
+| Arquivos baixados | O JSON do titular, os CSVs exportados da lista e os CSVs importados da Meta ou do Excel, no computador de quem baixou | Apague-os depois de usar |
+| Celular da atendente | A conversa do WhatsApp e o contato salvo | Peça à atendente para apagar a conversa e o contato |
+
+Os logs do CRM não guardam dados pessoais. O log de erro do Caddy grava a busca da lista até o filtro do log entrar (veja "O que está pronto e o que falta").
