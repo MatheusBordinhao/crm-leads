@@ -466,6 +466,8 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 
 Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem a lista, a ficha, a mudança de etapa, o registro de interação e as notificações. O visual é neutro, com espaço para o logo da empresa.
 
+O CRM pode ser instalado como app (PWA), com o nome "CRM de Leads" e o ícone da marca: no computador, pelo menu do navegador, e no celular, depois da publicação, porque a instalação exige HTTPS. Abre na tela inicial do perfil, numa janela própria. O manifesto e os ícones ficam em `web/public`, e o service worker não guarda nada em cache nem intercepta requisições (3.6).
+
 ## 8. Painel e relatório
 
 - O período é contado em dias no horário de Brasília, de `de` até `ate`, com os dois incluídos. O padrão são os últimos 30 dias, com hoje; só com o fim, valem os 30 dias que terminam nele. As datas vão de 2000 a 2099, e um fim antes do início responde 400.

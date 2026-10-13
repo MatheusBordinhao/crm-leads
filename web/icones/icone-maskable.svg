@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- O ícone do app na tela inicial do celular (purpose maskable) e no iPhone (apple-touch-icon): o fundo ocupa
+       tudo, porque o sistema corta o ícone no formato dele, e o desenho do favicon.svg fica dentro da zona segura, o
+       círculo central de 80%. -->
+  <rect width="100" height="100" fill="#171717" />
+  <g
+    transform="translate(20.5 20.5) scale(2.4583)"
+    fill="none"
+    stroke="#fafafa"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M18 21a8 8 0 0 0-16 0" />
+    <circle cx="10" cy="8" r="5" />
+    <path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" />
+  </g>
+</svg>
