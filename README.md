@@ -335,7 +335,6 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.e
 
 - Depois de um ensaio, rode o comando de novo: tudo volta ao estado inicial.
 - O comando roda em outro processo, então recarregue as telas que estiverem abertas.
-- No Compose, pode aparecer a linha `Cannot load library libgssapi_krb5.so.2`. Ela vem do Npgsql, que tenta o Kerberos antes da senha; a API e as migrations mostram a mesma linha, e ela não atrapalha.
 - Os nomes das campanhas, das pessoas e das empresas ficam em [src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs](src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs).
 
 ## Tipos da API no front

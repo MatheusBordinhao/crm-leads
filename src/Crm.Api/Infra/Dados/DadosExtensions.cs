@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Crm.Api.Infra.Dados;
 
@@ -39,7 +40,16 @@ internal static class DadosExtensions
 
     private static void Configurar(DbContextOptionsBuilder opcoes, string? conexao)
     {
-        var npgsql = string.IsNullOrWhiteSpace(conexao) ? opcoes.UseNpgsql() : opcoes.UseNpgsql(conexao);
+        var npgsql = string.IsNullOrWhiteSpace(conexao) ? opcoes.UseNpgsql() : opcoes.UseNpgsql(SemGss(conexao));
         npgsql.UseSnakeCaseNamingConvention();
     }
+
+    /// <summary>
+    /// O CRM entra no PostgreSQL só com a senha. Sem isto, o Npgsql 10 tenta antes a criptografia GSS (Kerberos), e na
+    /// imagem Linux da API, que não tem a biblioteca do Kerberos, escreve "Cannot load library libgssapi_krb5.so.2" a
+    /// cada subida, nas migrations e no comando da demonstração. Vale para a API, as migrations e o health check, que
+    /// passam todos por aqui.
+    /// </summary>
+    private static string SemGss(string conexao) =>
+        new NpgsqlConnectionStringBuilder(conexao) { GssEncryptionMode = GssEncryptionMode.Disable }.ConnectionString;
 }
