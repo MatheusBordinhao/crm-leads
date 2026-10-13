@@ -131,7 +131,10 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - `NotificacaoNova(id)`: só para o dono da notificação;
   - `FunilAlterado()`: para todos, quando as etapas ou os motivos de perda mudam.
 - Os avisos saem depois do commit, e uma mudança desfeita não avisa. A tela recarrega no máximo uma vez por segundo; ao reconectar, recarrega tudo, porque os avisos do tempo sem conexão se perderam. Durante o arraste, o quadro espera a pessoa soltar. Na ficha, uma mudança de outra pessoa nos dados não apaga o que alguém está digitando: aparece o aviso "Outra pessoa alterou os dados deste lead", e salvar responde o conflito (409).
-- Com a aba em segundo plano e a permissão dada, o navegador mostra uma notificação nativa, só com o título, que nunca leva dados do lead; o clique abre a ficha e marca como lida. A permissão é pedida uma vez, depois do login, num aviso com "Ativar" e "Agora não". Enquanto a pessoa não decide, o sino oferece ativá-la. No celular, a notificação nativa depende do service worker do PWA (Passo 11).
+- Com a aba em segundo plano e a permissão dada, o navegador mostra uma notificação nativa, só com o título, que nunca leva dados do lead; o clique abre a ficha e marca como lida. A permissão é pedida uma vez, depois do login, num aviso com "Ativar" e "Agora não". Enquanto a pessoa não decide, o sino oferece ativá-la.
+  - No build de produção, a notificação sai pelo service worker do PWA (Passo 11), que também a leva ao celular. Sem ele (em desenvolvimento, ou quando o navegador recusa o service worker), ela sai pelo `new Notification`, só no computador: o Chrome do Android só a mostra pelo service worker, e o Safari do iPhone, só no app instalado.
+  - Ela chega enquanto o CRM está aberto, mesmo em segundo plano: com ele fechado, não há conexão do tempo real, e o push com o app fechado está fora da primeira versão (seção 1).
+  - Pelo service worker, o clique traz a janela do CRM para a frente, que abre a ficha e marca como lida. Com o CRM fechado, ele abre a ficha numa janela nova e marca a notificação como lida. Nos dados da notificação vão só o id dela e o endereço da ficha.
 - Os e-mails de alerta saem do n8n, a partir dos eventos (seção 4).
 
 ### 3.7 Importação e exportação

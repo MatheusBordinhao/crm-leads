@@ -44,6 +44,15 @@ export default defineConfig([
       ],
     },
   },
+  // O service worker é JavaScript puro, servido como está (public/sw.js), num escopo de service worker.
+  {
+    files: ['public/sw.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      sourceType: 'script',
+      globals: globals.serviceworker,
+    },
+  },
   // Por último: desliga as regras de estilo que o Prettier cuida.
   prettier,
 ])

@@ -1,12 +1,17 @@
+import { comServiceWorker } from '@/pwa/registro'
+
 /** Onde o navegador guarda que a pessoa já respondeu ao pedido de permissão. */
 const CHAVE_RESPOSTA = 'crm:avisos-do-navegador'
 
+const CELULAR = /Android|iPhone|iPad|iPod|Mobile/i
+
 /**
- * A notificação nativa (seção 3.6) só é oferecida fora do celular: o Chrome do Android só a mostra com um service
- * worker, e o Safari do iPhone, só no app instalado. No celular, ela chega com o PWA do Passo 11.
+ * A notificação nativa (seção 3.6). Com o service worker do PWA, que só existe no build de produção, ela sai por ele,
+ * no computador e no celular. Sem ele, só no computador, pelo `new Notification`: o Chrome do Android só a mostra pelo
+ * service worker, e o Safari do iPhone, só no app instalado.
  */
 export function avisosSuportados() {
-  return 'Notification' in window && !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+  return 'Notification' in window && (comServiceWorker() || !CELULAR.test(navigator.userAgent))
 }
 
 /** A permissão ainda não foi dada nem negada: o sino oferece ativar. */
@@ -53,17 +58,36 @@ export function podeMostrar() {
 /**
  * Mostra a notificação nativa só com o título, que nunca leva dados do lead: o nome dele não vai para a central de
  * notificações do sistema. Com a aba na frente, não mostra nada; o sino já mostra.
+ *
+ * Pelo service worker, o clique chega a ele (public/sw.js), que avisa a tela ou, com o CRM fechado, abre o
+ * `endereco`. Sem ele, o clique chama `aoClicar`.
  */
-export function mostrarNotificacao(titulo: string, id: number, aoClicar: () => void) {
+export function mostrarNotificacao(
+  titulo: string,
+  id: number,
+  endereco: string,
+  aoClicar: () => void,
+) {
   if (!podeMostrar()) {
     return
   }
+  const opcoes = { tag: `crm-notificacao-${id}`, icon: '/icone-192.png', lang: 'pt-BR' }
+  if (comServiceWorker()) {
+    void navigator.serviceWorker.ready
+      .then((registro) =>
+        registro.showNotification(titulo, {
+          ...opcoes,
+          badge: '/icone-notificacao.png',
+          data: { id, url: endereco },
+        }),
+      )
+      .catch(() => {
+        // O navegador recusou a notificação; o sino continua mostrando.
+      })
+    return
+  }
   try {
-    const notificacao = new Notification(titulo, {
-      tag: `crm-notificacao-${id}`,
-      icon: '/favicon.svg',
-      lang: 'pt-BR',
-    })
+    const notificacao = new Notification(titulo, opcoes)
     notificacao.onclick = () => {
       window.focus()
       notificacao.close()

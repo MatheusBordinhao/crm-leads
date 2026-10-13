@@ -3,8 +3,12 @@ import { useEffect, useEffectEvent } from 'react'
 import { toast } from 'sonner'
 import { api } from '@/api/cliente'
 import { chaveNotificacoes, consultaNotificacoes } from '@/features/notificacoes/dados'
-import { useAbrirNotificacao } from '@/features/notificacoes/useAbrirNotificacao'
+import {
+  enderecoDaNotificacao,
+  useAbrirNotificacao,
+} from '@/features/notificacoes/useAbrirNotificacao'
 import { chaveEu } from '@/lib/queryClient'
+import { NOTIFICACAO_CLICADA } from '@/pwa/registro'
 import {
   devePerguntar,
   lembrarResposta,
@@ -59,12 +63,42 @@ export function TempoReal() {
       // Dois avisos seguidos: a primeira busca pode ter saído antes da segunda notificação.
       const notificacao = (await buscar()) ?? (await buscar())
       if (notificacao) {
-        mostrarNotificacao(notificacao.titulo, id, () => abrir(notificacao))
+        mostrarNotificacao(notificacao.titulo, id, enderecoDaNotificacao(notificacao) ?? '/', () =>
+          abrir(notificacao),
+        )
       }
     } catch {
       void queryClient.invalidateQueries({ queryKey: chaveNotificacoes })
     }
   })
+
+  // O clique numa notificação do service worker (public/sw.js) chega como mensagem e abre como pelo sino.
+  const abrirPeloServiceWorker = useEffectEvent(async (id: number) => {
+    try {
+      const { itens } = await queryClient.fetchQuery(consultaNotificacoes)
+      const notificacao = itens.find((n) => n.id === id)
+      if (notificacao) {
+        abrir(notificacao)
+      }
+    } catch {
+      // Sem a lista, o sino continua mostrando a notificação.
+    }
+  })
+
+  useEffect(() => {
+    const servico = navigator.serviceWorker
+    if (!servico) {
+      return
+    }
+    const aoReceber = (evento: MessageEvent) => {
+      const { tipo, id } = (evento.data ?? {}) as { tipo?: unknown; id?: unknown }
+      if (tipo === NOTIFICACAO_CLICADA && typeof id === 'number') {
+        void abrirPeloServiceWorker(id)
+      }
+    }
+    servico.addEventListener('message', aoReceber)
+    return () => servico.removeEventListener('message', aoReceber)
+  }, [])
 
   useEffect(() => {
     if (devePerguntar()) {
