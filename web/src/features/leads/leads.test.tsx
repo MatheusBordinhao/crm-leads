@@ -55,6 +55,28 @@ describe('lista de leads', () => {
     expect(within(cartoes).getByRole('link')).toHaveAttribute('href', '/leads/1024')
   })
 
+  it('o telefone do Brasil aparece no formato nacional, e o de fora como está', async () => {
+    comSessao(atendente)
+    comCadastros()
+    comLista([
+      leadResumo(),
+      leadResumo({ id: 2, nome: 'John Smith', telefone: '+16502530000' }),
+      leadResumo({ id: 3, nome: 'Sem Telefone', telefone: null }),
+    ])
+
+    renderizarApp('/leads')
+
+    const maria = within((await tabela()).getByText('Maria Souza').closest('tr')!)
+    expect(maria.getByText('(51) 99999-8888')).toBeInTheDocument()
+    const john = within((await tabela()).getByText('John Smith').closest('tr')!)
+    expect(john.getByText('+16502530000')).toBeInTheDocument()
+    // No cartão do celular, vai o telefone e, sem ele, o e-mail.
+    const cartoes = within(screen.getByRole('list', { name: 'Leads' }))
+    expect(cartoes.getByText('(51) 99999-8888')).toBeInTheDocument()
+    expect(cartoes.getByText('+16502530000')).toBeInTheDocument()
+    expect(cartoes.getAllByText('maria@empresax.com.br')).toHaveLength(1)
+  })
+
   it('a atendente não vê o filtro nem a coluna de responsável', async () => {
     comSessao(atendente)
     comCadastros()

@@ -18,7 +18,14 @@ import { BotoesContato } from './BotoesContato'
 import { CamposDadosLead } from './CamposDadosLead'
 import { useEditarLead, useLead } from './dados'
 import { EtapaDoLead } from './EtapaDoLead'
-import { CAMPOS_DADOS, camposDados, dadosIniciais, dadosParaApi, validarDados } from './esquema'
+import {
+  CAMPOS_DADOS,
+  camposDados,
+  dadosIniciais,
+  dadosParaApi,
+  originaisDaFicha,
+  validarDados,
+} from './esquema'
 import { InteracaoDialog } from './InteracaoDialog'
 import { LinhaDoTempo } from './LinhaDoTempo'
 import { PrivacidadeDoLead } from './PrivacidadeDoLead'
@@ -224,13 +231,7 @@ function FormularioDados({
     reset,
     formState: { errors, isDirty },
   } = useForm({
-    resolver: zodResolver(
-      z
-        .object(camposDados)
-        .superRefine(
-          validarDados({ email: lead.email, telefone: lead.telefone, cpfCnpj: lead.cpfCnpj }),
-        ),
-    ),
+    resolver: zodResolver(z.object(camposDados).superRefine(validarDados(originaisDaFicha(lead)))),
     defaultValues: dadosIniciais(lead),
   })
 

@@ -363,6 +363,31 @@ public class LeadsTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Telefone_no_formato_nacional_igual_ao_guardado_nao_conta_como_mudanca()
+    {
+        // A ficha mostra o telefone do Brasil como (51) 99123-4567 e o manda assim quando a pessoa salva o resto.
+        using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);
+        var telefone = LeadsDeTeste.TelefoneUnico();
+        var corpo = LeadsDeTeste.CorpoLead();
+        corpo["telefone"] = telefone;
+        var id = await atendente.CriarLeadIdAsync(corpo);
+        var ficha = await FichaAsync(atendente, id);
+
+        var resposta = await EditarAsync(atendente, id, ficha, mudanca =>
+        {
+            mudanca["nome"] = "Maria Souza Lima";
+            mudanca["telefone"] = LeadsDeTeste.ComoDigitado(telefone);
+        });
+
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        Assert.Equal(telefone, (await resposta.LerJsonAsync()).GetProperty("telefone").GetString());
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        var registro = await escopo.ServiceProvider.GetRequiredService<CrmDbContext>().Auditoria
+            .SingleAsync(r => r.Acao == AcoesAuditoria.LeadEditado && r.EntidadeId == id.ToString(), Ct);
+        Assert.Equal("""["nome"]""", registro.Detalhes!.RootElement.GetProperty("campos").GetRawText().Replace(" ", ""));
+    }
+
+    [Fact]
     public async Task Versao_desatualizada_responde_409_e_nao_sobrescreve()
     {
         using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);

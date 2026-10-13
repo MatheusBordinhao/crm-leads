@@ -102,6 +102,35 @@ describe('ficha do lead', () => {
     expect(screen.queryByLabelText('Passar para')).not.toBeInTheDocument()
   })
 
+  it('o telefone do Brasil aparece no formato nacional, e salvar sem mexer nele funciona', async () => {
+    comSessao(atendente)
+    const edicoes = comFicha(fichaLead())
+    const { usuario } = renderizarApp('/leads/1024')
+
+    expect(await screen.findByLabelText('Telefone')).toHaveValue('(51) 99999-8888')
+    expect(screen.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute(
+      'href',
+      'https://wa.me/5551999998888',
+    )
+    await usuario.type(screen.getByLabelText('Empresa'), ' Ltda')
+    await usuario.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByText('Dados salvos.')).toBeInTheDocument()
+    // A API normaliza de volta para o mesmo E.164 e não conta o telefone como mudado.
+    expect(edicoes).toEqual([
+      expect.objectContaining({ telefone: '(51) 99999-8888', empresa: 'Empresa X Ltda' }),
+    ])
+  })
+
+  it('o telefone de fora do Brasil aparece como está guardado', async () => {
+    comSessao(atendente)
+    comFicha(fichaLead({ telefone: '+16502530000' }))
+
+    renderizarApp('/leads/1024')
+
+    expect(await screen.findByLabelText('Telefone')).toHaveValue('+16502530000')
+  })
+
   it('o admin passa o lead para outra pessoa ativa', async () => {
     comSessao(admin)
     const lead = fichaLead()

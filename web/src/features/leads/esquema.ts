@@ -1,5 +1,6 @@
 import type { LeadResponse } from '@/api/cliente'
 import { documentoValido, normalizarDocumento } from '@/lib/documento'
+import { formatarTelefone } from '@/lib/telefone'
 import { z } from '@/lib/zod'
 
 export const MENSAGENS = {
@@ -68,12 +69,24 @@ export function validarDados(originais?: Originais) {
   }
 }
 
-/** Valores iniciais do formulário a partir da ficha (ou vazios, no novo lead). */
+/** Os valores da ficha como o formulário os mostra, para a validação saber o que a pessoa mudou. */
+export function originaisDaFicha(lead: LeadResponse): Originais {
+  return {
+    email: lead.email,
+    telefone: lead.telefone ? formatarTelefone(lead.telefone) : null,
+    cpfCnpj: lead.cpfCnpj,
+  }
+}
+
+/**
+ * Valores iniciais do formulário a partir da ficha (ou vazios, no novo lead). O telefone do Brasil aparece no formato
+ * nacional: a API o normaliza de volta para o mesmo E.164 e não conta como mudança.
+ */
 export function dadosIniciais(lead?: LeadResponse): DadosPessoais {
   return {
     nome: lead?.nome ?? '',
     email: lead?.email ?? '',
-    telefone: lead?.telefone ?? '',
+    telefone: lead?.telefone ? formatarTelefone(lead.telefone) : '',
     cpfCnpj: lead?.cpfCnpj ?? '',
     uf: lead?.uf ?? '',
     empresa: lead?.empresa ?? '',

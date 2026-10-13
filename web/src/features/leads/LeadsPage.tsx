@@ -21,6 +21,7 @@ import {
 import { useEu } from '@/features/acesso/sessao'
 import { useUsuarios } from '@/features/usuarios/dados'
 import { formatarDataHora } from '@/lib/datas'
+import { formatarTelefone } from '@/lib/telefone'
 import { cn } from '@/lib/utils'
 import { linkDaExportacao, useCampanhas, useEtapas, useLeads } from './dados'
 import { ORIGENS, ROTULOS_ORIGEM } from './rotulos'
@@ -335,7 +336,7 @@ function TabelaLeads({ leads, ehAdmin }: PropsLista) {
                 {lead.empresa && <div className="text-muted-foreground">{lead.empresa}</div>}
               </TableCell>
               <TableCell>
-                {lead.telefone && <div>{lead.telefone}</div>}
+                {lead.telefone && <div>{formatarTelefone(lead.telefone)}</div>}
                 {lead.email && <div className="text-muted-foreground">{lead.email}</div>}
               </TableCell>
               <TableCell>
@@ -381,7 +382,9 @@ function CartoesLeads({ leads, ehAdmin }: PropsLista) {
                     {lead.teste && <Badge variant="outline">Teste</Badge>}
                   </div>
                 </div>
-                <div className="truncate text-sm">{lead.telefone ?? lead.email}</div>
+                <div className="truncate text-sm">
+                  {lead.telefone ? formatarTelefone(lead.telefone) : lead.email}
+                </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>{ROTULOS_ORIGEM[lead.origem]}</span>
                   <span>{formatarDataHora(lead.criadoEm)}</span>
