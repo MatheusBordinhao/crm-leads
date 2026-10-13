@@ -29,14 +29,27 @@ describe('registro do service worker', () => {
     expect(register).toHaveBeenCalledWith('/sw.js', { scope: '/', updateViaCache: 'none' })
   })
 
-  it('uma falha no registro, como o certificado local do Caddy, não quebra a tela', async () => {
+  it('uma falha no registro não quebra a tela', async () => {
     comNavegador({
       register: vi.fn(async () => {
-        throw new DOMException('An SSL certificate error occurred', 'SecurityError')
+        throw new DOMException('Service workers are disabled', 'SecurityError')
       }),
     })
 
     await expect(registrarServiceWorker(true)).resolves.toBeUndefined()
+  })
+
+  it('no https://localhost do Compose de produção local, nem tenta: o certificado do Caddy não é confiável', async () => {
+    const register = vi.fn(async () => ({}))
+    comNavegador({ register })
+
+    await registrarServiceWorker(true, { protocol: 'https:', hostname: 'localhost' })
+    expect(register).not.toHaveBeenCalled()
+
+    // No servidor, com o certificado de verdade, e no npm run preview (http://localhost:4173), registra.
+    await registrarServiceWorker(true, { protocol: 'https:', hostname: 'crm.empresa.com.br' })
+    await registrarServiceWorker(true, { protocol: 'http:', hostname: 'localhost' })
+    expect(register).toHaveBeenCalledTimes(2)
   })
 
   it('num navegador sem service worker, não faz nada', async () => {
