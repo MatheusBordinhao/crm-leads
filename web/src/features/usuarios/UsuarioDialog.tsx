@@ -167,6 +167,8 @@ export function UsuarioDialog({ usuario, ehOProprio, aoFechar }: Props) {
                   <FieldSet>
                     <FieldLegend variant="label">Perfil</FieldLegend>
                     <RadioGroup
+                      // Dentro do <form>, o Radix cria um input escondido para cada opção, que leva este nome.
+                      name={field.name}
                       value={field.value}
                       onValueChange={field.onChange}
                       disabled={ehOProprio}
@@ -195,6 +197,7 @@ export function UsuarioDialog({ usuario, ehOProprio, aoFechar }: Props) {
                     </FieldContent>
                     <Switch
                       id="participaRodizio"
+                      name={field.name}
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
@@ -217,6 +220,7 @@ export function UsuarioDialog({ usuario, ehOProprio, aoFechar }: Props) {
                       </FieldContent>
                       <Switch
                         id="ativo"
+                        name={field.name}
                         checked={field.value}
                         onCheckedChange={field.onChange}
                         disabled={ehOProprio}

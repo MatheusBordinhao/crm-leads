@@ -128,6 +128,8 @@ function Filtros({
       <form role="search" onSubmit={buscar} className="flex gap-2">
         <Input
           type="search"
+          id="busca-funil"
+          name="busca"
           aria-label="Buscar no funil"
           placeholder="Nome, e-mail, telefone, empresa ou CPF/CNPJ"
           value={texto}

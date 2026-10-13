@@ -207,6 +207,8 @@ function Filtros({
       <form role="search" onSubmit={buscar} className="flex gap-2">
         <Input
           type="search"
+          id="busca-leads"
+          name="busca"
           aria-label="Buscar leads"
           placeholder="Nome, e-mail, telefone, empresa ou CPF/CNPJ"
           value={texto}

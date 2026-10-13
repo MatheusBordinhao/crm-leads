@@ -59,6 +59,7 @@ export function ListaPorEtapa({ quadro, filtros, mostrarResponsavel }: Props) {
                   // Controlado e sempre vazio: depois de escolher, volta ao "Mover para…".
                   <Selecao
                     aria-label={`Mover ${cartao.nome} para`}
+                    name={`mover-${cartao.id}`}
                     value=""
                     onChange={(evento) => {
                       const destino = destinos.find((d) => d.id === Number(evento.target.value))
