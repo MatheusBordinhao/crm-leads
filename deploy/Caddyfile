@@ -1,5 +1,24 @@
 # HTTPS automático (Let's Encrypt) no domínio do CRM, com HSTS e os cabeçalhos de segurança (seção 9).
 # Com DOMINIO=localhost, o Caddy usa uma autoridade local, para testar no próprio computador.
+{
+	# Todo log do Caddy sai por aqui, no stderr, que o Docker guarda e gira. O log de erro, sempre ligado, grava cada
+	# falha do proxy (como um 502 com a API reiniciando) com a URL e os cabeçalhos da requisição. O filtro troca por
+	# REDACTED a query string, que pode levar a busca da lista; o Referer, que leva o endereço da tela, com a busca; e o
+	# X-Api-Key, a chave da integração. O Cookie e o Authorization o próprio Caddy já grava como REDACTED. Um log de
+	# acesso (a diretiva log no site) não passa por este filtro: se um dia for ligado, ele precisa do mesmo format filter.
+	log {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*" "?REDACTED"
+				request>headers>Referer replace REDACTED
+				request>headers>X-Api-Key replace REDACTED
+			}
+		}
+	}
+}
+
 {$DOMINIO} {
 	encode zstd gzip
 

@@ -513,7 +513,7 @@ O relatório por campanha usa as mesmas definições, sobre os leads novos do pe
 - **Tempo real:** o hub do SignalR roda na própria API, numa instância só, sem backplane (Redis).
 - **Backup:** `pg_dump` diário, com 14 dias guardados e cópia fora do servidor. A restauração é testada uma vez por mês. No Compose de produção, o serviço `backup` faz o dump às 03:00 (horário de Brasília) numa pasta do servidor (`BACKUP_PASTA`), e o `testar-restauracao.sh` restaura o backup mais recente num banco à parte e compara as contagens. A cópia fora do servidor sai dessa pasta, criptografada (rclone, por exemplo), para o destino que a empresa definir. Os backups guardam os dados de quem foi anonimizado até serem apagados, em 14 dias, e restaurar um backup desfaz as anonimizações e as exclusões de leads de teste feitas depois dele: antes de restaurar, liste-as na auditoria e refaça-as depois (README › Restaurar de verdade).
 - **Migrations em produção:** o serviço `migracoes` do Compose de produção roda o migration bundle do EF e termina; a API só sobe depois dele. A API só aplica as migrations sozinha em desenvolvimento.
-- **Logs e monitoramento:** logs estruturados sem dados pessoais e `/health` para monitorar. No Compose de produção, o log de cada contêiner gira em 5 arquivos de 10 MB.
+- **Logs e monitoramento:** logs estruturados sem dados pessoais e `/health` para monitorar. O log de erro do Caddy fica ligado e grava cada falha do proxy, como um 502 com a API reiniciando, mas com a URL sem a query string, que pode levar a busca da lista, e com o `Referer` e o `X-Api-Key` como `REDACTED`, como o próprio Caddy já faz com o `Cookie` e o `Authorization`. No Compose de produção, o log de cada contêiner gira em 5 arquivos de 10 MB.
 
 Variáveis de ambiente (`.env.example`):
 
@@ -636,6 +636,7 @@ O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `
 - Importação CSV (3.7) com mapeamento de colunas e relatório de erros.
 - `docker-compose.prod.yml` com a API servindo o build do React, PostgreSQL e Caddy.
 - IP real do cliente atrás do Caddy: a API lê os cabeçalhos encaminhados (`UseForwardedHeaders`), confiando só no Caddy. Sem isso, o limite de logins por IP e a auditoria enxergam todo mundo com o IP do Caddy.
+- Log do Caddy sem a query string, o `Referer` e o `X-Api-Key` (seção 9), com o log de erro ligado.
 - Chaves do Data Protection, que protegem o cookie da sessão, guardadas num volume. Sem isso, todos perdem a sessão quando o contêiner da API reinicia.
 - Backup diário e guia de publicação no README.
 - Publicação no servidor definido (seção 11), que fica para a terceira fase da ordem. Lá se repetem os critérios de aceite da publicação, já conferidos no Compose de produção no próprio computador.
