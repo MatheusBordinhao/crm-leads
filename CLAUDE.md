@@ -8,7 +8,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 
 - Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
 - Em 05/10/2026, a ordem do projeto mudou: a empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração para o chefe, que vem logo depois do Passo 8. A ordem nova está em "Como trabalhar" e na seção 10 da especificação.
-- A reunião da demonstração com o chefe é na quinta, 15/10/2026, às 15h. O código congela na quarta, 14/10/2026, às 18h: depois disso, só documentação, até a reunião.
+- A reunião da demonstração com o chefe é na quinta, 15/10/2026, às 15h. Tudo congela na quinta, 15/10/2026, às 10h: o código do CRM e do n8n, o Compose, os testes, os JSONs de `n8n/` e a documentação. Depois disso, nada muda até a reunião.
 - Ainda não há servidor, domínio, n8n de produção, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
 - Os usuários de teste usam aliases com "+" de matheusbordinhao11@gmail.com, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
@@ -20,12 +20,45 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - lead cadastrado à mão fica "Ainda sem contato" até a primeira interação;
   - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
 - O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
-- O teste do n8n Cloud de desenvolvimento acaba em 06/10/2026. Nele, os fluxos `CRM - Alertas` (`jG8npUo12JBbqAKS`) e `CRM - Erros` (`zqvER5UUTkTxFM4G`) foram criados e publicados em 30/09/2026, com o `CRM - Erros` como fluxo de erro do Alertas. A credencial Header Auth do Webhook se chama "Header Auth account", e os e-mails de teste saíam pela credencial "Gmail account" para matheusbordinhao11@gmail.com. Os JSONs dos dois fluxos estão em `n8n/`.
-- O n8n de produção será decidido junto com o servidor. Até lá, o `N8n__WebhookUrl` do `.env` fica vazio (os eventos ficam pendentes em `eventos_saida`, e nenhum e-mail sai), o servidor MCP do n8n fica desconectado, e o que depender do n8n fica pendente:
-  - levar o `CRM - Alertas` e o `CRM - Erros` para o n8n de produção pelos JSONs de `n8n/`, recriar as credenciais, preencher o `N8n__WebhookUrl` e repetir lá o e-mail com o link da ficha (Passo 4);
-  - o fluxo `CRM - Relatório semanal Gama` (Passo 9);
-  - a revisão das configurações de execução dos fluxos (Passo 10);
-  - apontar o `.mcp.json` para o n8n de produção.
+- O n8n Cloud de teste (`matheusbordinhao.app.n8n.cloud`) acabou em 06/10/2026. A produção vai ser o n8n Cloud, numa conta da empresa, quando o pagamento sair (decidido em 14/10/2026).
+- Desde 14/10/2026, o n8n de desenvolvimento é um n8n Community 2.43.5 no `docker-compose.yml` (serviço `n8n`, README › n8n local):
+  - a interface fica em `http://localhost:5679`, porque a 5678 é de outro n8n desta máquina, um projeto do Compose no WSL (`/home/mathe/n8n`) que não é do CRM e não deve ser mexido;
+  - dentro da rede do Compose, a API chama `http://n8n:5678`, e os fluxos chamam `http://api:5080`;
+  - o `.env` tem `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`: com a API no ar, cada evento vira um e-mail de verdade;
+  - as credenciais são `CRM - Chave de integração` (`X-Api-Key`), `CRM - Chave dos eventos` (`X-Crm-Chave`) e `CRM - E-mail` (SMTP do `testecrmfs@gmail.com`, uma conta só para os testes, com senha de app);
+  - a Data Table é a `crm_entradas_pendentes`;
+  - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo.
+- Fluxos no n8n local:
+
+  | Fluxo | Id | Situação |
+  | --- | --- | --- |
+  | `CRM - Erros` | `jp3A8ziIhGPROWOc` | publicado |
+  | `CRM - Alertas` | `GbDVJGhdvk5RI4F0` | publicado |
+  | `CRM - Entrada Site` | `VKBgz0tUZJTLkbmP` | publicado |
+  | `CRM - Entrada Google` | `3dm8urmanT4Fg0iP` | publicado |
+  | `CRM - Reenvio de pendentes` | `yDU0FZa2tXN851ru` | não publicado: roda à mão |
+  | `CRM - Relatório semanal Gama` | `ln7BS60hTE8HQ3Pp` | não publicado: roda à mão |
+  | `CRM - Entrada Meta` | `GqSyYXbHtcv6vvsh` | não publicado: depende do app da Meta em modo Live |
+
+  Os JSONs de `n8n/` são os exportados deles.
+- Passo 6 e os fluxos validados pelo Claude em 14/10/2026, no n8n local, com a minha autorização para publicar e executar:
+  - `site.json`: 200 `{"recebido":true}`; o lead foi para a Adriana pelo rodízio, e o `lead.criado` foi entregue ao Alertas 7 s depois. O robô não criou nada, e o envio sem nome deu 400 no CRM e o e-mail do `CRM - Erros`;
+  - Google: a chave errada deu 403 e o e-mail do `CRM - Erros`. Com a chave certa, num comando que eu rodei, entrou um lead de teste com a campanha provisória, e o segundo envio foi `ja_recebido`;
+  - com a API parada, o lead do site foi para a fila ("Falha de conexão"); com a API de volta, o Reenvio manual o criou e apagou a linha;
+  - Meta: o `test_workflow` com os exemplos no lugar do gatilho e da Graph API montou o lead certo. Passado pela fila e pelo Reenvio, o lead de teste entrou com campanha, conjunto, anúncio, formulário e plataforma, e o segundo envio foi `ja_recebido`;
+  - Relatório: o CSV da semana anterior chegou anexo ao meu e-mail, com 535 bytes, BOM e CRLF, igual ao da API;
+  - o meu cadastro manual (lead 202) foi para a Pietra, e o alerta chegou no `+pietra`.
+- Em 14/10/2026, a chave de integração vazou nos dados de uma execução do Relatório. O "Buscar o CSV" baixava a resposta como arquivo, e nesse modo o n8n guarda a requisição inteira, com o cabeçalho `X-Api-Key`. O que foi feito:
+  - o fluxo passou a baixar o CSV como texto;
+  - eu troquei o `Integracao__Chave` e a credencial;
+  - as execuções de teste foram apagadas;
+  - uma varredura sem mostrar o conteúdo confirmou que nenhum outro fluxo guarda a chave.
+- Também em 14/10/2026, entrou a tela de campanhas (Configurações › Campanhas, `PUT /api/campanhas/{id}`), e o cliente do SignalR dos testes subiu para a 10.0.13, por causa da CVE-2026-70159. Nesse dia, sem a correção, a auditoria do NuGet derrubava o build dos testes.
+- Falta, do n8n:
+  - levar os 7 fluxos para o n8n Cloud (README › n8n Cloud: importar os fluxos);
+  - o app da Meta em modo Live e o "Enviar dados de teste" de verdade do Google Ads;
+  - o e-mail da Gama, no lugar do meu, no Relatório;
+  - apontar o `.mcp.json` para o n8n Cloud e remover o MCP local.
 - Passo 4 validado de ponta a ponta em 30/09/2026, com `N8n__WebhookUrl` e `N8n__WebhookChave` no `.env` de desenvolvimento: um lead real pela integração foi para a Adriana pelo rodízio, o `lead.criado` foi entregue ao n8n na primeira tentativa, em 7 segundos, e o e-mail chegou com os dados do lead e o link da ficha, que abre o lead.
 - Passo 5 implementado em 01/10/2026 e conferido pelo Claude no Compose de produção rodando localmente (`DOMINIO=localhost`, portas 8088 e 8443): HTTPS com HSTS e CSP, sessão mantida depois de recriar o contêiner da API, IP de quem acessa na auditoria (no Docker Desktop, o gateway `172.30.0.1`) e um `X-Forwarded-For` forjado ignorado, importação dos exemplos de `docs/exemplos/` com os acentos certos, reimportação sem duplicar, backup e restauração. Em 02/10/2026, com o Zod sem `new Function` e o favicon, o console do Chrome ficou sem erros e sem issues da CSP com a sessão aberta. Sem sessão, o único erro é o 401 do `GET /api/auth/eu` na tela de login, que é esperado.
 - Passo 5 validado manualmente por mim em 02/10/2026:
@@ -38,7 +71,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - o `leads-excel.csv` importado com uma campanha nova e para uma atendente escolhida: os 3 leads ficaram com essa campanha e com ela, sem passar pelo rodízio;
   - o relatório de erros aberto no Excel como um clique duplo: "Linha" e "Motivo" em colunas, com os acentos certos.
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
-- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Em 12/10/2026 e em 13/10/2026, nas validações dos Passos 10 e 11, o comando rodou de novo, pelo contêiner. Para voltar aos 60 leads antes da demonstração, é só rodar o comando de novo.
+- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Em 12/10/2026 e em 13/10/2026, nas validações dos Passos 10 e 11, o comando rodou de novo, pelo contêiner. Em 14/10/2026, depois dos testes do n8n, ele rodou de novo: 60 leads, nenhum de teste, a fila de eventos vazia e a Adriana como a próxima da vez. Para voltar a esse estado antes da demonstração, é só rodar o comando de novo.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria, o teste da restauração e a conferência do log do Caddy com a API parada (README › Cuidados). Antes de publicar, também:
   - conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G. Se o servidor tiver IPv6 e a rede do Compose não, o Docker repassa essas conexões pelo `docker-proxy`, e a auditoria mostra o gateway da rede (`172.30.0.1`). Com um proxy ou CDN na frente do Caddy, ele precisa do `trusted_proxies`;
   - fixar a versão do Caddy no Compose de produção (por exemplo, `caddy:2.11`), para o `LogDoCaddyTests`, que usa a imagem do Compose, valer para o que roda no servidor. Com o `caddy:2` de hoje, o servidor pode baixar uma versão mais nova que a 2.11.4 do cache desta máquina; com o `caddy:2.11`, só o patch ainda pode variar;
@@ -53,7 +86,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - com a API no ar, o proxy e os cabeçalhos de segurança não mudaram, e o 502 do `/health` com a API subindo (`connection refused`) continuou no log;
     - o redirecionamento da porta 80 para o HTTPS não grava nada, e o Caddy não grava arquivo de log no contêiner;
   - a rotação já existia: os cinco serviços do Compose de produção usam o `json-file` com 5 arquivos de 10 MB (`x-logs`), o que o `docker inspect` confirmou nos contêineres.
-- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 689 de 689 em 14/10/2026, com o teste do log do Caddy, e os do front, 255 de 255.
+- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 721 de 721 em 14/10/2026, com os dos fluxos do n8n e os das campanhas, e os do front, 260 de 260.
 - Em 12/10/2026, o bloqueio chegou ao `EFCore.NamingConventions.dll`, e o `dotnet run` da API passou a falhar ao subir (`FileLoadException`, 0x800711C7). Desde então, no Windows, tudo o que carrega as DLLs do projeto roda em contêiner: a API de desenvolvimento e o `dotnet ef` pelo `docker-compose.yml` (serviços `api` e `ef`, README › Dia a dia), e os testes pelo `docker-compose.testes.yml`. O `dotnet build`, o `dotnet format` e o front continuam no Windows, porque só leem as DLLs. A API de desenvolvimento roda no contêiner, contra o banco de desenvolvimento. Conferido pelo Claude em 12/10/2026:
   - pelo proxy do Vite, numa API descartável do serviço `api`: login, troca de senha, o negotiate do hub, o WebSocket com o handshake 101 e o aviso `LeadsAlterados` de um lead novo;
   - a sessão continuou valendo depois de recriar o contêiner, com as chaves num volume;
@@ -197,7 +230,10 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
   - aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
-  - depois da reunião, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior.
+  - depois da reunião, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior;
+  - depois da reunião, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
+  - depois da reunião, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. Avaliar a redação dos dados de execução do n8n ou outra saída;
+  - as imagens do .NET com o runtime 10.0.13 (CVE-2026-70159). O hub não liga o stateful reconnect, e a imagem de produção pega o runtime novo no build da publicação; nas de desenvolvimento e dos testes, um `docker pull` das imagens `mcr.microsoft.com/dotnet/sdk:10.0` e `aspnet:10.0`, depois da reunião.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -206,7 +242,8 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - A deduplicação dos e-mails válidos não muda.
   - Um lead já salvo com um e-mail assim passa a mostrar o aviso, perde o botão E-mail e deixa de contar na busca por pessoa.
   - Os 60 e-mails da massa da demonstração continuam válidos (`MassaDemonstracaoTests`), sem o aviso.
-- Antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B).
+- Depois do congelamento (15/10/2026, às 10h) e antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B). O plano B não tem o n8n: nele, não sai e-mail de alerta.
+- Para a demonstração do e-mail no celular, deixe no ar a API e o n8n (`docker compose up -d api n8n`), com o `CRM - Erros` e o `CRM - Alertas` publicados, e rode o `preparar-demonstracao`, que deixa a Adriana como a próxima da vez (README › Demonstração › O alerta no celular).
 
 ## Arquitetura
 
@@ -234,15 +271,15 @@ src/Crm.Api/Infra/           DbContext, migrations, auditoria, despachante de ev
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
-n8n/                         JSON exportado dos fluxos do n8n
+n8n/                         JSON dos 7 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
 docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo da importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
-docker-compose.yml           desenvolvimento: PostgreSQL, e a API e o dotnet ef num contêiner Linux
+docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef num contêiner Linux, e o n8n local
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
 .claude/                     permissões do projeto e o comando /passo
-.mcp.json                    servidor MCP do n8n
+.mcp.json                    servidor MCP do n8n Cloud (o do n8n local fica no ~/.claude.json, fora do Git)
 ```
 
 ## Comandos
@@ -267,6 +304,7 @@ docker compose run --rm --service-ports api --N8n:WebhookUrl=   # API sem mandar
 docker compose run --rm -e Demo__Permitir=true api preparar-demonstracao   # APAGA os leads e grava a massa da demonstração, com o api parado (README › Demonstração)
 docker compose -f docker-compose.prod.yml up -d --build  # produção, no servidor (README › Publicação)
 docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC
+docker compose up -d n8n                                 # n8n local em http://localhost:5679 (README › n8n local)
 ```
 
 ## Convenções
@@ -383,13 +421,37 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
   - a notificação só funciona com o Chromium completo (`chromium.launch({ channel: 'chromium' })`), porque o "headless shell" padrão nega a permissão;
   - depois de um clique num link `tel:` ou `mailto:`, o Chromium sem janela deixa a página sem receber os cliques seguintes. Nos roteiros, impeça a navegação do link (`addInitScript`), como o `naoNavegar` dos testes do front;
   - o arraste pelo teclado com as setas apertadas sem pausa anda menos colunas: use pausas ou o mouse.
+- No PowerShell 5.1, as aspas duplas dentro de um argumento para um programa nativo se perdem ou partem o argumento em vários. Por isso, use `git commit -F` com a mensagem num arquivo do scratchpad e, para o contêiner, um script em arquivo copiado com `docker compose cp`.
+  - Um `git commit -m` com aspas na mensagem sai sem elas ou falha com "pathspec did not match".
+  - Se o commit falhar depois do `git add`, os arquivos ficam no índice e entram no commit seguinte: confira com `git show --stat`.
+- O gatilho Webhook do n8n guarda nos dados da execução tudo o que recebe, com os cabeçalhos e o corpo. Nas execuções com erro, que ficam salvas, ficam o `X-Crm-Chave` do Alertas e o `google_key` do Google.
+- Um HTTP Request do n8n com credencial nunca baixa a resposta como arquivo (formato "File"). Nesse modo, o n8n guarda no `contextData` da execução a requisição inteira, com o cabeçalho da credencial. Foi assim que o `X-Api-Key` vazou em 14/10/2026. Baixe como texto e refaça o binário no Code, como no relatório semanal.
+- No MCP do n8n:
+  - o `create_workflow_from_code` não põe credencial nos HTTP Request: passe no nó o `{ id, name }` da credencial, que o `list_credentials` dá;
+  - as notas ganham nomes aleatórios: renomeie para "Sobre o fluxo" com o `renameNode` do `update_workflow`;
+  - as configurações do fluxo entram pelo `setWorkflowSettings` do `update_workflow`, e o fluxo de erro só aceita um fluxo publicado;
+  - o `execute_workflow` não roda o gatilho de Lead Ads. Use o `test_workflow` com pin data, que fixa também os HTTP Request e os nós com credencial. Para levar o lead montado ao CRM, ponha-o na `crm_entradas_pendentes` (`add_data_table_rows`) e rode o Reenvio;
+  - chamadas na mesma mensagem rodam juntas: insira a linha na Data Table e só depois, em outra mensagem, execute o fluxo que a lê.
+- O `N8n__WebhookUrl` não aparece no `printenv` do contêiner da API, porque a própria API lê o `.env` (`ArquivoEnv`). Para saber se ela leu, procure no log da subida a linha "N8n__WebhookUrl não está configurada", que só aparece com a URL vazia.
+- Um e-mail mandado de uma conta do Gmail para um alias dela mesma, como o `+adriana`, chega como enviado, sem notificar o celular. Por isso, o remetente dos alertas é outra conta.
+- A auditoria do NuGet, com os avisos tratados como erro, derruba o build quando sai um alerta novo para um pacote. Foi o caso da CVE-2026-70159 do SignalR.Common, em 13/10/2026. Suba o pacote para a versão corrigida, no `Directory.Packages.props`.
+- Nos testes do front, o MSW usa o tratador registrado por último. O `comQuadro()` e o `comCadastros()` registram as campanhas padrão: registre as do teste depois deles.
+- O primeiro teste de um arquivo do front carrega a tela a frio. Com a suíte inteira, um `findBy` logo depois de abrir `/` pode passar de 1 s: dê a ele um `timeout` maior, como no primeiro teste do painel.
 
 ## n8n
 
-- O servidor MCP `n8n` do `.mcp.json` aponta para a instância de desenvolvimento, que acaba em 06/10/2026, e fica desconectado até o n8n de produção existir. Até lá, não crie nem altere fluxos, e liste como pendente o que depender do n8n. Quando o `.mcp.json` apontar para o n8n de produção, use o MCP para criar, validar e testar os fluxos da seção 4.5 da especificação.
-- Nunca publique, ative nem execute um fluxo sem confirmação do usuário: um fluxo ativo pode mandar e-mail de verdade.
-- Todo fluxo do CRM tem o nome começando por `CRM - `. Credenciais ficam no n8n, nunca dentro do fluxo.
-- Depois de criar ou alterar um fluxo, salve o JSON dele em `n8n/<nome-do-fluxo>.json`. O `FluxosN8nTests` confere que cada JSON é de um fluxo `CRM - ` e não salva as execuções de produção que deram certo (`saveDataSuccessExecution: none`).
+- Os fluxos se criam e se conferem no n8n local, pelo servidor MCP `n8n-local`. Ele está no escopo `user` (`~/.claude.json`, fora do Git) e aponta para `http://localhost:5679/mcp-server/http`.
+- O `n8n` do `.mcp.json` é o do n8n Cloud de teste, que acabou, e aparece como Failed: não mexa nele até o n8n Cloud de produção existir.
+- Antes de escrever um fluxo pelo MCP, leia a referência do SDK (`get_workflow_sdk_reference`) e confira os parâmetros dos nós (`get_node_types`).
+- Nunca publique, ative nem execute um fluxo sem confirmação do usuário: publicado, o `CRM - Alertas` manda um e-mail de verdade a cada evento do CRM.
+- Regras de todo fluxo do CRM (o `FluxosN8nTests` confere os JSONs):
+  - o nome começa por `CRM - `;
+  - um nó Set "Configuração", logo depois do gatilho, guarda os endereços e os e-mails. Segredos ficam só nas credenciais `CRM - …`;
+  - nada de `$env`, `$vars`, Execute Command, arquivos em disco ou nó da comunidade: o n8n Cloud não tem;
+  - nas configurações: `saveDataSuccessExecution: none`, o fuso America/Sao_Paulo e o `CRM - Erros` como fluxo de erro (menos nele mesmo);
+  - a Data Table vai pelo nome (modo `name`), e não pelo id.
+- Depois de criar ou alterar um fluxo, exporte-o pelo CLI e salve o JSON em `n8n/<nome-do-fluxo>.json`. Deixe só `id`, `name`, `nodes`, `connections` e `settings` e formate com o Prettier do `web/` (README › n8n local).
+- Depois dos testes, apague as execuções de teste. Não leia pelo MCP o conteúdo de uma execução que possa ter uma chave, porque isso traria a chave para a conversa. Para saber se uma execução guarda um cabeçalho ou campo, rode no contêiner um script que leia o SQLite do n8n e só diga se a marca aparece. O módulo `sqlite3` está dentro do próprio n8n, em `/usr/local/lib/node_modules/n8n/node_modules/.pnpm/sqlite3@*/node_modules/sqlite3`, e o banco fica em `/home/node/.n8n/database.sqlite`.
 
 ## Como trabalhar
 
@@ -398,6 +460,7 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
   2. Depois, os Passos 9 e 10, enquanto o servidor não chega.
   3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
 - Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para depois da reunião, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
+- Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
 - Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.
