@@ -38,7 +38,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - o `leads-excel.csv` importado com uma campanha nova e para uma atendente escolhida: os 3 leads ficaram com essa campanha e com ela, sem passar pelo rodízio;
   - o relatório de erros aberto no Excel como um clique duplo: "Linha" e "Motivo" em colunas, com os acentos certos.
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
-- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Em 12/10/2026, na validação do Passo 10, o comando rodou de novo, pelo contêiner. Para voltar aos 60 leads antes da demonstração, é só rodar o comando de novo.
+- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Em 12/10/2026 e em 13/10/2026, nas validações dos Passos 10 e 11, o comando rodou de novo, pelo contêiner. Para voltar aos 60 leads antes da demonstração, é só rodar o comando de novo.
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração. Antes de publicar, também:
   - tirar do log do Caddy a query string e os cabeçalhos com dados ou chaves. O Caddyfile não liga o log de acesso, mas o log de erro (`http.log.error`) fica sempre ligado e grava cada falha do proxy, como um 502 com a API reiniciando. Ele leva a URL com a query string e todos os cabeçalhos, menos o `Cookie` e o `Authorization`, que saem como `REDACTED`. Num Caddy 2.11.4 descartável, em 12/10/2026, saíram a busca (`?busca=...@example.com`) e o `X-Api-Key` da integração, em texto puro. O `Referer` das chamadas da tela de leads também leva a busca, que fica no endereço (`/leads?busca=`). O caminho é o filtro de campos do log do Caddy (`format filter`) no `request>uri`, no `request>headers>Referer` e no `request>headers>X-Api-Key`, conferido de novo com a API parada;
   - na auditoria, conferir o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G. Se o servidor tiver IPv6 e a rede do Compose não, o Docker repassa essas conexões pelo `docker-proxy`, e a auditoria mostra o gateway da rede (`172.30.0.1`). Com um proxy ou CDN na frente do Caddy, ele precisa do `trusted_proxies`.
@@ -169,6 +169,14 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - o clique no service worker abriu a ficha e marcou a notificação como lida;
   - pelo Caddy, só o 401 esperado do login no console, sem violação da CSP e sem nenhum issue do DevTools;
   - o roteiro do guia: uma atendente nova fez o caminho do guia, do primeiro acesso a Ganho e Perdido, no computador e em 360 px, achando cada botão pelo nome escrito no guia.
+- Passo 11 validado manualmente por mim em 13/10/2026, em desenvolvimento (`localhost:5173`, com a API no contêiner):
+  - notificação no computador: um lead que o admin cadastrou com "Rodízio" foi para a Adriana, e a notificação do Windows saiu só com "Administrador cadastrou um lead para você";
+  - telefone: a lista e a ficha no formato nacional, e editar só o nome gravou "Campos: nome" na auditoria;
+  - auditoria: os registros novos saem com `172.18.0.1`, sem o `::ffff:`;
+  - lead anonimizado: no funil, Perdido pediu só o motivo, sem o detalhe, e o lead foi para Perdido;
+  - PWA: instalado pelo menu do Chrome, o CRM abriu numa janela própria, com o nome e o ícone;
+  - celular: a lista, o menu, o funil (com o "Mover para") e o painel em 400 px, na visão de dispositivo do Edge, sem rolagem lateral nem texto cortado;
+  - no fim, o `preparar-demonstracao` rodou de novo no banco de desenvolvimento.
 - Do Passo 11, fica pendente:
   - as etapas definitivas, com a Gama;
   - a instalação e a notificação num celular de verdade, que exigem o HTTPS do servidor;
@@ -178,7 +186,10 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
   - aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
-  - depois da reunião, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior.
+  - depois da reunião, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior;
+  - o e-mail do lead aceita acentos, como `testenotificação@exemplo.com` (achado na validação de 13/10/2026). Não é de propósito: o formato da API (`Emails.Formato`) e o da tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) só pedem algo@algo.algo sem espaços e aceitam qualquer outro caractere. O cadastro de usuários já é mais estrito.
+    - A correção: o mesmo formato nos dois lugares, com a parte antes do @ em ASCII (letras, números e os símbolos do RFC 5322) e o domínio em rótulos de letras, números e hífen. Mais os testes (o unitário de `Emails` e o do novo lead) e a regra na 3.1 da especificação. Não precisa de migration.
+    - O efeito: o lead já salvo com um e-mail assim passa a mostrar "E-mail em formato inválido" na ficha, perde o botão E-mail e deixa de contar na busca por pessoa da entrada; a integração e a importação continuam aceitando, com o aviso (3.1).
 - Antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B).
 
 ## Arquitetura
