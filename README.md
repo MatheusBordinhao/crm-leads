@@ -420,7 +420,7 @@ cd web && npm run lint                   # ESLint
 cd web && npm run format                 # Prettier; format:check só confere
 ```
 
-O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os da anonimização também usam bancos só deles, porque uma importação processando, de qualquer teste, faz a anonimização responder 409. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`).
+O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os da anonimização também usam bancos só deles, porque uma importação processando, de qualquer teste, faz a anonimização responder 409. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`). O teste do log do Caddy (`LogDoCaddyTests`) sobe, também pelo Testcontainers, a imagem do Caddy do Compose de produção com o Caddyfile de verdade.
 
 No Windows PowerShell 5.1, use `npm.cmd` no lugar de `npm` (a política de execução bloqueia o `npm.ps1`) e rode os comandos em linhas separadas, porque o `&&` não existe nele: `cd web` e, depois, `npm.cmd test`.
 
@@ -497,6 +497,7 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 - o HTTPS, com a autoridade local do Caddy, os cabeçalhos de segurança e a CSP;
 - a sessão, que continua depois de recriar o contêiner da API;
 - o IP de quem acessa, atrás do Caddy;
+- o log do Caddy, que grava as falhas do proxy sem a query string, o `Referer` e o `X-Api-Key` (veja "Cuidados");
 - o backup e o teste da restauração;
 - a importação e o PWA no build de produção.
 
@@ -504,10 +505,9 @@ Falta:
 
 - **[servidor]** a máquina, com o Docker e as portas 80 e 443 abertas, e a pasta dos backups (`BACKUP_PASTA`);
 - **[servidor]** o destino da cópia criptografada dos backups e o cron dela (veja "Backup");
-- **[servidor]** repetir lá o teste da restauração e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
+- **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
 - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
 - **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
-- **antes de publicar:** tirar do log do Caddy a query string e os cabeçalhos com dados ou chaves. O log de erro do Caddy, sempre ligado, grava a URL com a busca e o `X-Api-Key` da integração. O caminho é o filtro de campos do log (`format filter`) no `request>uri`, no `request>headers>Referer` e no `request>headers>X-Api-Key`, conferido com a API parada;
 - **junto:** o n8n de produção, com os fluxos de [n8n/](n8n/), as credenciais e o `N8n__WebhookUrl`.
 
 ### O que o servidor precisa
@@ -662,6 +662,15 @@ Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
 
 - Nunca rode `docker compose -f docker-compose.prod.yml down -v` no servidor: o `-v` apaga os volumes, com o banco e as chaves das sessões.
 - Logs, sem dados pessoais: `docker compose -f docker-compose.prod.yml logs -f api`. Cada contêiner guarda até 5 arquivos de 10 MB.
+- O log do Caddy (`docker compose -f docker-compose.prod.yml logs caddy`) mostra as falhas do proxy, como um 502 com a API reiniciando. Ele grava a URL sem a query string, que pode levar a busca da lista, e o `Referer`, o `X-Api-Key`, o `Cookie` e o `Authorization` como `REDACTED`; o filtro fica no bloco global do [deploy/Caddyfile](deploy/Caddyfile). Para conferir no servidor, na primeira publicação, porque a API fica parada por alguns segundos:
+
+  ```bash
+  docker compose -f docker-compose.prod.yml stop api
+  curl -s -o /dev/null -w '%{http_code}\n' -H 'X-Api-Key: conferencia-do-log' 'https://crm.empresa.com.br/api/leads?busca=conferencia-do-log'   # 502
+  docker compose -f docker-compose.prod.yml logs caddy | grep -c conferencia-do-log                  # 0: nem a busca nem a chave
+  docker compose -f docker-compose.prod.yml logs caddy | grep -c '"uri":"/api/leads?REDACTED"'       # 1 ou mais: o 502 foi gravado
+  docker compose -f docker-compose.prod.yml start api
+  ```
 - A rede do Compose usa a faixa `172.30.0.0/24`, e o Caddy, o IP `172.30.0.10`: a API só aceita o IP de quem acessa (`X-Forwarded-For`) vindo dele. Se a faixa colidir com outra rede do servidor, defina `REDE_SUBNET` e `CADDY_IP` no `.env`.
 - O Caddy manda HSTS de um ano: depois do primeiro acesso por HTTPS, o navegador não aceita mais o domínio sem HTTPS.
 - Na subida, o log da API avisa que as chaves da sessão ficam sem criptografia (`No XML encryptor configured`). É esperado: elas ficam no volume `chaves-sessao`, que só quem acessa o servidor lê, e quem acessa o servidor já acessa o banco.
@@ -709,4 +718,4 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 | Arquivos baixados | O JSON do titular, os CSVs exportados da lista e os CSVs importados da Meta ou do Excel, no computador de quem baixou | Apague-os depois de usar |
 | Celular da atendente | A conversa do WhatsApp e o contato salvo | Peça à atendente para apagar a conversa e o contato |
 
-Os logs do CRM não guardam dados pessoais. O log de erro do Caddy grava a busca da lista até o filtro do log entrar (veja "O que está pronto e o que falta").
+Os logs do CRM não guardam dados pessoais, e o do Caddy grava as URLs sem a query string, onde fica a busca da lista (veja "Cuidados" em Publicação).
