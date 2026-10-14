@@ -76,7 +76,7 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    A mesma chave vai para a credencial Header Auth do n8n no Passo 6. Para trocá-la, rode o comando de novo e atualize a credencial.
 
-4. Alertas por e-mail (pode ficar para depois). O CRM avisa o fluxo `CRM - Alertas` do n8n, que manda o e-mail. Primeiro, gere a chave que o n8n confere no cabeçalho `X-Crm-Chave` (`N8n__WebhookChave`). Os comandos a gravam no `.env` e a deixam pronta para colar no n8n.
+4. Alertas por e-mail (pode ficar para depois). O CRM avisa o fluxo `CRM - Alertas` do n8n, que manda o e-mail. Em desenvolvimento, o n8n roda no próprio Compose (veja "n8n local", em Dia a dia). Primeiro, gere a chave que o n8n confere no cabeçalho `X-Crm-Chave` (`N8n__WebhookChave`). Os comandos a gravam no `.env` e a deixam pronta para colar no n8n.
 
    PowerShell (a chave vai para a área de transferência):
 
@@ -96,19 +96,20 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
    echo "$chave"
    ```
 
-   No n8n, crie uma credencial Header Auth com o nome do cabeçalho `X-Crm-Chave` e a chave como valor, e escolha essa credencial no nó "Evento do CRM" do fluxo `CRM - Alertas`. Com o fluxo publicado, preencha no `.env` a URL de produção do Webhook dele:
+   No n8n, a chave vai na credencial Header Auth `CRM - Chave dos eventos`, com o nome do cabeçalho `X-Crm-Chave` (veja "n8n local"). Com o fluxo `CRM - Alertas` publicado, preencha no `.env` a URL de produção do Webhook dele. Com a API no contêiner, o n8n do Compose é `n8n:5678`; com o `dotnet run` no Windows, `localhost:5679`:
 
    ```bash
-   N8n__WebhookUrl=https://SUA-INSTANCIA.app.n8n.cloud/webhook/crm-alertas
+   N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas
    ```
 
-   Sem `N8n__WebhookUrl`, o CRM não envia nada, e os eventos ficam pendentes. Quando a URL for configurada, os pendentes acumulados saem todos de uma vez. Para descartá-los antes, em desenvolvimento:
+   Sem `N8n__WebhookUrl`, o CRM não envia nada, e os eventos ficam pendentes. Quando a URL for configurada, os pendentes acumulados saem todos de uma vez, e cada um vira um e-mail. Para conferir e descartá-los antes, em desenvolvimento (só a fila de eventos, sem mexer em lead):
 
    ```bash
+   docker compose exec db psql -U crm -d crm -c "SELECT situacao, count(*) FROM eventos_saida GROUP BY situacao;"
    docker compose exec db psql -U crm -d crm -c "DELETE FROM eventos_saida WHERE situacao = 'pendente';"
    ```
 
-   O CRM chama o n8n Cloud, então não precisa de túnel para os alertas.
+   A API não mostra o `N8n__WebhookUrl` no `printenv` do contêiner, porque ela mesma lê o `.env`. Para saber se ela leu a URL, procure no log da subida a linha "N8n__WebhookUrl não está configurada": ela só aparece quando a URL está vazia.
 
 5. Instale as ferramentas e as dependências:
 
@@ -141,6 +142,7 @@ cd web && npm run dev                    # front em http://localhost:5173
 | http://localhost:5080/health | Saúde da API e do banco |
 | http://localhost:5080/scalar | Documentação da API (só em desenvolvimento) |
 | http://localhost:5080/openapi/v1.json | Documento OpenAPI (só em desenvolvimento) |
+| http://localhost:5679 | n8n local, com os fluxos de [n8n/](n8n/) (`docker compose up -d n8n`; veja "n8n local") |
 
 Em desenvolvimento, a API lê o `.env` da raiz. Uma variável que já exista no ambiente tem prioridade sobre o arquivo. As migrations são aplicadas quando a API sobe, só em desenvolvimento. O arquivo [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http) tem requisições prontas para testar a API pelo VS Code.
 
@@ -236,8 +238,16 @@ Em Relatório (só admin) fica o relatório que a Gama recebe, sem dados pessoai
 - A tela se atualiza sozinha quando um lead muda, como o painel.
 - O n8n busca o mesmo relatório com a chave de integração, em `GET /api/integracoes/relatorios/campanhas` (JSON) ou `.../csv`.
   - Sem datas, vem a semana anterior inteira, de segunda a domingo.
-  - É o que o fluxo `CRM - Relatório semanal Gama` vai mandar à Gama toda segunda, quando houver o n8n de produção.
+  - É o que o fluxo `CRM - Relatório semanal Gama` manda toda segunda às 8h, com o CSV anexo. No n8n local, vai para o e-mail do admin, até a Gama indicar o dela.
   - Para testar pela API, use as requisições do relatório no [src/Crm.Api/Crm.Api.http](src/Crm.Api/Crm.Api.http).
+
+### Campanhas
+
+Em Configurações › Campanhas (só admin) ficam as campanhas dos anúncios, criadas quando chega o primeiro lead de cada uma.
+
+- O Google manda só o número da campanha, que chega com um nome provisório, como "Google Ads · campanha 123". Essas vêm primeiro, com a marca "Nome provisório", a origem e o id na origem.
+- O lápis renomeia qualquer campanha. O nome novo aparece no painel, no relatório e nas fichas, e um nome que chegue depois, pela integração ou pela importação, não o substitui.
+- A renomeação entra na auditoria.
 
 ### Rodízio, notificações e alertas
 
@@ -276,6 +286,105 @@ O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especifi
 - O exemplo vai com `"teste": true`: lead de teste fica sem responsável, só aparece para admins e não gera aviso. Para ver o rodízio e o alerta por e-mail, use a requisição "Lead real pela integração", que gera o `idExterno` e o e-mail a cada envio: cada clique é um lead novo.
 - Os leads da integração vão para o rodízio e aparecem na hora no funil e no sino de quem os recebe, e no painel. Os que ficam sem responsável aparecem em Leads, com o filtro Responsável › Sem responsável.
 - Telefone, e-mail ou CPF/CNPJ em formato inválido não recusam o lead: a ficha mostra o aviso embaixo do campo.
+
+### n8n local
+
+O [docker-compose.yml](docker-compose.yml) tem um n8n Community (2.43.5) só para desenvolvimento, para montar e testar os fluxos de [n8n/](n8n/) com dados de teste até o n8n Cloud de produção (veja "n8n Cloud: importar os fluxos", em Publicação).
+
+```powershell
+docker compose up -d n8n         # http://localhost:5679
+docker compose stop n8n
+```
+
+- A interface fica em `http://localhost:5679`, só no próprio computador. A 5678, a padrão, é de outro n8n desta máquina; dentro da rede do Compose, ele continua em `http://n8n:5678`.
+- Os fluxos chamam a API em `http://api:5080`, o `urlCrm` do nó "Configuração" de cada um. Com a API no `dotnet run` do Windows, troque por `http://host.docker.internal:5080`.
+- A conta de dono, as credenciais, a Data Table e as execuções ficam no volume `dados-n8n`.
+- A API não depende dele. Com o n8n parado, o CRM funciona, e os eventos ficam tentando de novo; depois de cerca de 20 horas, falham, com o aviso no sino. Se ele vai ficar parado por muito tempo, esvazie o `N8n__WebhookUrl`.
+
+**Primeira vez.**
+
+1. Abra `http://localhost:5679` e crie a conta de dono.
+2. Crie as credenciais (Credentials › Add), com estes nomes:
+
+   | Credencial | Tipo | Valor |
+   | --- | --- | --- |
+   | `CRM - Chave de integração` | Header Auth, nome `X-Api-Key` | o `Integracao__Chave` do `.env` |
+   | `CRM - Chave dos eventos` | Header Auth, nome `X-Crm-Chave` | o `N8n__WebhookChave` do `.env` |
+   | `CRM - E-mail` | SMTP: `smtp.gmail.com`, porta 465, SSL/TLS | a conta que envia (em desenvolvimento, `testecrmfs@gmail.com`) e a senha de app dela |
+   | `CRM - Meta Lead Ads` | Facebook Lead Ads OAuth2 | só com o app da Meta em modo Live |
+
+   Para levar um valor do `.env` para a área de transferência, sem mostrá-lo:
+
+   ```powershell
+   function Copiar-DoEnv($nome) { $l = Select-String -Path .env -Pattern "^$nome=" | Select-Object -First 1; ($l.Line -replace "^$nome=", '' -replace '\s#.*$', '').Trim().Trim('"', "'") | Set-Clipboard }
+   Copiar-DoEnv Integracao__Chave
+   ```
+3. Crie a Data Table `crm_entradas_pendentes` (Overview › Data tables), com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data). Os fluxos a acham pelo nome.
+4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e "Save successful production executions: Do not save". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
+5. Gere a chave do Google de desenvolvimento. Ela é aleatória e fica num arquivo fora do repositório; o SHA-256 dela vai para o `googleKeySha256` do nó "Configuração" do `CRM - Entrada Google`:
+
+   ```powershell
+   $bytes = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+   $chave = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+   [IO.File]::WriteAllText("$PWD\..\crm-google-chave-dev.txt", $chave)
+   $hash = -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($chave)) | ForEach-Object { $_.ToString('x2') })
+   "SHA-256 da chave do Google: $hash"
+   Remove-Variable bytes, chave
+   ```
+
+**MCP da instância.** É por ele que o Claude Code cria e confere os fluxos.
+
+- Em Settings › Instance-level MCP, ligue o acesso e a exposição automática dos fluxos novos.
+- Em Connect a client › API key, copie o token e rode, na pasta do projeto:
+
+  ```powershell
+  $claude = (Get-ChildItem "$env:USERPROFILE\.vscode\extensions\anthropic.claude-code-*\resources\native-binary\claude.exe" | Sort-Object FullName | Select-Object -Last 1).FullName
+  $token = Get-Clipboard
+  & $claude mcp add --transport http --scope user n8n-local http://localhost:5679/mcp-server/http --header "Authorization: Bearer $token"
+  Remove-Variable token
+  ```
+
+- A configuração fica no `~/.claude.json`, fora do Git. É no escopo `user` porque o escopo `local` não aparece na extensão do VS Code.
+- O servidor `n8n` do `.mcp.json` é o do n8n Cloud de teste, que acabou, e aparece como Failed até o n8n de produção existir.
+
+**Os fluxos.** Os exemplos de [n8n/exemplos/](n8n/exemplos/) têm dados fictícios.
+
+| Fluxo | Gatilho no n8n local | Publicado | Como testar |
+| --- | --- | --- | --- |
+| `CRM - Erros` | Error Trigger | Sim | Qualquer falha dos outros fluxos manda o e-mail ao admin |
+| `CRM - Alertas` | `POST /webhook/crm-alertas`, com o `X-Crm-Chave` | Sim | Um lead pelo rodízio: o e-mail chega no alias da atendente |
+| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` não cria nada |
+| `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste |
+| `CRM - Reenvio de pendentes` | De hora em hora, das 8h às 20h, de segunda a sexta | Não | Execução manual, depois de um envio com a API parada |
+| `CRM - Relatório semanal Gama` | Segunda às 8h | Não | Execução manual: o CSV da semana anterior vai para o `emailGama` |
+| `CRM - Entrada Meta` | Gatilho de Lead Ads | Não, sem o app Live | `test_workflow` do MCP, com `meta-gatilho.json` e `meta-graph.json` |
+
+```powershell
+# Site: responde {"recebido":true}, e o lead vai para o rodízio, com o alerta
+curl.exe -s -H "Content-Type: application/json" --data-binary "@n8n/exemplos/site.json" http://localhost:5679/webhook/crm-entrada-site
+
+# Google: a chave sai do arquivo e não aparece na tela. Responde 200 com {}; o segundo envio é "já recebido" no CRM.
+# Sem a chave (o exemplo como está), responde 403 e avisa o admin pelo CRM - Erros.
+$chave = (Get-Content ..\crm-google-chave-dev.txt -Raw).Trim()
+$corpo = (Get-Content n8n\exemplos\google-teste.json -Raw -Encoding UTF8).Replace('CHAVE_DO_GOOGLE', $chave)
+$resposta = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:5679/webhook/crm-entrada-google -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($corpo))
+"HTTP $($resposta.StatusCode) $($resposta.Content)"
+Remove-Variable chave, corpo, resposta
+```
+
+Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para a `crm_entradas_pendentes`; depois `docker compose start api` e uma execução manual do `CRM - Reenvio de pendentes`, que manda o lead e apaga a linha.
+
+**Cuidados.**
+
+- Nunca publique nem execute um fluxo sem querer: publicado, o `CRM - Alertas` manda um e-mail de verdade a cada evento do CRM.
+- As execuções com erro ficam salvas com o que o gatilho recebeu: o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Apague as de teste (Executions › Delete).
+- Não baixe um arquivo (formato de resposta "File") num HTTP Request com credencial. Nesse modo, o n8n guarda nos dados da execução a requisição inteira, com o cabeçalho da credencial. Por isso, o relatório semanal baixa o CSV como texto e refaz o anexo.
+- Depois de mudar um fluxo, exporte o JSON pelo CLI e deixe só `id`, `name`, `nodes`, `connections` e `settings` (sem `pinData`, `active`, `versionId`, `meta` e as datas). Depois, formate com o Prettier do `web/`, rodando no `web/`: `npx.cmd prettier --config .prettierrc.json --write "../n8n/*.json"`. O `FluxosN8nTests` confere as regras dos JSONs.
+
+  ```powershell
+  docker compose exec n8n n8n export:workflow --id=<id do fluxo> --output=/tmp/fluxo.json
+  docker compose cp n8n:/tmp/fluxo.json n8n/fluxo-exportado.json
+  ```
 
 ### Importação de leads
 
@@ -321,7 +430,7 @@ Em **Auditoria** (só admin) ficam, do mais recente para o mais antigo, os login
 - O "Ver na auditoria" da ficha abre a tela só com os registros do lead.
 - Os registros não têm dados pessoais: os leads aparecem pelo número.
 
-No n8n, os fluxos não salvam as execuções que deram certo (os JSONs de `n8n/` já levam o ajuste). Conferir isso no n8n de produção fica para quando ele existir.
+No n8n, os fluxos não salvam as execuções que deram certo (os JSONs de `n8n/` já levam o ajuste). As que dão erro ficam salvas com o que o gatilho recebeu, inclusive os dados do lead: veja "n8n local", em Dia a dia. Conferir o ajuste e o prazo das execuções com erro no n8n de produção fica para quando ele existir.
 
 O passo a passo de um pedido do titular, com o que fica fora do CRM, está em "Pedido do titular (LGPD)", no fim deste README.
 
@@ -368,12 +477,34 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.e
 - Depois de um ensaio, rode o comando de novo: tudo volta ao estado inicial.
 - O comando roda em outro processo, então recarregue as telas que estiverem abertas.
 - Os nomes das campanhas, das pessoas e das empresas ficam em [src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs](src/Crm.Api/Infra/Demonstracao/MassaDemonstracao.cs).
+- A massa é gravada direto no banco: não gera evento para o n8n nem e-mail, e o comando esvazia a fila de eventos.
+
+### O alerta no celular
+
+Para mostrar o e-mail de alerta chegando no celular quando um lead novo cai para a Adriana:
+
+1. Rode o `preparar-demonstracao`: com a massa nova, a Adriana é a próxima do rodízio.
+2. Deixe no ar a API, o n8n e o front: `docker compose up -d api n8n` e, em `web/`, `npm.cmd run dev`.
+3. No n8n, deixe o `CRM - Erros` e o `CRM - Alertas` publicados. No `.env`, deixe `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`.
+4. Os e-mails saem do `testecrmfs@gmail.com` para os aliases das atendentes (`+adriana` e `+pietra`) e para o seu Gmail.
+   - O remetente precisa ser outra conta. Um e-mail mandado de uma conta para um alias dela mesma chega como enviado, sem notificar o celular.
+   - No Gmail do admin, um filtro para esse remetente: nunca enviar para spam, sempre marcar como importante e categoria Principal.
+5. O lead entra pelo site, o que mostra a cadeia toda (site, n8n, CRM, rodízio, n8n e e-mail):
+
+   ```powershell
+   curl.exe -s -H "Content-Type: application/json" --data-binary "@n8n/exemplos/site.json" http://localhost:5679/webhook/crm-entrada-site
+   ```
+
+   Ou por Leads › Novo lead, com Responsável "Rodízio". No ensaio de 14/10, o evento saiu de 5 a 7 segundos depois do lead.
+6. O `site.json` cria a Carolina Mendes. Enviado de novo, ele vira uma entrada nova do mesmo lead. Para outro lead novo, troque o nome e o e-mail no arquivo, ou rode o `preparar-demonstracao` de novo.
+7. O link do e-mail abre a ficha só no computador (`localhost:5173`).
+8. Se o e-mail falhar na hora, o lead aparece do mesmo jeito no funil e no sino da Adriana, com a notificação do navegador.
 
 ### Plano B: o Compose de produção no próprio computador
 
 Se o ambiente de desenvolvimento falhar no dia, a demonstração roda no Compose de produção no próprio computador, o `crm-local`. Ele tem banco, usuários e massa próprios, separados do banco de desenvolvimento.
 
-Na véspera, depois do congelamento do código:
+No dia da reunião, depois do congelamento (15/10, às 10h):
 
 1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088` e `PORTA_HTTPS=8443`, sem o `N8n__WebhookUrl`, para não mandar e-mail:
 
@@ -394,7 +525,8 @@ O que muda em relação ao desenvolvimento:
 - o aviso do certificado, na primeira vez;
 - sem service worker, porque o Chrome o recusa com o certificado local: a notificação sai pelo `new Notification`, como em desenvolvimento, e a instalação como app pode não aparecer;
 - a auditoria mostra o IP do Docker (`172.30.0.1`) para todo mundo;
-- os dados são os do `crm-local`, e não os do banco de desenvolvimento.
+- os dados são os do `crm-local`, e não os do banco de desenvolvimento;
+- sem o n8n: o `crm-teste.env` não tem o `N8n__WebhookUrl`, então não sai e-mail de alerta.
 
 ## Tipos da API no front
 
@@ -476,7 +608,7 @@ web/                         React + TypeScript + Vite: features/ por módulo (a
                              api/ com o cliente e os tipos gerados, pwa/ com o registro do service worker; public/ com o
                              manifesto, os ícones e o service worker do PWA; icones/ com as fontes dos ícones e o script que
                              gera os PNGs
-n8n/                         JSON exportado dos fluxos do n8n (CRM - Alertas e CRM - Erros)
+n8n/                         JSON dos 7 fluxos do n8n da seção 4.5 e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
 docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
                              importação (exemplos/)
@@ -510,7 +642,7 @@ Falta:
 - **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
 - **antes de publicar:** fixar a versão do Caddy no Compose de produção (por exemplo, `caddy:2.11`, no lugar do `caddy:2`), para o teste do log do Caddy, que usa a imagem do Compose, valer para a versão que roda no servidor;
 - **antes de publicar:** um teste que exija a rotação de log (`logging: *logs`) em todo serviço do Compose de produção, para um serviço novo não ficar sem ela;
-- **junto:** o n8n de produção, com os fluxos de [n8n/](n8n/), as credenciais e o `N8n__WebhookUrl`.
+- **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos").
 
 ### O que o servidor precisa
 
@@ -547,6 +679,49 @@ Tudo no servidor **[servidor]**, com o domínio já apontando para ele **[domín
 
 4. Confira: `curl -I https://crm.empresa.com.br/health` responde 200, e `docker compose -f docker-compose.prod.yml ps -a` mostra `db`, `api`, `caddy` e `backup` rodando, e `migracoes` terminado com código 0.
 5. Entre com o `Admin__Email` e a senha inicial: o sistema pede a senha nova. Depois, cadastre as atendentes. As linhas `Admin__*` do `.env` podem ser apagadas.
+
+### n8n Cloud: importar os fluxos
+
+A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/) vão como estão: no Cloud, muda só o que é da instância (as credenciais, a Data Table, os valores do nó "Configuração", o fluxo de erro e, na Meta, a página e o formulário). **[n8n Cloud]** marca o que depende dele.
+
+1. **[n8n Cloud]** Crie as credenciais com os mesmos nomes do n8n local (veja "n8n local", em Dia a dia), com os valores de produção:
+   - `CRM - Chave de integração` e `CRM - Chave dos eventos`: o `Integracao__Chave` e o `N8n__WebhookChave` do `.env` do servidor;
+   - `CRM - E-mail`: o SMTP do e-mail da empresa;
+   - `CRM - Meta Lead Ads`: com o app da Meta em modo Live (seção 4.5 da especificação).
+2. **[n8n Cloud]** Crie a Data Table `crm_entradas_pendentes`, com as mesmas colunas, no projeto dos fluxos.
+3. **[n8n Cloud]** Importe pela tela (Workflows › Import from File), primeiro o `crm-erros.json`, depois os outros. A importação dá ids novos aos fluxos.
+4. Em cada fluxo, troque os valores do nó "Configuração":
+
+   | Fluxo | Campos |
+   | --- | --- |
+   | `CRM - Erros`, `CRM - Alertas` | `emailAdmin` e `remetente` (o e-mail da credencial SMTP) |
+   | `CRM - Entrada Site`, `CRM - Reenvio de pendentes` | `urlCrm`: `https://` e o `DOMINIO` |
+   | `CRM - Entrada Google` | `urlCrm` e `googleKeySha256` (passo 5) |
+   | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica) |
+   | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |
+
+   E também:
+   - escolha a credencial nos nós que a pedem;
+   - em Settings, deixe o Error Workflow no `CRM - Erros` (depois de publicá-lo), "Save successful production executions" em "Do not save" e o fuso em America/Sao_Paulo;
+   - no `CRM - Entrada Site`, ponha o domínio do site em "Allowed Origins (CORS)" do Webhook;
+   - na `CRM - Entrada Meta`, escolha a página e o formulário.
+5. Gere a chave do Google de produção. A chave vai para a área de transferência, para a Gama colar no formulário de lead do Google Ads, e o SHA-256 aparece na tela, para o `googleKeySha256`:
+
+   ```powershell
+   $bytes = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+   $chave = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+   Set-Clipboard -Value $chave
+   $hash = -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($chave)) | ForEach-Object { $_.ToString('x2') })
+   "SHA-256 da chave do Google: $hash"
+   Remove-Variable bytes, chave
+   ```
+6. **[n8n Cloud]** Publique o `CRM - Erros`, depois os outros. A Meta só pode ser publicada com o app Live.
+7. **[servidor]** No `.env` do servidor, ponha `N8n__WebhookUrl=https://<instância>.app.n8n.cloud/webhook/crm-alertas` e rode `docker compose -f docker-compose.prod.yml up -d api`.
+8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`.
+9. Confira:
+   - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório;
+   - no fim, apague as execuções de teste e veja por quanto tempo o plano guarda as execuções com erro.
+10. No Claude Code, aponte o `.mcp.json` para o MCP do n8n Cloud e remova o local: `claude mcp remove --scope user n8n-local`.
 
 ### Atualizar
 
@@ -607,7 +782,7 @@ docker compose -f docker-compose.prod.yml up -d api
 grep '^Integracao__Chave=' .env   # para colar no n8n
 ```
 
-Depois, troque o valor na credencial Header Auth (`X-Api-Key`) que os fluxos de entrada e o do relatório usam no n8n.
+Depois, troque o valor na credencial `CRM - Chave de integração` do n8n (Header Auth, `X-Api-Key`), que os fluxos de entrada, o reenvio e o relatório usam.
 
 - A API sobe de novo em alguns segundos, e as sessões continuam.
 - Entre a troca no CRM e a troca no n8n, as entradas recebem 401, e o n8n não guarda um 401 na fila de pendentes: o lead fica só no e-mail do `CRM - Erros`.
@@ -622,10 +797,12 @@ docker compose -f docker-compose.prod.yml up -d api
 grep '^N8n__WebhookChave=' .env   # para colar no n8n
 ```
 
-Depois, troque o valor na credencial Header Auth do Webhook do `CRM - Alertas`.
+Depois, troque o valor na credencial `CRM - Chave dos eventos` do n8n, a do Webhook do `CRM - Alertas`.
 
 - Até lá, o n8n recusa os eventos, que ficam pendentes no CRM e são reenviados depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h.
 - Nada se perde se o n8n for atualizado em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
+
+**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no nó "Configuração". Para trocá-la, gere uma nova com o comando do passo 5 de "n8n Cloud: importar os fluxos", troque o `googleKeySha256` e passe a chave nova à Gama. Entre as duas trocas, os leads do Google recebem 403, ficam nas execuções com erro do n8n e avisam o admin pelo `CRM - Erros`. Traga os que faltarem pela Importação, com o CSV de leads do Google Ads.
 
 **Senha do banco (`POSTGRES_PASSWORD`).** O PostgreSQL grava a senha quando o volume é criado: trocar só o `.env` deixa a API sem acesso ao banco. Troque no banco e no `.env`, nessa ordem:
 
