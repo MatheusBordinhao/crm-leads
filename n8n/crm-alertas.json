@@ -1,11 +1,12 @@
 {
+  "id": "GbDVJGhdvk5RI4F0",
   "name": "CRM - Alertas",
   "nodes": [
     {
       "id": "d4d3cddb-d0a8-4beb-81d3-48b2dace1797",
       "name": "Evento do CRM",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "typeVersion": 2.2,
       "position": [0, 80],
       "parameters": {
         "httpMethod": "POST",
@@ -14,12 +15,9 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "webhookId": "7e3e50fd-f439-4d09-bd94-d8c33987c10b",
+      "webhookId": "54488812-8cc9-4419-9e18-3a840c8f4df3",
       "credentials": {
-        "httpHeaderAuth": {
-          "id": "QMW3XZTZ3hwidhps",
-          "name": "Header Auth account"
-        }
+        "httpHeaderAuth": { "id": "omPx9JN7tBi2S8Vj", "name": "CRM - Chave dos eventos" }
       }
     },
     {
@@ -29,6 +27,8 @@
       "typeVersion": 3.5,
       "position": [224, 80],
       "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
         "assignments": {
           "assignments": [
             {
@@ -36,10 +36,15 @@
               "name": "emailAdmin",
               "value": "matheusbordinhao11@gmail.com",
               "type": "string"
+            },
+            {
+              "id": "remetente",
+              "name": "remetente",
+              "value": "testecrmfs@gmail.com",
+              "type": "string"
             }
           ]
         },
-        "includeOtherFields": true,
         "options": {}
       }
     },
@@ -51,6 +56,7 @@
       "position": [448, 80],
       "parameters": {
         "mode": "runOnceForEachItem",
+        "language": "javaScript",
         "jsCode": "// Monta o e-mail do evento (seção 4.3 da especificação). Sem responsável, o aviso vai para o e-mail de admin.\nconst evento = $json.body || {};\nconst lead = evento.lead || {};\nconst responsavel = evento.responsavel || null;\nconst dados = evento.dados || {};\nconst emailAdmin = $json.emailAdmin;\n\nconst origens = { meta_lead_ads: 'Meta', google_ads: 'Google Ads', site: 'Site', whatsapp: 'WhatsApp', telefone: 'Telefone', indicacao: 'Indicação', planilha: 'Planilha', manual: 'Cadastro manual' };\nconst plataformas = { facebook: 'Facebook', instagram: 'Instagram', google: 'Google' };\nfunction nomeDaOrigem(origem, plataforma) {\n  const nome = origens[origem] || origem || 'não informada';\n  const onde = plataformas[plataforma];\n  return onde ? nome + ' (' + onde + ')' : nome;\n}\n\nconst nome = lead.nome || 'Lead sem nome';\nconst ficha = [\n  ['Nome', lead.nome],\n  ['Empresa', lead.empresa],\n  ['UF', lead.uf],\n  ['Origem', nomeDaOrigem(lead.origem, lead.plataforma)],\n  ['Campanha', lead.campanha],\n  ['Etapa', lead.etapa && lead.etapa.nome],\n].filter(function (par) { return par[1]; }).map(function (par) { return par[0] + ': ' + par[1]; }).join('\\n');\n\nlet assunto;\nlet abertura;\nif (evento.tipo === 'lead.criado') {\n  assunto = responsavel ? 'Novo lead para você: ' + nome : 'Lead novo sem responsável: ' + nome;\n  abertura = responsavel\n    ? 'Você recebeu um lead novo no CRM.'\n    : 'Chegou um lead novo e ele ficou sem responsável. Escolha quem vai atendê-lo na ficha.';\n} else if (evento.tipo === 'lead.entrada_repetida') {\n  assunto = responsavel ? 'Nova entrada de um lead seu: ' + nome : 'Nova entrada de um lead sem responsável: ' + nome;\n  abertura = 'Este lead entrou em contato de novo, pela origem ' + nomeDaOrigem(dados.origem) + (dados.campanha ? ', na campanha ' + dados.campanha : '') + '.';\n} else if (evento.tipo === 'lead.reatribuido') {\n  assunto = responsavel ? 'Lead passado para você: ' + nome : 'Lead sem responsável ativo: ' + nome;\n  abertura = dados.responsavelAnterior\n    ? 'Este lead estava com ' + dados.responsavelAnterior.nome + ' e foi passado para ' + (responsavel ? 'você' : 'um usuário desativado') + '.'\n    : 'Este lead estava sem responsável e foi passado para ' + (responsavel ? 'você' : 'um usuário desativado') + '.';\n} else {\n  // Os outros tipos (como lead.etapa_alterada) não geram e-mail.\n  return { json: { enviar: false, tipo: evento.tipo || null } };\n}\n\nconst saudacao = responsavel ? 'Olá, ' + responsavel.nome + '.' : 'Olá.';\nreturn {\n  json: {\n    enviar: true,\n    tipo: evento.tipo,\n    destinatario: (responsavel && responsavel.email) || emailAdmin,\n    assunto: assunto,\n    mensagem: saudacao + '\\n\\n' + abertura + '\\n\\n' + ficha + '\\n\\nAbrir a ficha: ' + lead.url + '\\n',\n  },\n};"
       }
     },
@@ -81,28 +87,22 @@
       }
     },
     {
-      "id": "a3816325-44b2-4c64-845d-fbe7e202a36e",
+      "id": "34459edd-f3ce-45ab-8002-29767c427dfe",
       "name": "Enviar o e-mail",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.2,
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
       "position": [896, 0],
       "parameters": {
-        "sendTo": "={{ $json.destinatario }}",
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $(\"Configuração\").item.json.remetente }}>",
+        "toEmail": "={{ $json.destinatario }}",
         "subject": "={{ $json.assunto }}",
-        "emailType": "text",
-        "message": "={{ $json.mensagem }}",
-        "options": {
-          "appendAttribution": false,
-          "senderName": "CRM de Leads"
-        }
+        "emailFormat": "text",
+        "text": "={{ $json.mensagem }}",
+        "options": { "appendAttribution": false }
       },
-      "webhookId": "5acda1cd-a468-428e-81ab-7c20ecfa9bbb",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "KTxmmwgea3SYSApB",
-          "name": "Gmail account"
-        }
-      }
+      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "webhookId": "0b1975e3-45f5-41f7-bafb-e93825c52572"
     },
     {
       "id": "05a8b2c3-b499-4305-84f4-d29efc79943f",
@@ -117,44 +117,36 @@
       }
     },
     {
-      "id": "9cb07b12-51ee-4dd1-843d-b62cc46d40cf",
+      "id": "0cc847ba-b3d7-475b-aaf4-c007d6d2c6f6",
       "name": "Sobre o fluxo",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-48, -256],
+      "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Alertas\nRecebe os eventos do CRM (seção 4.3) e manda o e-mail para a responsável, com o link da ficha. Sem responsável, avisa o e-mail de admin do nó \"Configuração\". Só responde ao CRM depois de enviar: se o Gmail falhar, o CRM tenta de novo.",
-        "height": 200,
-        "width": 720,
-        "color": 7
+        "content": "## CRM - Alertas\nRecebe os eventos do CRM (seção 4.3) e manda o e-mail para a responsável, com o link da ficha. Sem responsável, avisa o e-mail de admin. Os endereços ficam no nó \"Configuração\". Só responde ao CRM depois de enviar: se o envio do e-mail falhar, o CRM tenta de novo.",
+        "color": 7,
+        "width": 832,
+        "height": 224
       }
     }
   ],
   "connections": {
-    "Evento do CRM": {
-      "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
-    },
-    "Configuração": {
-      "main": [[{ "node": "Montar o e-mail", "type": "main", "index": 0 }]]
-    },
-    "Montar o e-mail": {
-      "main": [[{ "node": "É um alerta?", "type": "main", "index": 0 }]]
-    },
+    "Evento do CRM": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
+    "Configuração": { "main": [[{ "node": "Montar o e-mail", "type": "main", "index": 0 }]] },
+    "Montar o e-mail": { "main": [[{ "node": "É um alerta?", "type": "main", "index": 0 }]] },
     "É um alerta?": {
       "main": [
         [{ "node": "Enviar o e-mail", "type": "main", "index": 0 }],
         [{ "node": "Responder ao CRM", "type": "main", "index": 0 }]
       ]
     },
-    "Enviar o e-mail": {
-      "main": [[{ "node": "Responder ao CRM", "type": "main", "index": 0 }]]
-    }
+    "Enviar o e-mail": { "main": [[{ "node": "Responder ao CRM", "type": "main", "index": 0 }]] }
   },
   "settings": {
     "executionOrder": "v1",
+    "availableInMCP": true,
     "timezone": "America/Sao_Paulo",
     "saveDataSuccessExecution": "none",
-    "binaryMode": "separate",
-    "errorWorkflow": "zqvER5UUTkTxFM4G"
+    "errorWorkflow": "jp3A8ziIhGPROWOc"
   }
 }

@@ -1,4 +1,5 @@
 {
+  "id": "jp3A8ziIhGPROWOc",
   "name": "CRM - Erros",
   "nodes": [
     {
@@ -10,52 +11,72 @@
       "parameters": {}
     },
     {
-      "id": "dd77aea8-c8a1-4cc9-808a-7fb08ea8c05e",
-      "name": "Avisar o admin",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.2,
+      "id": "7ce69ed0-7b9b-43c3-891c-71116b3458ab",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
       "position": [224, 0],
       "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "sendTo": "matheusbordinhao11@gmail.com",
-        "subject": "=[CRM] Falha no fluxo {{ $json.workflow.name }}",
-        "emailType": "text",
-        "message": "=O fluxo {{ $json.workflow.name }} falhou.\n\nNó: {{ $json.execution.lastNodeExecuted ?? \"não informado\" }}\nErro: {{ $json.execution.error?.message ?? \"sem mensagem\" }}\n\nExecução: {{ $json.execution.url ?? \"sem link\" }}",
-        "options": {
-          "appendAttribution": false,
-          "senderName": "CRM de Leads"
-        }
-      },
-      "webhookId": "83516fae-4ffa-420a-9880-dbb0c29d745c",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "KTxmmwgea3SYSApB",
-          "name": "Gmail account"
-        }
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email-admin",
+              "name": "emailAdmin",
+              "value": "matheusbordinhao11@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "remetente",
+              "name": "remetente",
+              "value": "testecrmfs@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       }
     },
     {
-      "id": "81d12647-e300-49f9-9300-698f33cb7fe9",
+      "id": "b79e9347-7686-44a5-b9aa-e9ecc09be024",
+      "name": "Avisar o admin",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [448, 0],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $json.remetente }}>",
+        "toEmail": "={{ $json.emailAdmin }}",
+        "subject": "=[CRM] Falha no fluxo {{ $json.workflow.name }}",
+        "emailFormat": "text",
+        "text": "=O fluxo {{ $json.workflow.name }} falhou.\n\nNó: {{ $json.execution?.lastNodeExecuted ?? \"não informado\" }}\nExecução: {{ $json.execution?.url ?? \"sem link\" }}\n\nO motivo está na execução. Este e-mail não traz a mensagem do erro, que pode ter dados pessoais.",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "webhookId": "7bd437e8-a2ef-4660-a4a8-bab56031744e"
+    },
+    {
+      "id": "e6d67f98-f535-4300-b802-f49f726f044d",
       "name": "Sobre o fluxo",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-40, -240],
+      "position": [-32, -96],
       "parameters": {
-        "content": "## CRM - Erros\nÉ o fluxo de erro de todos os fluxos `CRM - `. Manda um e-mail ao admin com o nome do fluxo, o nó, a mensagem e o link da execução. Para mudar quem recebe, troque o endereço no nó \"Avisar o admin\".",
+        "content": "## CRM - Erros\nÉ o fluxo de erro de todos os fluxos `CRM - `. Manda um e-mail ao admin com o nome do fluxo, o nó e o link da execução, sem a mensagem do erro, que pode trazer dado pessoal. Quem recebe e quem envia ficam no nó \"Configuração\".",
         "color": 7,
-        "width": 480,
-        "height": 180
+        "width": 608,
+        "height": 224
       }
     }
   ],
   "connections": {
-    "Erro num fluxo do CRM": {
-      "main": [[{ "node": "Avisar o admin", "type": "main", "index": 0 }]]
-    }
+    "Erro num fluxo do CRM": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
+    "Configuração": { "main": [[{ "node": "Avisar o admin", "type": "main", "index": 0 }]] }
   },
   "settings": {
     "executionOrder": "v1",
+    "availableInMCP": true,
     "timezone": "America/Sao_Paulo",
     "saveDataSuccessExecution": "none"
   }
