@@ -200,7 +200,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - exportações e anonimizações;
   - exclusão de lead de teste;
   - mudanças em usuários e configurações.
-- No n8n, os fluxos `CRM - ` ficam com "salvar execuções de produção com sucesso" desligado, para não guardar dados pessoais sem necessidade. Os JSONs de `n8n/` já levam o ajuste (`saveDataSuccessExecution: none`), e um teste confere cada fluxo guardado. No n8n de produção, falta conferir o ajuste depois de importar os fluxos e ver por quanto tempo ficam as execuções com erro, que guardam o payload: no n8n Cloud, é o prazo do plano; no Community, `EXECUTIONS_DATA_PRUNE` e `EXECUTIONS_DATA_MAX_AGE`.
+- No n8n, os fluxos `CRM - ` ficam com "salvar execuções de produção com sucesso" desligado, para não guardar dados pessoais sem necessidade. Os JSONs de `n8n/` já levam o ajuste (`saveDataSuccessExecution: none`), e um teste confere cada fluxo guardado. No n8n de produção, falta conferir o ajuste depois de importar os fluxos e ver por quanto tempo ficam as execuções com erro, que guardam o payload e o que o gatilho recebeu (4.5): no n8n Cloud, é o prazo do plano; no Community, `EXECUTIONS_DATA_PRUNE` e `EXECUTIONS_DATA_MAX_AGE`.
 
 ## 4. Integração com o n8n
 
@@ -372,29 +372,44 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 
 | Fluxo | Gatilho | O que faz | Passo |
 | --- | --- | --- | --- |
-| `CRM - Alertas` | Webhook `POST` com Header Auth | Recebe os eventos e manda e-mail para a responsável com nome, empresa, origem, campanha e o link da ficha. Sem responsável, avisa o e-mail de admin configurado no fluxo | 4 |
-| `CRM - Erros` | Error Trigger | Manda e-mail para o admin com o nome do fluxo e o link da execução. É o fluxo de erro de todos os fluxos `CRM - ` | 4 |
-| `CRM - Entrada Meta` | Facebook Lead Ads Trigger | Monta o JSON da seção 4.2 (`idExterno` é o id do lead na Meta) com campanha, conjunto, anúncio, formulário e plataforma, e envia ao CRM | 6 |
-| `CRM - Entrada Google` | Webhook `POST` | Confere o `google_key` e mapeia `user_column_data` pelo `column_id` (FULL_NAME, ou FIRST_NAME e LAST_NAME, EMAIL, PHONE_NUMBER, COMPANY_NAME, REGION). Usa `lead_id` como idExterno, `campaign_id` como campanha, `gcl_id` como gclid e `is_test` como teste, e responde 200 com `{}` | 6 |
-| `CRM - Entrada Site` | Webhook `POST`, com CORS liberado só para o domínio do site | Descarta envios com o campo isca (honeypot) preenchido, gera o idExterno (UUID), leva as UTMs e envia ao CRM | 6 |
-| `CRM - Reenvio de pendentes` | Schedule de hora em hora, das 8h às 20h, de segunda a sexta | Reenvia o que está na Data Table `crm_entradas_pendentes` e apaga a linha quando dá certo | 6 |
-| `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o CSV do relatório sem datas, que vem com a semana anterior (4.4), e o manda para a Gama por e-mail, anexo | 9 |
+| `CRM - Alertas` | Webhook `POST` com Header Auth | Recebe os eventos e manda e-mail para a responsável com nome, empresa, origem, campanha e o link da ficha. Sem responsável, avisa o e-mail de admin do nó "Configuração" | 4 |
+| `CRM - Erros` | Error Trigger | Manda e-mail para o admin com o nome do fluxo, o nó e o link da execução, sem a mensagem do erro, que pode trazer dado pessoal. É o fluxo de erro de todos os fluxos `CRM - ` | 4 |
+| `CRM - Entrada Meta` | Facebook Lead Ads Trigger | Busca na Graph API a campanha e a plataforma do lead, que o gatilho não traz, monta o JSON da seção 4.2 (`idExterno` é o id do lead na Meta) com campanha, conjunto, anúncio, formulário e plataforma, e envia ao CRM | 6 |
+| `CRM - Entrada Google` | Webhook `POST` | Confere o SHA-256 do `google_key` (errado: responde 403 e avisa o admin), responde 200 com `{}` e mapeia `user_column_data` pelo `column_id` (FULL_NAME, ou FIRST_NAME e LAST_NAME, EMAIL ou WORK_EMAIL, PHONE_NUMBER ou WORK_PHONE, COMPANY_NAME, REGION; as outras colunas vão para as respostas extras, pelo nome da pergunta). Usa `lead_id` como idExterno, `campaign_id`, `adgroup_id`, `creative_id` e `form_id` como campanha, conjunto, anúncio e formulário, como texto, `gcl_id` como gclid e `is_test` como teste | 6 |
+| `CRM - Entrada Site` | Webhook `POST`, com CORS liberado só para o domínio do site | Descarta envios com o campo isca `website` preenchido (responde do mesmo jeito), gera o idExterno (UUID), responde `{ "recebido": true }` e envia ao CRM, com as UTMs. O lead do site nunca é de teste | 6 |
+| `CRM - Reenvio de pendentes` | Schedule de hora em hora, das 8h às 20h, de segunda a sexta | Reenvia o que está na Data Table `crm_entradas_pendentes`, um por segundo e uma tentativa por linha. Apaga a linha quando dá certo (inclusive `ja_recebido`); quando falha, soma a tentativa e grava o erro | 6 |
+| `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o resumo e o CSV do relatório sem datas, que vêm com a semana anterior (4.4), e manda o CSV para a Gama por e-mail, anexo, com o período e o total no texto | 9 |
 
-- **Alertas:** o Webhook (`/webhook/crm-alertas`) confere o `X-Crm-Chave` por uma credencial Header Auth e só responde ao CRM depois de mandar o e-mail: se o Gmail falhar, o n8n responde com erro e o CRM tenta de novo. O e-mail vai em texto simples, para nenhum dado do lead virar HTML. Só `lead.criado`, `lead.entrada_repetida` e `lead.reatribuido` geram e-mail; os outros tipos recebem 200 sem e-mail.
-- **Chave do CRM:** fica numa credencial Header Auth (`X-Api-Key`) usada pelo HTTP Request.
-- **Relatório semanal:** o HTTP Request chama `GET /api/integracoes/relatorios/campanhas/csv` sem datas, e o CRM devolve a semana anterior inteira: o fluxo não calcula data. O e-mail vai para o endereço da Gama configurado no fluxo, com o CSV anexo, o mesmo que o admin baixa na tela. Se a Gama preferir uma planilha, o fluxo usa o JSON da mesma rota, sem o `/csv`.
-- **Falhas no envio ao CRM:** o HTTP Request tenta 3 vezes, a cada 5 segundos. Se ainda falhar com 429, 5xx ou tempo esgotado, o payload vai para `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em). Erros 400 e 401 não vão para a fila; disparam o `CRM - Erros`.
+- **Configuração e segredos:**
+  - Cada fluxo começa por um nó Set chamado "Configuração", com os endereços e os e-mails: o endereço do CRM, o e-mail do admin, o remetente e o e-mail da Gama. Os segredos ficam só em credenciais.
+  - Os fluxos usam só o que o n8n Cloud também tem: nada de `$env`, `$vars`, Execute Command ou arquivos em disco.
+  - Há duas exceções, por limite do n8n. O domínio do site fica no "Allowed Origins (CORS)" do Webhook, que o n8n lê antes de o fluxo rodar. A chave do Google entra no "Configuração" só como SHA-256 (`googleKeySha256`), porque uma credencial não chega às expressões.
+  - A chave do Google é aleatória, com 64 caracteres, para o hash, que vai para o Git, não poder ser revertido.
+- **E-mail:** os fluxos mandam pelo nó Send Email, com uma credencial SMTP, em texto simples. Em desenvolvimento, é uma conta do Gmail só para os testes, com senha de app; em produção, o e-mail da empresa. O remetente precisa ser outra conta, e não a que recebe: um e-mail de uma conta do Gmail para um alias dela mesma chega como enviado, sem notificar o celular.
+- **Alertas:** o Webhook (`/webhook/crm-alertas`) confere o `X-Crm-Chave` por uma credencial Header Auth e só responde ao CRM depois de mandar o e-mail: se o envio falhar, o n8n responde com erro e o CRM tenta de novo. O e-mail vai em texto simples, para nenhum dado do lead virar HTML. Só `lead.criado`, `lead.entrada_repetida` e `lead.reatribuido` geram e-mail; os outros tipos recebem 200 sem e-mail.
+- **Chave do CRM:** fica na credencial Header Auth `CRM - Chave de integração` (`X-Api-Key`), usada pelos HTTP Request. Um HTTP Request com credencial nunca baixa a resposta como arquivo: nesse modo, o n8n guarda nos dados da execução a requisição inteira, com o cabeçalho da credencial.
+- **Relatório semanal:** o HTTP Request chama `GET /api/integracoes/relatorios/campanhas` e o `/csv` sem datas, e o CRM devolve a semana anterior inteira: o fluxo não calcula data. O CSV chega como texto e vai anexo em UTF-8 com BOM, o mesmo arquivo que o admin baixa na tela, para o endereço da Gama do nó "Configuração". Se a Gama preferir uma planilha, o fluxo usa só o JSON.
+- **Falhas no envio ao CRM:**
+  - O HTTP Request tenta 3 vezes, a cada 5 segundos, com tempo limite de 10 s.
+  - Se ainda falhar com 429, 5xx, tempo esgotado ou falha de conexão, o payload vai para `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em), que os fluxos acham pelo nome. O site e o Google já receberam a resposta antes.
+  - Um 4xx que não é 408 nem 429, como o 400 e o 401, não vai para a fila: o fluxo termina com erro e dispara o `CRM - Erros`.
+  - O `ultimo_erro` guarda só o código ou o tipo da falha (`HTTP 503`, `Tempo esgotado (10 s)`, `Falha de conexão`), nunca o corpo da resposta.
+- **Site:** o formulário manda, em JSON ou como formulário, `nome`, `email`, `telefone`, `empresa`, `uf`, `mensagem`, as UTMs (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content` e `utm_term`), o `gclid` e o campo isca `website`, escondido e vazio. A mensagem e qualquer outro campo preenchido vão para as respostas extras. Como o site recebe `{ "recebido": true }` antes do envio ao CRM, o formulário confere o nome e o e-mail ou o telefone: um envio sem eles responde 400 no CRM e avisa o admin.
 - **Meta:**
+  - O gatilho de Lead Ads do n8n traz o lead, o anúncio, o conjunto e o formulário, mas não a campanha nem a plataforma. O fluxo as busca no lead (`campaign_id`, `campaign_name` e `platform`) pela Graph API, com a mesma credencial. Se a consulta falhar, o lead entra sem elas, e o fluxo termina com erro, avisando o admin.
+  - Os campos seguem os que a importação reconhece no CSV da Meta. `fb` e `ig` viram `facebook` e `instagram`, a data `+0000` vira ISO 8601, e os valores `<test lead: …>` da Ferramenta de Teste marcam o lead como teste.
+  - O gatilho escuta um formulário: para vários formulários, o fluxo leva um gatilho por formulário.
   - O app da Meta usado pela credencial do n8n precisa estar em modo Live, o que exige a URL da política de privacidade. Também precisa de acesso avançado a `public_profile` e da verificação da empresa concluída.
   - Quem autoriza a credencial precisa ser admin da página.
   - A Meta aceita um único webhook por app, então alternar entre a URL de teste e a de produção do n8n desliga a outra. Teste direto na URL de produção, com a Ferramenta de Teste de Anúncios de Cadastro. Os leads dessa ferramenta devem chegar com `teste: true`.
   - Se o acesso a leads for restrito nas configurações do negócio (Integrações > Acesso a leads), libere o app lá.
 - **Google:** a Gama cola a URL do webhook e a chave no formulário de lead do Google Ads. O botão "Enviar dados de teste" manda `is_test: true`.
 - **Orçamento de execuções:** com 300 leads por mês, o consumo fica perto de 900 execuções: cerca de 300 de entrada, 300 de alerta, 290 de reenvio e 4 de relatório. Isso cabe no plano Starter, que tem 2.500 por mês.
+- **Execuções com erro:** ficam salvas com o que o gatilho recebeu: o payload do lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas (3.8).
 - **Instâncias:**
-  - `https://matheusbordinhao.app.n8n.cloud` é a instância de desenvolvimento, numa conta pessoal. A credencial do Gmail que já existe nela serve para os alertas de teste.
-  - Produção precisa rodar numa conta da empresa: n8n Cloud pago ou n8n Community no mesmo servidor do CRM, que é gratuito mas exige manutenção nossa.
-  - Os JSONs em `n8n/` levam os fluxos de uma instância para outra; as credenciais são recriadas no destino.
+  - Desenvolvimento: desde 14/10/2026, um n8n Community (2.43.5) no Compose de desenvolvimento, com os 7 fluxos testados com dados de teste (README › n8n local). A instância de teste `matheusbordinhao.app.n8n.cloud` acabou em 06/10/2026.
+  - Produção: o n8n Cloud, numa conta da empresa, quando o pagamento sair (seção 11).
+  - Os JSONs em `n8n/` levam os fluxos de uma instância para outra. No destino, são refeitos as credenciais, a Data Table, os valores do nó "Configuração" e o fluxo de erro (README › n8n Cloud: importar os fluxos).
 
 ## 5. Modelo de dados
 
@@ -566,7 +581,7 @@ Em 13/10/2026, com a demonstração marcada para 15/10/2026, o Passo 11 foi adia
 - a instalação e a notificação no celular, que exigem o HTTPS do servidor;
 - a divisão do pacote por tela, que fica para depois da reunião.
 
-O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `N8n__WebhookUrl` fica vazio, e os eventos ficam pendentes no CRM (4.3). O que depende do n8n fica para a terceira fase: levar os fluxos do Passo 4 para o n8n de produção, o fluxo `CRM - Relatório semanal Gama` do Passo 9 e a revisão das configurações de execução dos fluxos do Passo 10. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
+Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o pagamento sair (seção 11). Até lá, um n8n local, no Compose de desenvolvimento, roda os 7 fluxos da seção 4.5 com dados de teste: o Passo 6 foi adiantado nele, com os fluxos dos Passos 4 e 9. Ficam para a terceira fase levar os fluxos ao n8n Cloud e o que depende do servidor, do app da Meta e da Gama. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
 
 ### Passos
 
@@ -659,6 +674,18 @@ O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `
   - um lead da Ferramenta de Teste da Meta e um do "Enviar dados de teste" do Google aparecem no CRM com origem e campanha, marcados como teste;
   - reenviar o mesmo lead não duplica;
   - com o CRM fora do ar, o lead vai para a fila e entra no CRM no reenvio seguinte.
+- **Feito em 14/10/2026, no n8n local (README › n8n local):**
+  - os quatro fluxos, a credencial e a Data Table, mais o Alertas e o Erros pelo SMTP e o Relatório semanal;
+  - o Google, com o exemplo do "Enviar dados de teste": lead de teste com a campanha provisória, e o reenvio respondeu `ja_recebido`;
+  - com o CRM fora do ar, o lead do site foi para a fila e entrou no CRM no reenvio seguinte;
+  - a Meta, com o gatilho e a Graph API trocados pelos exemplos: o lead de teste entrou com campanha, conjunto, anúncio, formulário e plataforma, e o reenvio respondeu `ja_recebido`;
+  - a tela de campanhas, em Configurações › Campanhas.
+- **Pendente:**
+  - o app da Meta em modo Live, com a credencial, e o teste com a Ferramenta de Teste;
+  - o "Enviar dados de teste" de verdade do Google Ads;
+  - levar os fluxos ao n8n Cloud, com o domínio do site, o e-mail da Gama e a chave do Google de produção;
+  - depois da reunião, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
+  - depois da reunião, as execuções com erro, que guardam o `google_key` e o `X-Crm-Chave` (4.5): avaliar a redação dos dados de execução do n8n ou outra saída.
 
 **Passo 7: tempo real**
 
@@ -679,7 +706,7 @@ O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `
 **Passo 9: relatório para a Gama**
 
 - Tela e CSV do relatório por campanha.
-- `GET /api/integracoes/relatorios/campanhas` e o fluxo `CRM - Relatório semanal Gama`. O fluxo fica pendente até o n8n de produção.
+- `GET /api/integracoes/relatorios/campanhas` e o fluxo `CRM - Relatório semanal Gama`. O fluxo roda no n8n local desde 14/10/2026, mandando para o e-mail do admin. Ficam pendentes o n8n de produção e o endereço da Gama.
 - Aceite:
   - os números do CSV batem com os do painel;
   - o relatório não tem nenhum dado pessoal.
@@ -688,7 +715,7 @@ O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `
 
 - Exportar os dados do titular, anonimizar e excluir leads de teste.
 - Exportação de leads com registro na auditoria e tela de auditoria.
-- Revisão das configurações de execução dos fluxos no n8n, pendente até o n8n de produção.
+- Revisão das configurações de execução dos fluxos no n8n. No n8n local, os 7 fluxos não salvam as execuções de produção que deram certo, e o `CRM - Erros` é o fluxo de erro dos outros. Fica pendente a conferência no n8n de produção.
 - Aceite:
   - depois de anonimizar, nenhum dado pessoal do lead aparece no banco, incluindo entradas e interações;
   - o painel mantém os totais.
@@ -721,8 +748,8 @@ Cada decisão tem um padrão, para o desenvolvimento não parar enquanto ela nã
 | A Gama acessa o painel? | Não; recebe o relatório | Chefe |
 | Como a Gama recebe o relatório semanal | E-mail com o CSV anexo, toda segunda, no endereço que a Gama indicar (4.5) | Chefe e Gama |
 | Onde o CRM roda e qual o domínio | Ambiente local até a definição, que vem depois da demonstração dos Passos 7 e 8 (seção 10) | Chefe |
-| n8n de produção | Nenhum até a decisão, tomada junto com a do servidor, entre o n8n Cloud Starter numa conta da empresa e o n8n Community no servidor do CRM. Até lá, o `N8n__WebhookUrl` fica vazio, e o que depende do n8n fica pendente (seção 10) | Chefe |
-| E-mail que envia os alertas | Gmail da conta de desenvolvimento nos testes, até o fim do teste do n8n Cloud em 06/10/2026; e-mail da empresa em produção | Chefe e TI |
+| n8n de produção | Decidido em 14/10/2026: o n8n Cloud, numa conta da empresa, quando o pagamento sair. Até lá, o n8n local de desenvolvimento roda os fluxos com dados de teste (seção 10) | Chefe |
+| E-mail que envia os alertas | Em desenvolvimento, uma conta do Gmail só para os testes, por SMTP com senha de app; em produção, o e-mail da empresa | Chefe e TI |
 | URL da política de privacidade | Nenhum; a Meta exige para o app ficar Live | Empresa |
 | Quem faz o site e o formulário | Nenhum | Chefe |
 | Prazo para anonimizar leads perdidos | Sugestão: 24 meses sem atividade, com anonimização manual até a decisão | Chefe |
@@ -738,3 +765,9 @@ Consultadas em 28/09/2026.
 - [n8n: planos e contagem de execuções](https://n8n.io/pricing/)
 - [Receita Federal: perguntas e respostas sobre o CNPJ alfanumérico](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf)
 - [Meta: leads ficam disponíveis por 90 dias](https://en-gb.facebook.com/business/help/1526849577619206)
+
+Consultadas em 14/10/2026, para o n8n local e o Passo 6:
+
+- [n8n: servidor MCP da instância](https://docs.n8n.io/connect/connect-to-n8n-mcp-server/) e [as ferramentas dele](https://docs.n8n.io/connect/connect-to-n8n-mcp-server/mcp-server-tools-reference/)
+- [n8n: código do gatilho de Lead Ads](https://github.com/n8n-io/n8n/blob/master/packages/nodes-base/nodes/FacebookLeadAds/FacebookLeadAdsTrigger.node.ts), que não traz a campanha nem a plataforma
+- [Google: mensagens para o próprio alias](https://support.google.com/a/answer/1703601?hl=en)
