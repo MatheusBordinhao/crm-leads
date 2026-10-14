@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useEtapas, useMotivosPerda } from '@/features/leads/dados'
+import { useCampanhas, useEtapas, useMotivosPerda } from '@/features/leads/dados'
 import { useUsuarios } from '@/features/usuarios/dados'
 import { formatarDataHora } from '@/lib/datas'
 import { mensagemDoErro } from '@/lib/formularios'
@@ -51,21 +51,24 @@ function lerFiltros(params: URLSearchParams): FiltrosAuditoria {
   }
 }
 
-/** Os nomes dos usuários, das etapas e dos motivos de perda, para mostrar quem é cada id dos registros. */
+/** Os nomes dos usuários, das etapas, dos motivos de perda e das campanhas, para mostrar quem é cada id dos registros. */
 function useNomes(): Nomes {
   const { data: usuarios } = useUsuarios()
   const { data: etapas } = useEtapas()
   const { data: motivos } = useMotivosPerda()
+  const { data: campanhas } = useCampanhas()
   return useMemo(() => {
     const porUsuario = new Map(usuarios?.map((usuario) => [usuario.id, usuario.nome]))
     const porEtapa = new Map(etapas?.map((etapa) => [etapa.id, etapa.nome]))
     const porMotivo = new Map(motivos?.map((motivo) => [motivo.id, motivo.nome]))
+    const porCampanha = new Map(campanhas?.map((campanha) => [campanha.id, campanha.nome]))
     return {
       usuario: (id) => porUsuario.get(id),
       etapa: (id) => porEtapa.get(id),
       motivo: (id) => porMotivo.get(id),
+      campanha: (id) => porCampanha.get(id),
     }
-  }, [usuarios, etapas, motivos])
+  }, [usuarios, etapas, motivos, campanhas])
 }
 
 /**

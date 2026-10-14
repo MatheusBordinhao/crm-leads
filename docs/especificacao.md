@@ -75,7 +75,10 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
 - No cadastro manual, se a pessoa já é lead de outra atendente, a entrada é vinculada ao lead dela (passo 4), mas a resposta não traz o id do lead, e a tela só mostra "Já existe um lead com esses dados.", sem dizer de quem. A entrada fica registrada no lead e aparece na linha do tempo dele. A responsável e os admins são avisados pelas notificações do sistema (3.6), e quem cadastrou não recebe aviso.
 - A origem e a campanha do lead são as da primeira entrada. Cada entrada guarda as suas.
 - **Leads de teste** (`teste = true`) ficam sem responsável e visíveis só para admins. Não geram alerta e ficam fora do painel e dos relatórios. Só esses o admin pode excluir de vez: saem junto as entradas, as interações, o histórico, as notificações e os eventos, e a exclusão entra na auditoria. Sem as entradas, o mesmo lead de teste reenviado entra de novo. Excluir um lead real responde 400, porque os dados de uma pessoa saem pela anonimização (3.8). Uma entrada de teste só é vinculada a um lead de teste, e uma entrada real, a um lead real: o teste da Meta feito com o e-mail de alguém não mexe no lead de verdade dessa pessoa.
-- **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "{origem} · campanha {id}", como "Google Ads · campanha 123", que o admin pode renomear. Um nome que chegue depois só substitui o provisório.
+- **Campanhas:** a tabela `campanhas` é única por `(origem, id_externo)`. Uma campanha desconhecida é criada com o nome recebido. Sem nome (o Google manda só o id), recebe o nome provisório "{origem} · campanha {id}", como "Google Ads · campanha 123". Um nome que chegue depois só substitui o provisório.
+  - O admin renomeia qualquer campanha em Configurações › Campanhas. O nome dado por ele deixa de ser provisório, e um nome que chegue depois pela integração ou pela importação não o substitui.
+  - A renomeação usa a mesma trava da entrada (`campanha:{origem}:{id}`), para uma entrada simultânea não sobrescrever o nome do admin, e entra na auditoria (`campanha.renomeada`).
+  - Os nomes podem se repetir entre campanhas.
 
 ### 3.3 Distribuição
 
@@ -438,7 +441,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 | `POST /api/etapas`, `PUT /api/etapas/{id}`, `PUT /api/etapas/ordem`, `POST /api/etapas/{id}/desativar`, `POST /api/etapas/{id}/reativar` | Admin | Criar, renomear, reordenar as abertas, desativar (com `moverLeadsParaId`) e reativar |
 | `POST /api/motivos-perda`, `PUT /api/motivos-perda/{id}` | Admin | Criar, renomear, desativar e reativar |
 | `GET /api/configuracoes`, `PUT /api/configuracoes` | Admin | `exigirDocumentoParaGanho` e `distribuicaoAutomatica`. O PUT recebe as duas, e cada mudança entra na auditoria |
-| `/api/campanhas` | Admin | Renomear as campanhas provisórias (Passo 6) |
+| `PUT /api/campanhas/{id}` | Admin | Renomear (`{ nome }`): o nome deixa de ser provisório (3.2) |
 | `GET /api/notificacoes`, `POST /api/notificacoes/{id}/lida`, `POST /api/notificacoes/lidas` | Admin e atendente | Notificações do próprio usuário |
 | `GET /api/painel` | Admin e atendente | Métricas da seção 8. Filtros: `de`, `ate`, `origem`, `campanhaId` e, para o admin, `responsavelId` ou `semResponsavel` |
 | `GET /api/relatorios/campanhas`, `GET /api/relatorios/campanhas/csv` | Admin | Relatório por campanha (seção 8), em JSON e no CSV para o Excel. Filtros: `de` e `ate` |
@@ -464,7 +467,7 @@ Os erros seguem o padrão ProblemDetails, com mensagens em português. Campo aus
 - **Relatório por campanha** (admin), em Relatório no menu: a tabela da seção 8, com uma linha por campanha, as dos leads sem campanha no fim (uma por origem, com a origem embaixo do rótulo) e o total. O período fica acima, com os mesmos atalhos do painel, e o botão "Baixar CSV" baixa o mesmo relatório, no período da tela. A tela lembra que é o relatório da Gama, sem dados pessoais. No celular, cada linha vira um cartão.
 - **Notificações:** sino com contador no topo de todas as telas. Clicar numa notificação a marca como lida e abre a ficha do lead. O resumo da importação abre o resultado dela, e os leads que uma importação deixou com a pessoa abrem a lista de leads.
 - **Importação** (admin): o arquivo é lido assim que escolhido, e a tela mostra a codificação, o separador, a prévia, o campo sugerido para cada coluna e as opções (origem, campanha padrão, coluna de id externo e distribuição). Depois de importar, o resultado acompanha o andamento e mostra os números, os leads que ficaram sem responsável e as linhas com erro, com o relatório para baixar.
-- **Configurações** (admin): usuários (com o cartão Rodízio, que liga e desliga a distribuição automática), etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho) e campanhas.
+- **Configurações** (admin): usuários (com o cartão Rodízio, que liga e desliga a distribuição automática), etapas e motivos de perda (com a exigência de CPF/CNPJ para Ganho) e campanhas. Em Campanhas, as de nome provisório vêm primeiro, com a marca "Nome provisório", a origem e o id na origem, e cada uma tem o botão de renomear.
 - **Auditoria** (admin), em Auditoria no menu: os registros do mais recente para o mais antigo, com quando, quem, a ação, o registro afetado (os leads pelo número, com o link da ficha), os detalhes em português e o IP. Os filtros, de ação, de quem fez e de período, ficam no endereço, e a paginação é de 50 em 50. A ficha abre a tela filtrada pelo lead. No celular, cada registro vira um cartão.
 
 Tudo funciona a partir de 360 px de largura. No celular, precisam funcionar bem a lista, a ficha, a mudança de etapa, o registro de interação e as notificações. O visual é neutro, com espaço para o logo da empresa.

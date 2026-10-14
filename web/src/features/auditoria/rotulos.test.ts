@@ -5,6 +5,7 @@ const nomes: Nomes = {
   usuario: (id) => ({ a: 'Adriana', p: 'Pietra' })[id],
   etapa: (id) => ({ 1: 'Novo', 2: 'Em contato' })[id],
   motivo: (id) => ({ 3: 'Preço' })[id],
+  campanha: (id) => ({ 10: 'Outubro | Serviço Y' })[id],
 }
 
 describe('rótulos da auditoria', () => {
@@ -20,6 +21,8 @@ describe('rótulos da auditoria', () => {
     expect(descreverEntidade('etapa', '2', nomes)).toBe('Etapa Em contato')
     expect(descreverEntidade('etapa', null, nomes)).toBe('Etapas')
     expect(descreverEntidade('motivo_perda', '3', nomes)).toBe('Motivo de perda Preço')
+    expect(descreverEntidade('campanha', '10', nomes)).toBe('Campanha Outubro | Serviço Y')
+    expect(descreverEntidade('campanha', '99', nomes)).toBe('Campanha 99')
     expect(descreverEntidade('configuracao', 'distribuicao_automatica', nomes)).toBe(
       'Distribuição automática (rodízio)',
     )
@@ -42,6 +45,10 @@ describe('rótulos da auditoria', () => {
       '3 leads movidos para Em contato',
     )
     expect(descreverDetalhes('configuracao.alterada', { valor: false }, nomes)).toBe('Desligada')
+    expect(rotuloAcao('campanha.renomeada')).toBe('Campanha renomeada')
+    expect(descreverDetalhes('campanha.renomeada', { campos: ['nome'] }, nomes)).toBe(
+      'Campos: nome',
+    )
     expect(
       descreverDetalhes('lead.anonimizado', { entradas: 1, interacoes: 2, eventos: 3 }, nomes),
     ).toBe('1 entrada e 2 interações limpas; 3 avisos ao n8n apagados')

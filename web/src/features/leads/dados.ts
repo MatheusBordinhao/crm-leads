@@ -29,6 +29,9 @@ export const chaveFunil = ['funil'] as const
 export const chaveEtapas = ['etapas'] as const
 export const chaveMotivosPerda = ['motivos-perda'] as const
 
+/** Campanhas, que o admin renomeia em Configurações › Campanhas. */
+export const chaveCampanhas = ['campanhas'] as const
+
 /**
  * As mudanças de etapa, na ficha e no quadro. Enquanto uma está a caminho da API, o tempo real não recarrega o
  * quadro (o cartão voltaria para a coluna antiga até a resposta); ela mesma o recarrega quando termina.
@@ -74,7 +77,7 @@ export function useMotivosPerda() {
 
 export function useCampanhas() {
   return useQuery({
-    queryKey: ['campanhas'],
+    queryKey: chaveCampanhas,
     queryFn: () => exigirSucesso(api.GET('/api/campanhas')),
     staleTime: CINCO_MINUTOS,
   })

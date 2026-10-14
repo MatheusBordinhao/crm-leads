@@ -1095,6 +1095,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/campanhas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RenomearCampanhaRequest"];
+                    "text/json": components["schemas"]["RenomearCampanhaRequest"];
+                    "application/*+json": components["schemas"]["RenomearCampanhaRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["CampanhaResponse"];
+                        "application/json": components["schemas"]["CampanhaResponse"];
+                        "text/json": components["schemas"]["CampanhaResponse"];
+                    };
+                };
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/leads": {
         parameters: {
             query?: never;
@@ -2951,6 +3006,9 @@ export interface components {
             ate: string;
             linhas: components["schemas"]["LinhaRelatorioResponse"][];
             total: components["schemas"]["TotalRelatorioResponse"];
+        };
+        RenomearCampanhaRequest: {
+            nome: string;
         };
         RenomearEtapaRequest: {
             nome: string;

@@ -7,6 +7,7 @@ export type Nomes = {
   usuario: (id: string) => string | undefined
   etapa: (id: number) => string | undefined
   motivo: (id: number) => string | undefined
+  campanha: (id: number) => string | undefined
 }
 
 /** As ações da auditoria, agrupadas como no filtro. A API grava o código; a tela mostra o rótulo. */
@@ -55,6 +56,7 @@ export const GRUPOS_DE_ACOES: { titulo: string; acoes: [codigo: string, rotulo: 
       ['etapa.reativada', 'Etapa reativada'],
       ['motivo_perda.criado', 'Motivo de perda criado'],
       ['motivo_perda.editado', 'Motivo de perda editado'],
+      ['campanha.renomeada', 'Campanha renomeada'],
       ['configuracao.alterada', 'Configuração alterada'],
     ],
   },
@@ -105,6 +107,8 @@ export function descreverEntidade(entidade: string, entidadeId: string | null, n
       return entidadeId ? `Etapa ${nomes.etapa(Number(id)) ?? id}` : 'Etapas'
     case 'motivo_perda':
       return `Motivo de perda ${nomes.motivo(Number(id)) ?? id}`
+    case 'campanha':
+      return `Campanha ${nomes.campanha(Number(id)) ?? id}`
     case 'configuracao':
       return CONFIGURACOES[id] ?? id
     default:
@@ -206,6 +210,7 @@ export function descreverDetalhes(acao: string, detalhes: unknown, nomes: Nomes)
     case 'usuario.editado':
     case 'etapa.editada':
     case 'motivo_perda.editado':
+    case 'campanha.renomeada':
       return campos(detalhes.campos)
     case 'lead.reatribuido':
       return `De ${pessoa(detalhes.anteriorId)} para ${pessoa(detalhes.novoId)}`

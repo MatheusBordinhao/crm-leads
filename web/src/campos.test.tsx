@@ -149,6 +149,17 @@ describe('todo campo de formulário tem id ou name', () => {
     expect(camposSemIdNemName()).toEqual([])
   })
 
+  it('nas campanhas, com o diálogo de renomear', async () => {
+    comSessao(admin)
+    comCadastros()
+    const { usuario } = renderizarApp('/configuracoes/campanhas')
+
+    expect(await screen.findByRole('heading', { name: 'Campanhas' })).toBeInTheDocument()
+    await usuario.click(await screen.findByRole('button', { name: 'Renomear Outubro | Serviço Y' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(camposSemIdNemName()).toEqual([])
+  })
+
   it('no login e na troca de senha', async () => {
     comSessao(null)
     renderizarApp('/login')

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, exigirSucesso, type EditarConfiguracoesRequest } from '@/api/cliente'
-import { chaveFunil } from '@/features/leads/dados'
+import { chaveCampanhas, chaveFunil, chaveLeads } from '@/features/leads/dados'
+import { chavePainel } from '@/features/painel/dados'
+import { chaveRelatorio } from '@/features/relatorio/dados'
 
 const chaveEtapas = ['etapas'] as const
 const chaveMotivos = ['motivos-perda'] as const
@@ -85,6 +87,21 @@ export function useEditarMotivo() {
         api.PUT('/api/motivos-perda/{id}', { params: { path: { id } }, body: { nome, ativo } }),
       ),
     onSuccess: aposMudar,
+  })
+}
+
+/** Renomeia a campanha e recarrega as telas que mostram o nome dela: a lista, as fichas, o painel e o relatório. */
+export function useRenomearCampanha() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, nome }: { id: number; nome: string }) =>
+      exigirSucesso(api.PUT('/api/campanhas/{id}', { params: { path: { id } }, body: { nome } })),
+    onSuccess: () =>
+      Promise.all(
+        [chaveCampanhas, chaveLeads, chavePainel, chaveRelatorio].map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey }),
+        ),
+      ),
   })
 }
 

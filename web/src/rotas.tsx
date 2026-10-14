@@ -5,6 +5,7 @@ import { LoginPage } from '@/features/acesso/LoginPage'
 import { RotaAdmin, RotaProtegida, TelaInicial } from '@/features/acesso/RotasProtegidas'
 import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
 import { AuditoriaPage } from '@/features/auditoria/AuditoriaPage'
+import { CampanhasPage } from '@/features/configuracoes/CampanhasPage'
 import { ConfiguracaoFunilPage } from '@/features/configuracoes/ConfiguracaoFunilPage'
 import { FunilPage } from '@/features/funil/FunilPage'
 import { ImportacaoPage } from '@/features/importacao/ImportacaoPage'
@@ -41,6 +42,7 @@ export const rotas: RouteObject[] = [
               { path: '/auditoria', element: <AuditoriaPage /> },
               { path: '/configuracoes/usuarios', element: <UsuariosPage /> },
               { path: '/configuracoes/funil', element: <ConfiguracaoFunilPage /> },
+              { path: '/configuracoes/campanhas', element: <CampanhasPage /> },
             ],
           },
         ],

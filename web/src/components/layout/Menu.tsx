@@ -3,6 +3,7 @@ import {
   ContactRoundIcon,
   FileSpreadsheetIcon,
   FileUpIcon,
+  MegaphoneIcon,
   ScrollTextIcon,
   SlidersHorizontalIcon,
   SquareKanbanIcon,
@@ -42,6 +43,7 @@ function gruposDoMenu(perfil: Perfil): Grupo[] {
       itens: [
         { para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: UsersIcon },
         { para: '/configuracoes/funil', rotulo: 'Etapas e motivos', icone: SlidersHorizontalIcon },
+        { para: '/configuracoes/campanhas', rotulo: 'Campanhas', icone: MegaphoneIcon },
       ],
     },
   ]

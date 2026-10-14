@@ -45,6 +45,10 @@ internal static class AcoesAuditoria
     public const string EtapaReativada = "etapa.reativada";
     public const string MotivoPerdaCriado = "motivo_perda.criado";
     public const string MotivoPerdaEditado = "motivo_perda.editado";
+
+    /// <summary>O admin renomeou a campanha, com <c>detalhes { campos }</c>: o nome deixou de ser provisório.</summary>
+    public const string CampanhaRenomeada = "campanha.renomeada";
+
     public const string ConfiguracaoAlterada = "configuracao.alterada";
 
     /// <summary>Importação de CSV, com <c>detalhes { origem, linhas }</c>, sem o nome do arquivo.</summary>
@@ -63,6 +67,7 @@ internal static class EntidadesAuditoria
     public const string Lead = "lead";
     public const string Etapa = "etapa";
     public const string MotivoPerda = "motivo_perda";
+    public const string Campanha = "campanha";
     public const string Configuracao = "configuracao";
     public const string Importacao = "importacao";
 }

@@ -24,7 +24,7 @@ type Props = {
   aoFechar: () => void
 }
 
-/** Renomear uma etapa ou um motivo de perda. */
+/** Renomear uma etapa, um motivo de perda ou uma campanha. */
 export function RenomearDialog({ titulo, nomeAtual, tamanhoMaximo, aoSalvar, aoFechar }: Props) {
   const [erroGeral, setErroGeral] = useState<string | null>(null)
   const {
