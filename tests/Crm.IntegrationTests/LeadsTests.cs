@@ -106,6 +106,19 @@ public class LeadsTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Na_tela_o_email_com_acento_e_recusado()
+    {
+        using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);
+        var corpo = LeadsDeTeste.CorpoLead();
+        corpo["email"] = "testenotificação@exemplo.com";
+
+        var resposta = await atendente.CriarLeadAsync(corpo);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal([RegrasLead.MensagemEmail], await resposta.LerErrosDoCampoAsync("email"));
+    }
+
+    [Fact]
     public async Task Na_tela_a_validacao_e_estrita_e_mostra_o_erro_no_campo()
     {
         using var atendente = await fabrica.LogarComoAsync(Perfil.Atendente);

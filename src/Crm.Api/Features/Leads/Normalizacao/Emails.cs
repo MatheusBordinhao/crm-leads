@@ -19,10 +19,17 @@ public static partial class Emails
         return normalizado.Length == 0 ? null : normalizado;
     }
 
-    /// <summary>O valor já normalizado tem o formato de um e-mail.</summary>
+    /// <summary>
+    /// O valor já normalizado tem o formato de um e-mail (seção 3.1), o mesmo que a tela confere (<c>FORMATO_EMAIL</c>, em
+    /// <c>web/src/features/leads/esquema.ts</c>): antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com
+    /// pontos só entre eles); o domínio, em rótulos de letras, números e hífen, separados por ponto. Um e-mail com acento,
+    /// como <c>joão@exemplo.com</c>, quase nenhum provedor aceita: é erro de digitação.
+    /// </summary>
     public static bool Valido(string? normalizado) =>
         normalizado is not null && normalizado.Length <= TamanhoMaximo && Formato().IsMatch(normalizado);
 
-    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
+    [GeneratedRegex(
+        @"^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+        + @"@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\z")]
     private static partial Regex Formato();
 }

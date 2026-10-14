@@ -24,6 +24,36 @@ public class EmailsUfsTextosTests
         Assert.False(Emails.Valido(Emails.Normalizar(entrada)));
     }
 
+    // Os mesmos casos do teste do esquema da tela (web/src/features/leads/esquema.test.ts): os dois formatos são iguais.
+    [Theory]
+    [InlineData("maria.souza+orcamento@empresa-x.com.br")]
+    [InlineData("joao_silva@sub.empresa.com.br")]
+    [InlineData("o'connor@example.com")]
+    [InlineData("maria@xn--exemplo-9za.com")]
+    [InlineData("contato@123.com.br")]
+    public void Email_com_os_caracteres_do_RFC_5322_e_valido(string email)
+    {
+        Assert.True(Emails.Valido(Emails.Normalizar(email)));
+    }
+
+    [Theory]
+    [InlineData("testenotificação@exemplo.com")]
+    [InlineData("maria@exemplação.com")]
+    [InlineData("maria,souza@empresa.com")]
+    [InlineData("\"maria\"@empresa.com")]
+    [InlineData(".maria@empresa.com")]
+    [InlineData("maria.@empresa.com")]
+    [InlineData("maria..souza@empresa.com")]
+    [InlineData("maria@empresa..com")]
+    [InlineData("maria@-empresa.com")]
+    [InlineData("maria@empresa-.com")]
+    [InlineData("maria@empresa_x.com")]
+    [InlineData("maria@@empresa.com")]
+    public void Email_com_acento_ou_fora_do_formato_comum_nao_e_valido(string email)
+    {
+        Assert.False(Emails.Valido(Emails.Normalizar(email)));
+    }
+
     [Theory]
     [InlineData(" ")]
     [InlineData(null)]

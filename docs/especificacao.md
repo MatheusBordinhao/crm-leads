@@ -48,7 +48,7 @@ Ficam fora da primeira versão:
 | Campo | Regra |
 | --- | --- |
 | nome | Obrigatório, até 150 caracteres |
-| email | Minúsculas, sem espaços, formato validado |
+| email | Minúsculas, sem espaços, formato validado: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen, separados por ponto. Um e-mail com acento, como `joão@exemplo.com`, é inválido |
 | telefone | E.164 com libphonenumber, região padrão BR |
 | cpf_cnpj | Só letras e números, em maiúsculas. 11 caracteres é CPF; 14 é CNPJ, numérico ou alfanumérico. Dígitos verificadores validados |
 | uf | Uma das 27 siglas. A integração e a importação também aceitam o nome do estado, com ou sem acento ("Rio Grande do Sul" vira RS). Valor não reconhecido fica vazio, e o original continua no payload bruto |

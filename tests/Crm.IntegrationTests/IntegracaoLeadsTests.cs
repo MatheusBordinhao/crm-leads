@@ -111,6 +111,26 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
     }
 
     [Fact]
+    public async Task Email_com_acento_entra_como_veio_com_o_aviso_na_ficha()
+    {
+        using var n8n = fabrica.CriarClienteIntegracao();
+        using var admin = await fabrica.LogarComoAsync(Perfil.Admin);
+        var corpo = LeadsDeTeste.CorpoIntegracao();
+        var email = $"notificação-{Guid.NewGuid():N}@exemplo.com";
+        corpo["email"] = email;
+
+        var resposta = await n8n.EnviarLeadAsync(corpo);
+
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        var ficha = await (await admin.GetAsync($"/api/leads/{(await LerResultadoAsync(resposta)).LeadId}", Ct)).LerJsonAsync();
+        Assert.Equal(email, ficha.GetProperty("email").GetString());
+        Assert.Contains(
+            ficha.GetProperty("avisos").EnumerateArray(),
+            aviso => aviso.GetProperty("campo").GetString() == "email"
+                && aviso.GetProperty("mensagem").GetString() == AvisosLead.EmailInvalido);
+    }
+
+    [Fact]
     public async Task So_os_campos_obrigatorios_bastam()
     {
         using var n8n = fabrica.CriarClienteIntegracao();

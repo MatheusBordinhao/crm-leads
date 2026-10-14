@@ -10,8 +10,13 @@ export const MENSAGENS = {
   documento: 'CPF ou CNPJ inválido.',
 }
 
-/** O mesmo formato que a API confere. */
-const FORMATO_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+/**
+ * O mesmo formato que a API confere (`Emails.Valido`, seção 3.1): antes do @, só ASCII (letras, números e os símbolos do
+ * RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen, separados por ponto. Um e-mail
+ * com acento, como `joão@exemplo.com`, é erro de digitação.
+ */
+const FORMATO_EMAIL =
+  /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/
 
 /** Campos de dados pessoais, iguais no novo lead e na ficha. */
 export const camposDados = {

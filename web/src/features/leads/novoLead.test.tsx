@@ -49,6 +49,19 @@ describe('novo lead', () => {
     expect(recebidos).toEqual([])
   })
 
+  it('recusa o e-mail com acento, que é erro de digitação', async () => {
+    comSessao(atendente)
+    const recebidos = comCadastro({ leadId: 1, situacao: 'criado', podeAbrir: true })
+    const { usuario } = renderizarApp('/leads/novo')
+
+    await usuario.type(await screen.findByLabelText('Nome'), 'Maria')
+    await usuario.type(screen.getByLabelText('E-mail'), 'testenotificação@exemplo.com')
+    await usuario.click(screen.getByRole('button', { name: 'Cadastrar lead' }))
+
+    expect(await screen.findByText('E-mail inválido.')).toBeInTheDocument()
+    expect(recebidos).toEqual([])
+  })
+
   it('pede e-mail ou telefone', async () => {
     comSessao(atendente)
     comCadastro({ leadId: 1, situacao: 'criado', podeAbrir: true })
