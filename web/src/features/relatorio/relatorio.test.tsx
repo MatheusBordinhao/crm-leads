@@ -51,6 +51,7 @@ describe('relatório por campanha', () => {
       'Auditoria',
       'Usuários',
       'Etapas e motivos',
+      'Campanhas',
     ])
     expect(screen.getByText('01/09/2026 a 30/09/2026')).toBeInTheDocument()
 

@@ -33,7 +33,11 @@ describe('painel', () => {
 
     const { router } = renderizarApp('/')
 
-    expect(await screen.findByRole('heading', { name: 'Painel', level: 1 })).toBeInTheDocument()
+    // O primeiro teste do arquivo carrega tudo a frio e ainda passa pelo redirecionamento de "/": com a suíte
+    // inteira rodando, o título às vezes passava do 1 s padrão do findBy.
+    expect(
+      await screen.findByRole('heading', { name: 'Painel', level: 1 }, { timeout: 3000 }),
+    ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/painel')
     expect(itensDoMenu()).toEqual([
       'Painel',
@@ -44,6 +48,7 @@ describe('painel', () => {
       'Auditoria',
       'Usuários',
       'Etapas e motivos',
+      'Campanhas',
     ])
   })
 
