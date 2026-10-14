@@ -1,0 +1,297 @@
+{
+  "id": "GqSyYXbHtcv6vvsh",
+  "name": "CRM - Entrada Meta",
+  "nodes": [
+    {
+      "id": "a2be24c4-59ce-41a5-80e7-fc0af992f178",
+      "name": "Novo lead da Meta",
+      "type": "n8n-nodes-base.facebookLeadAdsTrigger",
+      "typeVersion": 1,
+      "position": [0, 80],
+      "parameters": {
+        "event": "newLead",
+        "page": { "__rl": true, "mode": "list", "value": "" },
+        "form": { "__rl": true, "mode": "list", "value": "" },
+        "options": { "simplifyOutput": true }
+      },
+      "webhookId": "0263933f-8338-4195-b40e-c5112985e7d9"
+    },
+    {
+      "id": "f22938f1-8105-4ec3-8851-c0909a8fa623",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 80],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" },
+            {
+              "id": "url-graph",
+              "name": "urlGraph",
+              "value": "https://graph.facebook.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2b5b1d15-165d-4eee-ba6e-9db6c21adc6f",
+      "name": "Buscar campanha e plataforma",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [448, 80],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.urlGraph }}/{{ $(\"Novo lead da Meta\").item.json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookLeadAdsOAuth2Api",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [{ "name": "fields", "value": "campaign_id,campaign_name,platform" }]
+        },
+        "options": { "timeout": 10000 }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "dbe5f37d-4e53-4512-86f0-17ddc7c9d727",
+      "name": "Montar o lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 80],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Monta a entrada da seção 4.2 a partir do gatilho da Meta (saída simplificada) e da consulta da campanha na Graph API.\n// O gatilho não traz a campanha nem a plataforma. Se a consulta falhar, o lead entra sem elas, e o fluxo avisa o admin no fim.\nconst gatilho = $('Novo lead da Meta').item.json;\nconst consulta = $json.error ? {} : $json;\nconst dados = gatilho.data || {};\nfunction texto(valor) {\n  if (valor === undefined || valor === null || typeof valor === 'object') return null;\n  const limpo = String(valor).trim();\n  return limpo ? limpo : null;\n}\nfunction referencia(objeto) {\n  return objeto && texto(objeto.id) ? { id: texto(objeto.id), nome: texto(objeto.name) } : null;\n}\n// A Meta manda a data como 2026-10-14T17:45:12+0000; o CRM espera ISO 8601 com o fuso no formato +00:00.\nfunction quando(valor) {\n  const data = new Date(String(valor || '').replace(/([+-][0-9]{2})([0-9]{2})$/, '$1:$2'));\n  return isNaN(data.getTime()) ? $now.toUTC().toISO() : data.toISOString();\n}\n\n// Os mesmos campos que a importação reconhece no CSV da Meta; os outros vão para as respostas extras.\nconst conhecidos = ['full_name', 'first_name', 'last_name', 'email', 'work_email', 'phone_number', 'work_phone_number', 'cpf', 'cnpj', 'cpf_cnpj', 'state', 'province', 'estado', 'uf', 'company_name', 'empresa'];\nconst respostasExtras = {};\nfor (const campo of Object.keys(dados)) {\n  if (!conhecidos.includes(campo) && texto(dados[campo])) respostasExtras[campo] = texto(dados[campo]);\n}\nconst nome = texto(dados.full_name) || [texto(dados.first_name), texto(dados.last_name)].filter(Boolean).join(' ') || null;\n// Os leads da Ferramenta de Teste de Anúncios de Cadastro chegam com os valores \"<test lead: dummy data for ...>\".\nconst teste = Object.values(dados).some(function (valor) { return typeof valor === 'string' && valor.indexOf('<test lead') === 0; });\nconst plataformas = { fb: 'facebook', ig: 'instagram', facebook: 'facebook', instagram: 'instagram' };\n\nreturn {\n  json: {\n    campanhaFaltou: Boolean($json.error),\n    lead: {\n      origem: 'meta_lead_ads',\n      idExterno: texto(gatilho.id),\n      recebidoEm: quando(gatilho.created_time),\n      teste: teste,\n      nome: nome,\n      email: texto(dados.email) || texto(dados.work_email),\n      telefone: texto(dados.phone_number) || texto(dados.work_phone_number),\n      cpfCnpj: texto(dados.cpf) || texto(dados.cnpj) || texto(dados.cpf_cnpj),\n      uf: texto(dados.state) || texto(dados.province) || texto(dados.estado) || texto(dados.uf),\n      empresa: texto(dados.company_name) || texto(dados.empresa),\n      plataforma: plataformas[String(consulta.platform || '').toLowerCase()] || null,\n      campanha: texto(consulta.campaign_id) ? { id: texto(consulta.campaign_id), nome: texto(consulta.campaign_name) } : null,\n      conjunto: referencia(gatilho.adset),\n      anuncio: referencia(gatilho.ad),\n      formulario: referencia(gatilho.form),\n      respostasExtras: Object.keys(respostasExtras).length ? respostasExtras : null,\n    },\n  },\n};"
+      }
+    },
+    {
+      "id": "79a4817e-043d-4d1e-ad9a-c018ffde95cc",
+      "name": "Enviar ao CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [896, 80],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Configuração\").item.json.urlCrm }}/api/integracoes/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.lead) }}",
+        "options": { "timeout": 10000 }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "7083fe90-1f49-4638-844c-72de67662f70",
+      "name": "Classificar a falha",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 240],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst codigo = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\n\nlet ultimoErro;\nif (/^[0-9]{3}$/.test(codigo)) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Um 4xx que não é 408 nem 429 é definitivo: tentar de novo não resolve, e o admin precisa olhar.\nconst definitiva = /^4[0-9]{2}$/.test(codigo) && codigo !== '408' && codigo !== '429';\nreturn { json: { definitiva: definitiva, ultimoErro: ultimoErro, lead: $('Montar o lead').item.json.lead } };"
+      }
+    },
+    {
+      "id": "ded64a4b-0141-452d-af8b-51bfa061275a",
+      "name": "Falha temporária?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1344, 240],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.definitiva }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b33c38a6-d671-4179-8faf-88af7f432aa3",
+      "name": "Guardar na fila",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1568, 160],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "payload": "={{ JSON.stringify($json.lead) }}",
+            "tentativas": 1,
+            "ultimo_erro": "={{ $json.ultimoErro }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tentativas",
+              "displayName": "tentativas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimo_erro",
+              "displayName": "ultimo_erro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "16e9c762-7aa8-46f6-a649-3896b409245e",
+      "name": "Avisar o admin",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1568, 320],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=O CRM recusou a entrada ({{ $json.ultimoErro }}). Ela não foi para a fila: os dados estão nesta execução."
+      }
+    },
+    {
+      "id": "ed08571d-2027-4a30-8f0c-ab90d8678b08",
+      "name": "Faltou a campanha?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1120, 0],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $(\"Montar o lead\").item.json.campanhaFaltou }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "aa45d823-39be-464a-bb4d-b9f6428ee2e4",
+      "name": "Avisar da campanha",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1344, -80],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=O lead {{ $json.leadId }} entrou no CRM sem a campanha e a plataforma: a consulta à Graph API falhou. Confira a credencial da Meta."
+      }
+    },
+    {
+      "id": "9ec995f0-723d-4771-81c7-8d89fbdf572e",
+      "name": "Sobre o fluxo",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-32, -16],
+      "parameters": {
+        "content": "## CRM - Entrada Meta\nRecebe os leads do Facebook e do Instagram pelo gatilho da Meta (página e formulário escolhidos com a credencial). Busca na Graph API a campanha e a plataforma, que o gatilho não traz, monta o lead da seção 4.2 e o manda ao CRM. Os leads da Ferramenta de Teste da Meta entram como teste. Se o CRM não responder, o lead vai para a Data Table `crm_entradas_pendentes`. Os endereços ficam no nó \"Configuração\". Depende do app da Meta em modo Live.",
+        "color": 7,
+        "width": 832,
+        "height": 224
+      }
+    }
+  ],
+  "connections": {
+    "Novo lead da Meta": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
+    "Configuração": {
+      "main": [[{ "node": "Buscar campanha e plataforma", "type": "main", "index": 0 }]]
+    },
+    "Buscar campanha e plataforma": {
+      "main": [[{ "node": "Montar o lead", "type": "main", "index": 0 }]]
+    },
+    "Montar o lead": { "main": [[{ "node": "Enviar ao CRM", "type": "main", "index": 0 }]] },
+    "Enviar ao CRM": {
+      "main": [
+        [{ "node": "Faltou a campanha?", "type": "main", "index": 0 }],
+        [{ "node": "Classificar a falha", "type": "main", "index": 0 }]
+      ]
+    },
+    "Classificar a falha": {
+      "main": [[{ "node": "Falha temporária?", "type": "main", "index": 0 }]]
+    },
+    "Falha temporária?": {
+      "main": [
+        [{ "node": "Guardar na fila", "type": "main", "index": 0 }],
+        [{ "node": "Avisar o admin", "type": "main", "index": 0 }]
+      ]
+    },
+    "Faltou a campanha?": {
+      "main": [[{ "node": "Avisar da campanha", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "errorWorkflow": "jp3A8ziIhGPROWOc",
+    "timezone": "America/Sao_Paulo",
+    "saveDataSuccessExecution": "none"
+  }
+}
