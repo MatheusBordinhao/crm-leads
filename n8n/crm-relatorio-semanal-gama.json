@@ -1,0 +1,145 @@
+{
+  "id": "ln7BS60hTE8HQ3Pp",
+  "name": "CRM - Relatório semanal Gama",
+  "nodes": [
+    {
+      "id": "85df404c-ee10-44a9-9f02-e3f1cbeb107e",
+      "name": "Toda segunda às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 80],
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1" }] }
+      }
+    },
+    {
+      "id": "00357626-2bd2-41f0-b9a8-e36fd0f41204",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 80],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" },
+            {
+              "id": "email-gama",
+              "name": "emailGama",
+              "value": "matheusbordinhao11@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "remetente",
+              "name": "remetente",
+              "value": "testecrmfs@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f4848a71-57be-4b61-8dca-6e2e4f15aa22",
+      "name": "Buscar o resumo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [448, 80],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.urlCrm }}/api/integracoes/relatorios/campanhas",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 10000 }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "c4b33428-4967-4657-b690-e2bec1a95463",
+      "name": "Buscar o CSV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [672, 80],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $(\"Configuração\").first().json.urlCrm }}/api/integracoes/relatorios/campanhas/csv",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000,
+          "response": { "response": { "responseFormat": "text", "outputPropertyName": "csv" } }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a24e8223-e2ec-481a-8021-2c51b7dbddb4",
+      "name": "Montar o e-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 80],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Monta o e-mail da Gama com o período e o total do relatório (seção 4.4). O CSV vai anexo, sem dados pessoais.\n// O CSV chega como texto, e não como arquivo: baixado como arquivo, o n8n guarda nos dados da execução a requisição\n// inteira, com o cabeçalho X-Api-Key. O anexo é refeito aqui, em UTF-8 com BOM, como o CRM o entrega (seção 8).\nconst resumo = $('Buscar o resumo').item.json;\nfunction data(iso) {\n  const partes = String(iso).split('-');\n  return partes[2] + '/' + partes[1] + '/' + partes[0];\n}\nconst total = resumo.total || {};\nconst taxa = total.taxaConversao === null || total.taxaConversao === undefined\n  ? 'sem leads novos'\n  : (total.taxaConversao * 100).toFixed(1).replace('.', ',') + '%';\nconst periodo = data(resumo.de) + ' a ' + data(resumo.ate);\nconst texto = String($json.csv || '');\nconst conteudo = texto.charCodeAt(0) === 0xFEFF ? texto : '﻿' + texto;\n\nreturn {\n  json: {\n    assunto: 'Relatório de campanhas: ' + periodo,\n    mensagem: 'Olá,\\n\\nSegue anexo o relatório por campanha de ' + periodo + ' (segunda a domingo), sem dados pessoais. O arquivo abre no Excel com um clique duplo.\\n\\n'\n      + 'Na semana: ' + (total.leadsNovos ?? 0) + ' leads novos, ' + (total.ganhos ?? 0) + ' ganhos e conversão de ' + taxa + '.\\n\\nCRM de Leads\\n',\n  },\n  binary: {\n    data: {\n      data: Buffer.from(conteudo, 'utf8').toString('base64'),\n      mimeType: 'text/csv',\n      fileExtension: 'csv',\n      fileName: 'relatorio-campanhas-' + resumo.de + '-a-' + resumo.ate + '.csv',\n    },\n  },\n};"
+      }
+    },
+    {
+      "id": "ab8ee8ee-182b-4e32-979f-30544455d4bf",
+      "name": "Enviar para a Gama",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1120, 80],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $(\"Configuração\").first().json.remetente }}>",
+        "toEmail": "={{ $(\"Configuração\").first().json.emailGama }}",
+        "subject": "={{ $json.assunto }}",
+        "emailFormat": "text",
+        "text": "={{ $json.mensagem }}",
+        "options": { "appendAttribution": false, "fileAttachments": "data" }
+      },
+      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "webhookId": "ad28fca4-62c9-4066-a051-0910b6017b64"
+    },
+    {
+      "id": "df9ce5ba-02e8-4029-a27a-265031894d10",
+      "name": "Sobre o fluxo",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-32, -16],
+      "parameters": {
+        "content": "## CRM - Relatório semanal Gama\nToda segunda às 8h, busca no CRM o relatório por campanha sem datas, que vem com a semana anterior inteira (seção 4.4), e o manda por e-mail para a Gama, com o CSV anexo, o mesmo que o admin baixa na tela. O fluxo não calcula data. O endereço do CRM, o e-mail da Gama e o remetente ficam no nó \"Configuração\".",
+        "color": 7,
+        "width": 1280,
+        "height": 224
+      }
+    }
+  ],
+  "connections": {
+    "Toda segunda às 8h": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
+    "Configuração": { "main": [[{ "node": "Buscar o resumo", "type": "main", "index": 0 }]] },
+    "Buscar o resumo": { "main": [[{ "node": "Buscar o CSV", "type": "main", "index": 0 }]] },
+    "Buscar o CSV": { "main": [[{ "node": "Montar o e-mail", "type": "main", "index": 0 }]] },
+    "Montar o e-mail": { "main": [[{ "node": "Enviar para a Gama", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "errorWorkflow": "jp3A8ziIhGPROWOc",
+    "timezone": "America/Sao_Paulo",
+    "saveDataSuccessExecution": "none"
+  }
+}
