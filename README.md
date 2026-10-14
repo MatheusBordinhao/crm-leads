@@ -508,6 +508,8 @@ Falta:
 - **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
 - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
 - **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
+- **antes de publicar:** fixar a versão do Caddy no Compose de produção (por exemplo, `caddy:2.11`, no lugar do `caddy:2`), para o teste do log do Caddy, que usa a imagem do Compose, valer para a versão que roda no servidor;
+- **antes de publicar:** um teste que exija a rotação de log (`logging: *logs`) em todo serviço do Compose de produção, para um serviço novo não ficar sem ela;
 - **junto:** o n8n de produção, com os fluxos de [n8n/](n8n/), as credenciais e o `N8n__WebhookUrl`.
 
 ### O que o servidor precisa
