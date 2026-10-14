@@ -1,0 +1,291 @@
+{
+  "id": "3dm8urmanT4Fg0iP",
+  "name": "CRM - Entrada Google",
+  "nodes": [
+    {
+      "id": "93cd6699-1bdf-472b-93cb-e6e73d929998",
+      "name": "Lead do Google",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [0, 80],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-entrada-google",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "db3553a9-bf88-41d0-9524-41b0f253bbe9"
+    },
+    {
+      "id": "c25e22d3-e44e-42ce-80db-e29e392cae6b",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 80],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" },
+            {
+              "id": "google-key-sha256",
+              "name": "googleKeySha256",
+              "value": "9fc39ea72ccc891a5341a5229bc5760d328e33f82471b41e1d3a52436ed2385c",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2b65111a-f50a-4b0d-9cd0-b7e900999b73",
+      "name": "A chave confere?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [448, 80],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.body?.google_key ?? \"\").hash(\"sha256\") }}",
+              "rightValue": "={{ $json.googleKeySha256 }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8cc12091-a87b-4124-9f12-2806c7b9296f",
+      "name": "Responder ao Google",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [672, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{}",
+        "options": { "responseCode": 200 }
+      }
+    },
+    {
+      "id": "98b33cad-df81-4875-ac30-e26eb802d787",
+      "name": "Montar o lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 0],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Monta a entrada da seção 4.2 a partir do webhook do formulário de lead do Google Ads. Os ids vão como texto: o Google manda números.\nconst corpo = $json.body || {};\nfunction texto(valor) {\n  if (valor === undefined || valor === null || typeof valor === 'object') return null;\n  const limpo = String(valor).trim();\n  return limpo ? limpo : null;\n}\nfunction referencia(id) {\n  return texto(id) ? { id: texto(id), nome: null } : null;\n}\n\n// As colunas conhecidas vão para o lugar delas, pelo column_id; as outras, para as respostas extras, pelo nome da pergunta.\nconst conhecidas = ['FULL_NAME', 'FIRST_NAME', 'LAST_NAME', 'EMAIL', 'WORK_EMAIL', 'PHONE_NUMBER', 'WORK_PHONE', 'COMPANY_NAME', 'REGION'];\nconst colunas = {};\nconst respostasExtras = {};\nfor (const coluna of corpo.user_column_data || []) {\n  const valor = texto(coluna.string_value);\n  if (!valor) continue;\n  if (conhecidas.includes(coluna.column_id)) colunas[coluna.column_id] = valor;\n  else respostasExtras[coluna.column_name || coluna.column_id] = valor;\n}\nconst nome = colunas.FULL_NAME || [colunas.FIRST_NAME, colunas.LAST_NAME].filter(Boolean).join(' ') || null;\n\nreturn {\n  json: {\n    lead: {\n      origem: 'google_ads',\n      idExterno: texto(corpo.lead_id),\n      recebidoEm: $now.toUTC().toISO(),\n      teste: corpo.is_test === true || corpo.is_test === 'true',\n      nome: nome,\n      email: colunas.EMAIL || colunas.WORK_EMAIL || null,\n      telefone: colunas.PHONE_NUMBER || colunas.WORK_PHONE || null,\n      empresa: colunas.COMPANY_NAME || null,\n      uf: colunas.REGION || null,\n      plataforma: 'google',\n      campanha: referencia(corpo.campaign_id),\n      conjunto: referencia(corpo.adgroup_id),\n      anuncio: referencia(corpo.creative_id),\n      formulario: referencia(corpo.form_id),\n      gclid: texto(corpo.gcl_id),\n      respostasExtras: Object.keys(respostasExtras).length ? respostasExtras : null,\n    },\n  },\n};"
+      }
+    },
+    {
+      "id": "875a40b8-7606-42a2-810d-41ff6a906a53",
+      "name": "Enviar ao CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1120, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Configuração\").item.json.urlCrm }}/api/integracoes/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.lead) }}",
+        "options": { "timeout": 10000 }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "cac4babf-671a-4658-8114-a11cf3b289ae",
+      "name": "Classificar a falha",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1344, 160],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst codigo = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\n\nlet ultimoErro;\nif (/^[0-9]{3}$/.test(codigo)) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Um 4xx que não é 408 nem 429 é definitivo: tentar de novo não resolve, e o admin precisa olhar.\nconst definitiva = /^4[0-9]{2}$/.test(codigo) && codigo !== '408' && codigo !== '429';\nreturn { json: { definitiva: definitiva, ultimoErro: ultimoErro, lead: $('Montar o lead').item.json.lead } };"
+      }
+    },
+    {
+      "id": "0f294964-fcd2-4ddc-9104-b965825f7868",
+      "name": "Falha temporária?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1568, 160],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.definitiva }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "aad55d04-d6cc-498b-bfc8-cd60f4ef6139",
+      "name": "Guardar na fila",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1792, 80],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "payload": "={{ JSON.stringify($json.lead) }}",
+            "tentativas": 1,
+            "ultimo_erro": "={{ $json.ultimoErro }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tentativas",
+              "displayName": "tentativas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimo_erro",
+              "displayName": "ultimo_erro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "68402154-2d1e-4485-a13e-1c867591af24",
+      "name": "Avisar o admin",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1792, 240],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "=O CRM recusou a entrada ({{ $json.ultimoErro }}). Ela não foi para a fila: os dados estão nesta execução."
+      }
+    },
+    {
+      "id": "a4403d01-1a09-475c-a499-dd37e5909bbd",
+      "name": "Recusar a chave",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [672, 240],
+      "parameters": { "respondWith": "noData", "options": { "responseCode": 403 } }
+    },
+    {
+      "id": "e215665e-74d2-434b-af11-e347b6e33515",
+      "name": "Chave errada",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [896, 240],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "A chave do Google não confere com a do nó \"Configuração\". O lead não foi para o CRM: confira a chave no formulário de lead do Google Ads."
+      }
+    },
+    {
+      "id": "a7291adf-5f9f-48a4-84bc-b095850e144e",
+      "name": "Sobre o fluxo",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-32, -96],
+      "parameters": {
+        "content": "## CRM - Entrada Google\nRecebe o webhook do formulário de lead do Google Ads. Confere a chave pelo SHA-256 (a chave em si não fica no fluxo): errada, responde 403 e avisa o admin. Certa, responde 200 com {} ao Google e manda o lead ao CRM (seção 4.2), com o lead_id como id externo, a campanha pelo id e o is_test como teste. Se o CRM não responder, o lead vai para a Data Table `crm_entradas_pendentes`. O endereço do CRM e o hash da chave ficam no nó \"Configuração\".",
+        "color": 7,
+        "width": 1056,
+        "height": 304
+      }
+    }
+  ],
+  "connections": {
+    "Lead do Google": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
+    "Configuração": { "main": [[{ "node": "A chave confere?", "type": "main", "index": 0 }]] },
+    "A chave confere?": {
+      "main": [
+        [{ "node": "Responder ao Google", "type": "main", "index": 0 }],
+        [{ "node": "Recusar a chave", "type": "main", "index": 0 }]
+      ]
+    },
+    "Responder ao Google": { "main": [[{ "node": "Montar o lead", "type": "main", "index": 0 }]] },
+    "Montar o lead": { "main": [[{ "node": "Enviar ao CRM", "type": "main", "index": 0 }]] },
+    "Enviar ao CRM": {
+      "main": [[], [{ "node": "Classificar a falha", "type": "main", "index": 0 }]]
+    },
+    "Classificar a falha": {
+      "main": [[{ "node": "Falha temporária?", "type": "main", "index": 0 }]]
+    },
+    "Falha temporária?": {
+      "main": [
+        [{ "node": "Guardar na fila", "type": "main", "index": 0 }],
+        [{ "node": "Avisar o admin", "type": "main", "index": 0 }]
+      ]
+    },
+    "Recusar a chave": { "main": [[{ "node": "Chave errada", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "errorWorkflow": "jp3A8ziIhGPROWOc",
+    "timezone": "America/Sao_Paulo",
+    "saveDataSuccessExecution": "none"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "lead_id": "TeStLeAd-0001-CrmDeLeads",
+  "api_version": "1.0",
+  "form_id": 40000000001,
+  "campaign_id": 20000000001,
+  "adgroup_id": 30000000001,
+  "creative_id": 50000000001,
+  "gcl_id": "TeSt-gclid-0001",
+  "google_key": "CHAVE_DO_GOOGLE",
+  "is_test": true,
+  "user_column_data": [
+    { "column_name": "Full Name", "string_value": "Roberta Lins", "column_id": "FULL_NAME" },
+    {
+      "column_name": "User Email",
+      "string_value": "roberta.lins@example.com",
+      "column_id": "EMAIL"
+    },
+    { "column_name": "User Phone", "string_value": "+5551988871234", "column_id": "PHONE_NUMBER" },
+    {
+      "column_name": "Company Name",
+      "string_value": "Lins Arquitetura",
+      "column_id": "COMPANY_NAME"
+    },
+    { "column_name": "Region", "string_value": "Rio Grande do Sul", "column_id": "REGION" },
+    {
+      "column_name": "Qual serviço você procura?",
+      "string_value": "Serviço Y",
+      "column_id": "SERVICO"
+    }
+  ]
+}
