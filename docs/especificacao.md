@@ -557,6 +557,12 @@ A empresa só libera o servidor e o domínio depois de ver o sistema funcionando
 2. Passos 9 e 10, enquanto o servidor não chega.
 3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
 
+Em 13/10/2026, com a demonstração marcada para 15/10/2026, o Passo 11 foi adiantado. Ficou para depois só o que depende de outras pessoas, do servidor ou de mais tempo:
+
+- as etapas definitivas, que dependem da Gama;
+- a instalação e a notificação no celular, que exigem o HTTPS do servidor;
+- a divisão do pacote por tela, que fica para depois da reunião.
+
 O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `N8n__WebhookUrl` fica vazio, e os eventos ficam pendentes no CRM (4.3). O que depende do n8n fica para a terceira fase: levar os fluxos do Passo 4 para o n8n de produção, o fluxo `CRM - Relatório semanal Gama` do Passo 9 e a revisão das configurações de execução dos fluxos do Passo 10. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
 
 ### Passos
@@ -685,12 +691,18 @@ O n8n de produção é decidido junto com o servidor (seção 11). Até lá, o `
 
 **Passo 11: acabamento**
 
-- Etapas definitivas, combinadas com a Gama.
+- Etapas definitivas, combinadas com a Gama. **Pendente:** depende da Gama; até lá, valem as da seção 3.4.
 - Instalação como app no celular (PWA) e revisão da usabilidade no celular, com a notificação nativa no celular pelo service worker (3.6).
-- Pacote do front dividido por tela (rotas carregadas sob demanda), para o primeiro acesso no celular ficar mais leve. No fim do Passo 1, o build já avisava que o pacote passava de 500 kB (cerca de 200 kB compactado).
-- README de operação: publicar, fazer e restaurar backup, trocar as chaves.
-- Roteiro de treinamento de uma página para Adriana e Pietra.
-- Aceite: as atendentes conseguem, sozinhas, receber um lead, registrar o contato e levá-lo até Ganho ou Perdido.
+  - **Feito em 13/10/2026:**
+    - o manifesto, os ícones e o service worker, só no build de produção e sem cache;
+    - a instalação no computador, pelo menu do navegador;
+    - a notificação nativa pelo service worker, conferida de ponta a ponta no build de produção;
+    - a revisão em 360 e 412 px do login, da lista, da ficha, do funil e do painel, com os diálogos. Não havia rolagem lateral, texto cortado nem campo com fonte menor que 16 px; as ações principais passaram a ter 40 px de altura no celular.
+  - **Pendente:** a instalação e a notificação num celular de verdade, com o HTTPS do servidor, e os alvos de toque secundários ainda menores que 40 px (os botões do cartão Privacidade, o "Leads" de voltar da ficha, o "Buscar" e o fechar dos diálogos).
+- Pacote do front dividido por tela (rotas carregadas sob demanda), para o primeiro acesso no celular ficar mais leve. No fim do Passo 1, o build já avisava que o pacote passava de 500 kB (cerca de 200 kB compactado). **Pendente:** fica para depois da reunião de 15/10/2026, porque mexe no carregamento de todas as telas.
+- README de operação: publicar, fazer e restaurar backup, trocar as chaves. **Feito em 13/10/2026:** com o que depende do servidor e do domínio marcado, a troca de cada chave e senha com o efeito dela, o plano B da demonstração e o pedido do titular (LGPD), com o que fica fora do CRM.
+- Roteiro de treinamento de uma página para Adriana e Pietra. **Feito em 13/10/2026:** [docs/guia-das-atendentes.md](guia-das-atendentes.md), conferido por um roteiro do Playwright que fez o caminho do guia como uma atendente nova, no computador e em 360 px.
+- Aceite: as atendentes conseguem, sozinhas, receber um lead, registrar o contato e levá-lo até Ganho ou Perdido. **Pendente:** a validação com a Adriana e a Pietra, usando o guia.
 
 ## 11. Decisões em aberto
 

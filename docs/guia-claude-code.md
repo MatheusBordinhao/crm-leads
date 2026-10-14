@@ -61,9 +61,9 @@ Para cada passo:
 | 8 | `/passo 8` | Nada |
 | 9 | `/passo 9` | E-mail da Gama para receber o relatório |
 | 10 | `/passo 10` | Nada |
-| 11 | `/passo 11` | Etapas do funil definidas com a Gama |
+| 11 | `/passo 11` | Etapas do funil definidas com a Gama; para o celular, o servidor com HTTPS |
 
-- **Ordem:** a da seção 10 da especificação, que mudou em 05/10/2026. Depois dos passos 0 a 5, vêm os passos 7 e 8, tudo local, com a demonstração para o chefe logo depois do 8; os passos 9 e 10, enquanto o servidor não chega; e, com o servidor, a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
+- **Ordem:** a da seção 10 da especificação, que mudou em 05/10/2026. Depois dos passos 0 a 5, vêm os passos 7 e 8, tudo local, com a demonstração para o chefe logo depois do 8; os passos 9 e 10, enquanto o servidor não chega; e, com o servidor, a publicação que falta do Passo 5 e o Passo 6. O Passo 11 foi adiantado em 13/10/2026; dele, ficam as etapas definitivas, com a Gama, o celular de verdade, com o servidor, e a divisão do pacote por tela.
 - **Quando faltar algo externo:** o Claude deixa o passo pronto e lista o que falta.
 
 ## 5. Prompts úteis

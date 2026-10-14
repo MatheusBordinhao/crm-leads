@@ -8,7 +8,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 
 - Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
 - Em 05/10/2026, a ordem do projeto mudou: a empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração para o chefe, que vem logo depois do Passo 8. A ordem nova está em "Como trabalhar" e na seção 10 da especificação.
-- A reunião da demonstração com o chefe é na quinta, 15/10/2026. O código congela na quarta, 14/10/2026, às 18h: depois disso, só documentação, até a reunião.
+- A reunião da demonstração com o chefe é na quinta, 15/10/2026, às 15h. O código congela na quarta, 14/10/2026, às 18h: depois disso, só documentação, até a reunião.
 - Ainda não há servidor, domínio, n8n de produção, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
 - Os usuários de teste usam aliases com "+" de matheusbordinhao11@gmail.com, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
@@ -42,7 +42,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria e o teste da restauração. Antes de publicar, também:
   - tirar do log do Caddy a query string e os cabeçalhos com dados ou chaves. O Caddyfile não liga o log de acesso, mas o log de erro (`http.log.error`) fica sempre ligado e grava cada falha do proxy, como um 502 com a API reiniciando. Ele leva a URL com a query string e todos os cabeçalhos, menos o `Cookie` e o `Authorization`, que saem como `REDACTED`. Num Caddy 2.11.4 descartável, em 12/10/2026, saíram a busca (`?busca=...@example.com`) e o `X-Api-Key` da integração, em texto puro. O `Referer` das chamadas da tela de leads também leva a busca, que fica no endereço (`/leads?busca=`). O caminho é o filtro de campos do log do Caddy (`format filter`) no `request>uri`, no `request>headers>Referer` e no `request>headers>X-Api-Key`, conferido de novo com a API parada;
   - na auditoria, conferir o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G. Se o servidor tiver IPv6 e a rede do Compose não, o Docker repassa essas conexões pelo `docker-proxy`, e a auditoria mostra o gateway da rede (`172.30.0.1`). Com um proxy ou CDN na frente do Caddy, ele precisa do `trusted_proxies`.
-- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 654 de 654 em 09/10/2026, com o Passo 10, e os do front, 197 de 197.
+- Desde 02/10/2026, o Controle Inteligente de Aplicativos do Windows desta máquina bloqueia o `Testcontainers.dll`, que não é assinado (evento 3077 do Code Integrity), e, em 06/10/2026, bloqueou também o `Crm.UnitTests.dll` recém-compilado: o `dotnet test` do Windows falha com "Uma política de Controle de Aplicativo bloqueou este arquivo". Os testes .NET rodam pelo contêiner (`docker-compose.testes.yml`): 669 de 669 em 13/10/2026, com o Passo 11, e os do front, 235 de 235.
 - Em 12/10/2026, o bloqueio chegou ao `EFCore.NamingConventions.dll`, e o `dotnet run` da API passou a falhar ao subir (`FileLoadException`, 0x800711C7). Desde então, no Windows, tudo o que carrega as DLLs do projeto roda em contêiner: a API de desenvolvimento e o `dotnet ef` pelo `docker-compose.yml` (serviços `api` e `ef`, README › Dia a dia), e os testes pelo `docker-compose.testes.yml`. O `dotnet build`, o `dotnet format` e o front continuam no Windows, porque só leem as DLLs. A API de desenvolvimento roda no contêiner, contra o banco de desenvolvimento. Conferido pelo Claude em 12/10/2026:
   - pelo proxy do Vite, numa API descartável do serviço `api`: login, troca de senha, o negotiate do hub, o WebSocket com o handshake 101 e o aviso `LeadsAlterados` de um lead novo;
   - a sessão continuou valendo depois de recriar o contêiner, com as chaves num volume;
@@ -150,6 +150,36 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - O cartão do funil traz `anonimizado`, e o `MotivoPerdaDialog`, aberto pela ficha (`EtapaDoLead`) e pelo quadro e pela lista do celular (`useMovimento`), esconde o campo do detalhe.
   - Testes: o unitário da regra, o de integração (400 com o detalhe, sem mudar a etapa nem o histórico, e 200 sem ele, em `AnonimizacaoTests`) e os do front, na ficha e no funil.
   - Ganho já é impossível num lead anonimizado, porque exige o CPF/CNPJ.
+- As outras pendências da validação do Passo 10 entraram em 13/10/2026:
+  - a auditoria e o limite de logins gravam o IPv4 sem o prefixo `::ffff:` (`IpDoCliente`). Os registros antigos de desenvolvimento ficam como estão, porque a auditoria não tem registro reescrito;
+  - o Npgsql entra no banco sem GSS (`DadosExtensions.SemGss`), e o `Cannot load library libgssapi_krb5.so.2` sumiu da API, das migrations e do `preparar-demonstracao`;
+  - o telefone do Brasil aparece no formato nacional na lista e na ficha (`formatarTelefone`). O de fora e o não reconhecido ficam como foram guardados, e os links de WhatsApp e Ligar continuam com o E.164;
+  - todo campo de formulário tem `id` ou `name`;
+  - o `npm audit` acusou 7 vulnerabilidades altas, todas em ferramentas de desenvolvimento e build. Nenhuma vai para o pacote do navegador nem para a imagem de produção, que leva só o `web/dist`. São a CLI do `shadcn` (pela cadeia `ts-morph` › `fast-glob` › `micromatch` › `braces`) e o `source-map-js`. Nenhum pacote mudou.
+- Passo 11 adiantado e feito em 13/10/2026, menos as etapas definitivas, o celular de verdade e a divisão do pacote por tela (seção 10 da especificação):
+  - PWA: o manifesto, os ícones e o service worker (`web/public/sw.js`), só no build de produção, sem `fetch` nem cache. A notificação nativa sai por ele, também no celular. Sem ele, em desenvolvimento e no `https://localhost` do Compose local, ela continua pelo `new Notification` do Passo 7;
+  - celular: botões, campos e seleções com 40 px de altura abaixo do `md`; o computador não mudou;
+  - README de operação (publicação com o que depende do servidor e do domínio, troca de chaves e senhas, plano B e pedido do titular) e o guia das atendentes (`docs/guia-das-atendentes.md`).
+- Conferências do Passo 11 feitas pelo Claude em 13/10/2026, num Compose de produção descartável (`-p crm-celular`, portas 8094 e 8461, rede `172.31.94.0/24`), com o Playwright num contêiner:
+  - nenhuma linha do `libgssapi` no log da API, no das migrations e no `preparar-demonstracao`;
+  - em 360 e 412 px, como admin e atendente, no login, no funil, na lista, na ficha e no painel, com os diálogos, o menu e o sino: sem rolagem lateral, sem texto cortado e sem campo com fonte menor que 16 px;
+  - o PWA de ponta a ponta:
+    - o service worker controla a página, e o manifesto não tem erros (`application/manifest+json`, `no-cache`);
+    - a notificação de um lead novo saiu só com o título e, nos dados, o id e o endereço da ficha;
+    - o clique no service worker abriu a ficha e marcou a notificação como lida;
+  - pelo Caddy, só o 401 esperado do login no console, sem violação da CSP e sem nenhum issue do DevTools;
+  - o roteiro do guia: uma atendente nova fez o caminho do guia, do primeiro acesso a Ganho e Perdido, no computador e em 360 px, achando cada botão pelo nome escrito no guia.
+- Do Passo 11, fica pendente:
+  - as etapas definitivas, com a Gama;
+  - a instalação e a notificação num celular de verdade, que exigem o HTTPS do servidor;
+  - a divisão do pacote por tela (rotas sob demanda), depois da reunião, porque mexe no carregamento de todas as telas. O build ainda avisa que o pacote passa de 500 kB;
+  - os alvos de toque secundários ainda menores que 40 px no celular: os botões do cartão Privacidade (só do admin), o "Leads" de voltar da ficha, o "Buscar", com 38 px (o Enter também busca), e o fechar dos diálogos, que têm o Cancelar;
+  - no celular, o aviso "Avisos do navegador" fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
+  - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
+- Pendências novas, sem implementar ainda:
+  - aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
+  - depois da reunião, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior.
+- Antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B).
 
 ## Arquitetura
 
@@ -163,7 +193,7 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 - API: ASP.NET Core (.NET 10) com controllers, EF Core 10 + Npgsql (nomes em snake_case), ASP.NET Core Identity com cookie, SignalR, FluentValidation, libphonenumber-csharp, OpenAPI + Scalar em desenvolvimento
 - Banco: PostgreSQL 17
-- Web: React + TypeScript + Vite, React Router, TanStack Query, React Hook Form + Zod, Tailwind + shadcn/ui, dnd-kit, @microsoft/signalr, vite-plugin-pwa. Os gráficos do painel são barras em HTML e CSS, sem biblioteca; o Recharts só entra quando um gráfico precisar dele, como uma linha por dia
+- Web: React + TypeScript + Vite, React Router, TanStack Query, React Hook Form + Zod, Tailwind + shadcn/ui, dnd-kit, @microsoft/signalr. Os gráficos do painel são barras em HTML e CSS, sem biblioteca; o Recharts só entra quando um gráfico precisar dele, como uma linha por dia. O PWA é feito à mão, sem o vite-plugin-pwa: o manifesto, os ícones e o service worker ficam em `web/public`, e o service worker não guarda cache
 - Testes: xUnit, WebApplicationFactory + Testcontainers (PostgreSQL), Vitest
 - Deploy: Docker Compose com a API servindo o build do React, PostgreSQL e Caddy (HTTPS)
 - Pré-requisitos: .NET 10 SDK, Node 22 ou mais recente, Docker
@@ -308,6 +338,22 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
   - A variável nunca vai para um `.env`, e o `docker-compose.prod.yml` não a repassa à API.
   - Não rode o comando no banco de desenvolvimento sem eu pedir: ele apagaria os meus leads. Para conferir, use um banco de teste (`DemonstracaoTests`) ou um Compose descartável.
   - O comando roda antes do `InicializarAcessoAsync` e termina sem subir a API: no `Program.cs`, o que vem depois do desvio não vale para ele.
+- O service worker do PWA (`web/public/sw.js`):
+  - só é registrado no build de produção (`registrarServiceWorker`, em `web/src/pwa/registro.ts`) e nunca no `localhost:5173`;
+  - também não é registrado no `https://localhost` do Compose de produção local. O Chrome o recusa por causa do certificado local do Caddy e registra um erro no console a cada página;
+  - não tem evento `fetch` nem cache, de propósito: não intercepta a API nem o tempo real e nunca serve uma versão velha. Antes de dar a ele um `fetch` ou um cache, pense em como uma publicação nova chega a quem já está com a tela aberta;
+  - para testá-lo no computador, use `npm run build` e `npm run preview` (`localhost:4173`, que repassa `/api` e `/hubs` como o `npm run dev`).
+- Os testes do front leem os arquivos de `web/public` por import com `?raw` e `?inline` (o `sw.js` roda num `self` falso, pelo `new Function`). O `tsconfig.app.json` não tem os tipos do Node: não use `node:fs` nos testes.
+- Os PNGs do PWA saem de `web/icones/gerar.sh`, num contêiner Alpine (`rsvg-convert`, README › Instalar como app). Não edite os PNGs à mão: mude o SVG e gere de novo.
+- O Npgsql 10 tenta a criptografia GSS (Kerberos) antes da senha, e a imagem Linux da API não tem a biblioteca do Kerberos. A connection string sai da `DadosExtensions.SemGss` com o GSS desligado; sem isso, volta o `Cannot load library libgssapi_krb5.so.2`.
+- No celular (abaixo do `md`), o botão, o campo e a seleção têm 40 px de altura (`h-10 md:h-8` no `Button`, no `Input` e na `Selecao`). Não passe uma altura própria a eles sem conferir as duas larguras.
+- Para revisar as telas no celular ou seguir um roteiro pela tela, use o Playwright num contêiner Linux, nada no Windows:
+  - a imagem é a `mcr.microsoft.com/playwright`, com o pacote `playwright` da mesma versão instalado num volume do Docker;
+  - o contêiner fica ligado à rede da API de um Compose de produção descartável (`--network container:<api>`, `http://localhost:8080`, onde o cookie `Secure` vale) ou à do Caddy (`https://localhost`, com `ignoreHTTPSErrors`), para a CSP;
+  - a faixa da rede do Compose descartável não pode colidir com a do `crm-local` (`172.30.0.0/24`): use `REDE_SUBNET` e `CADDY_IP`;
+  - a notificação só funciona com o Chromium completo (`chromium.launch({ channel: 'chromium' })`), porque o "headless shell" padrão nega a permissão;
+  - depois de um clique num link `tel:` ou `mailto:`, o Chromium sem janela deixa a página sem receber os cliques seguintes. Nos roteiros, impeça a navegação do link (`addInitScript`), como o `naoNavegar` dos testes do front;
+  - o arraste pelo teclado com as setas apertadas sem pausa anda menos colunas: use pausas ou o mouse.
 
 ## n8n
 
@@ -322,6 +368,7 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -
   1. Passos 7 e 8, tudo local. A demonstração para o chefe vem logo depois do 8.
   2. Depois, os Passos 9 e 10, enquanto o servidor não chega.
   3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
+- Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para depois da reunião, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
 - Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.
