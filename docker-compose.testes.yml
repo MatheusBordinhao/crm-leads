@@ -6,7 +6,7 @@ name: crm-testes
 
 services:
   testes:
-    image: mcr.microsoft.com/dotnet/sdk:10.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0.402
     working_dir: /src
     entrypoint: ["dotnet", "test", "--artifacts-path", "/artefatos"]
     environment:
