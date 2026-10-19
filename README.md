@@ -504,7 +504,7 @@ Para mostrar o e-mail de alerta chegando no celular quando um lead novo cai para
 
 Se o ambiente de desenvolvimento falhar no dia, a demonstração roda no Compose de produção no próprio computador, o `crm-local`. Ele tem banco, usuários e massa próprios, separados do banco de desenvolvimento.
 
-No dia da reunião, depois do congelamento (15/10, às 10h):
+No dia da reunião, depois do congelamento:
 
 1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088` e `PORTA_HTTPS=8443`, sem o `N8n__WebhookUrl`, para não mandar e-mail:
 

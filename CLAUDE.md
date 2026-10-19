@@ -8,7 +8,9 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 
 - Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
 - Em 05/10/2026, a ordem do projeto mudou: a empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração para o chefe, que vem logo depois do Passo 8. A ordem nova está em "Como trabalhar" e na seção 10 da especificação.
-- A reunião da demonstração com o chefe é na quinta, 15/10/2026, às 15h. Tudo congela na quinta, 15/10/2026, às 10h: o código do CRM e do n8n, o Compose, os testes, os JSONs de `n8n/` e a documentação. Depois disso, nada muda até a reunião.
+- A reunião da demonstração com o chefe, marcada para 15/10/2026, ficou sem data. Desde 16/10/2026, até ela ser marcada, terminamos tudo o que não depende de recurso da empresa, em lotes pequenos (veja "Como trabalhar"). Paramos quando só sobrar o que precisa de servidor, domínio, n8n Cloud pago, e-mail da empresa, acessos da Meta e do Google Ads, decisões da Gama ou das pessoas.
+- No fim de cada lote, a demonstração continua funcionando: o `preparar-demonstracao`, um lead pelo rodízio (o `site.json`, pelo n8n local) e o e-mail de alerta no celular, que eu confiro.
+- Quando a reunião for marcada, paramos e congelamos: termine o commit em andamento ou desfaça o que não foi commitado, rode as suítes, reconstrua o plano B e rode a massa da demonstração nos dois ambientes. Depois disso, nada muda até a reunião: o código do CRM e do n8n, o Compose, os testes, os JSONs de `n8n/` e a documentação.
 - Ainda não há servidor, domínio, n8n de produção, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
 - Os usuários de teste usam aliases com "+" de matheusbordinhao11@gmail.com, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
@@ -242,7 +244,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - A deduplicação dos e-mails válidos não muda.
   - Um lead já salvo com um e-mail assim passa a mostrar o aviso, perde o botão E-mail e deixa de contar na busca por pessoa.
   - Os 60 e-mails da massa da demonstração continuam válidos (`MassaDemonstracaoTests`), sem o aviso.
-- Depois do congelamento (15/10/2026, às 10h) e antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B). O plano B não tem o n8n: nele, não sai e-mail de alerta.
+- Depois do congelamento e antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B). O plano B não tem o n8n: nele, não sai e-mail de alerta.
 - Para a demonstração do e-mail no celular, deixe no ar a API e o n8n (`docker compose up -d api n8n`), com o `CRM - Erros` e o `CRM - Alertas` publicados, e rode o `preparar-demonstracao`, que deixa a Adriana como a próxima da vez (README › Demonstração › O alerta no celular).
 
 ## Arquitetura
@@ -461,6 +463,15 @@ docker compose up -d n8n                                 # n8n local em http://l
   3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
 - Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para depois da reunião, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
 - Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
+- Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
+  - 1: infraestrutura (as imagens com versão fixa e o Dependabot);
+  - 1B: CI no GitHub Actions;
+  - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
+  - 3: troca de chaves sem parar;
+  - 4A e 4B: front (celular, o teste instável do painel, a Caddy 2.11.7 e as rotas sob demanda);
+  - 5: dependências;
+  - 6: documentação.
+  - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
 - Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.

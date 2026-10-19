@@ -583,6 +583,8 @@ Em 13/10/2026, com a demonstração marcada para 15/10/2026, o Passo 11 foi adia
 
 Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o pagamento sair (seção 11). Até lá, um n8n local, no Compose de desenvolvimento, roda os 7 fluxos da seção 4.5 com dados de teste: o Passo 6 foi adiantado nele, com os fluxos dos Passos 4 e 9. Ficam para a terceira fase levar os fluxos ao n8n Cloud e o que depende do servidor, do app da Meta e da Gama. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
 
+Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o trabalho segue com tudo o que não depende da empresa, e fica para a terceira fase o que precisa de servidor, domínio, n8n Cloud, e-mail da empresa, Meta, Google Ads ou da Gama. A demonstração é conferida no fim de cada etapa desse trabalho, e, quando a reunião for marcada, tudo congela até ela.
+
 ### Passos
 
 **Passo 0: base do projeto**
