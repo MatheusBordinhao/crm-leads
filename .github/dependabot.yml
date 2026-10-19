@@ -1,0 +1,41 @@
+# Avisa quando sai uma versão nova do que tem versão fixa (README › Versões fixadas). O Dependabot abre os PRs no
+# GitHub, e nada roda nesta máquina. O npm fica de fora: o front muda só pelo contêiner, por causa do Controle
+# Inteligente de Aplicativos do Windows.
+version: 2
+
+multi-ecosystem-groups:
+  # O Dockerfile e os três Compose num PR só: o SDK do .NET aparece nos dois, e PRs separados deixariam as versões
+  # desencontradas (o ImagensTests confere).
+  imagens:
+    schedule:
+      interval: monthly
+
+updates:
+  - package-ecosystem: docker
+    directory: /
+    patterns: ["*"]
+    multi-ecosystem-group: imagens
+    ignore:
+      # A versão principal (.NET 11, PostgreSQL 18, Node 24) é uma decisão nossa, e não rotina.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    patterns: ["*"]
+    multi-ecosystem-group: imagens
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Os pacotes do Directory.Packages.props, num PR por mês.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      pacotes:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
