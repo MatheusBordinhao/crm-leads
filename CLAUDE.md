@@ -245,7 +245,10 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a API de desenvolvimento recriada com o ASP.NET Core 10.0.13, e o banco recriado com a `postgres:17.11`, com os dados de antes (62 leads). A `postgres:17.11` é uma reconstrução mais nova da imagem que o `postgres:17` do cache, com o mesmo PostgreSQL;
     - a imagem de produção num Compose descartável (`-p crm-imagens`, portas 8097 e 8467), com a imagem da API com outro nome, para não trocar a do plano B. O build levou 1 min 52 s. As migrations terminaram com `Exited (0)`. A API rodou o ASP.NET Core 10.0.13, o Caddy foi o v2.11.4, e o PostgreSQL, o 17.11. Pelo Caddy, o `/health` e o login responderam 200, com HSTS e CSP. No fim, o projeto saiu com `down -v`;
     - num banco novo, o migration bundle registra um "Failed executing DbCommand" do `SELECT` na `__EFMigrationsHistory`, que ainda não existe, e segue aplicando as migrations. É o comportamento do EF Core, não deste lote;
-    - a suíte do front, que este lote não mudou: com o padrão de workers, de 2 a 4 falhas de tempo por rodada, em arquivos diferentes, que passam sozinhos; com `--maxWorkers=4`, 260 de 260. A máquina estava com 2,7 GB de memória livre. A causa fica para o Lote 4A.
+    - a suíte do front, que este lote não mudou: com o padrão de workers, de 2 a 4 falhas de tempo por rodada, em arquivos diferentes, que passam sozinhos; com `--maxWorkers=4`, 260 de 260. A máquina estava com 2,7 GB de memória livre;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 328, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 5,6 s depois;
+  - validado por mim em 19/10/2026: o e-mail de alerta do lead 328 chegou no celular da Adriana, às 10:08.
+- Em 19/10/2026, o teste instável do front saiu do Lote 4A e vem antes do Lote 1B: o CI vai rodar a suíte do front num runner de 2 vCPUs, e, com a suíte falhando por tempo, ele ficaria vermelho à toa.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -478,11 +481,12 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para o Lote 4B, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
 - Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
 - Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
-  - 1: infraestrutura (as imagens com versão fixa e o Dependabot);
+  - 1: infraestrutura (as imagens com versão fixa e o Dependabot), fechado em 19/10/2026;
+  - a causa do teste instável do front, trazida do 4A em 19/10/2026;
   - 1B: CI no GitHub Actions;
   - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
   - 3: troca de chaves sem parar;
-  - 4A e 4B: front (celular, o teste instável do painel, a Caddy 2.11.7 e as rotas sob demanda);
+  - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
   - 5: dependências;
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
