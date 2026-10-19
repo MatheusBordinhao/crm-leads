@@ -548,6 +548,7 @@ docker compose -f docker-compose.testes.yml run --rm testes   # os mesmos testes
 cd web && npm test                       # Vitest, sem modo watch (npm run test:watch para o modo watch)
 
 dotnet format                            # formata o C#; --verify-no-changes só confere
+MSYS_NO_PATHCONV=1 docker compose -f docker-compose.testes.yml run --rm -e ArtifactsPath=/artefatos --entrypoint dotnet testes format Crm.sln --verify-no-changes   # confere a formatação pelo contêiner
 cd web && npm run lint                   # ESLint
 cd web && npm run format                 # Prettier; format:check só confere
 ```
@@ -613,6 +614,7 @@ deploy/                      Caddyfile e scripts de backup e de teste da restaur
 docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
                              importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
+.github/                     o Dependabot: um PR por mês com as imagens e outro com o NuGet (veja "Versões fixadas")
 ```
 
 ## Publicação
@@ -631,7 +633,8 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 - o IP de quem acessa, atrás do Caddy;
 - o log do Caddy, que grava as falhas do proxy sem a query string, o `Referer` e o `X-Api-Key` (veja "Cuidados");
 - o backup e o teste da restauração;
-- a importação e o PWA no build de produção.
+- a importação e o PWA no build de produção;
+- as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas").
 
 Falta:
 
@@ -640,8 +643,6 @@ Falta:
 - **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
 - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
 - **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
-- **antes de publicar:** fixar a versão do Caddy no Compose de produção (por exemplo, `caddy:2.11`, no lugar do `caddy:2`), para o teste do log do Caddy, que usa a imagem do Compose, valer para a versão que roda no servidor;
-- **antes de publicar:** um teste que exija a rotação de log (`logging: *logs`) em todo serviço do Compose de produção, para um serviço novo não ficar sem ela;
 - **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos").
 
 ### O que o servidor precisa
@@ -732,6 +733,41 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 O serviço `migracoes` aplica as migrations novas antes de a API subir. As sessões continuam valendo, porque as chaves que protegem o cookie ficam no volume `chaves-sessao`.
+
+### Versões fixadas
+
+Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `2` ou `17`. Assim, o servidor, este computador e os testes rodam a mesma versão.
+
+| Imagem | Onde | Versão |
+| --- | --- | --- |
+| `mcr.microsoft.com/dotnet/sdk` | `Dockerfile` (build), `docker-compose.yml` (`api` e `ef`) e `docker-compose.testes.yml` | 10.0.402, que traz o runtime 10.0.13 |
+| `mcr.microsoft.com/dotnet/aspnet` | `Dockerfile` (a imagem final) | 10.0.13, com a correção da CVE-2026-70159 |
+| `node` | `Dockerfile` (build do front) | 22.23.3-alpine3.24 |
+| `postgres` | `docker-compose.yml` e `docker-compose.prod.yml` (`db` e `backup`); os testes de integração usam a do Compose de produção | 17.11 |
+| `caddy` | `docker-compose.prod.yml`; o teste do log do Caddy usa a do Compose | 2.11.4 |
+| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento | 2.43.5 |
+
+O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lugares, o mesmo PostgreSQL em desenvolvimento e em produção e o runtime com a correção. Uma imagem nova precisa entrar nele.
+
+**Quando subir.**
+- O Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) abre, uma vez por mês, um PR com as imagens novas, com o `Dockerfile` e os Compose juntos, e outro com os pacotes do NuGet.
+- A versão principal (.NET 11, PostgreSQL 18, Node 24) fica de fora, porque é uma decisão nossa.
+- O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê, e não instale nem atualize nada no Windows.
+- O Dependabot só funciona com o arquivo no GitHub e os alertas ligados no repositório (Settings › Code security).
+
+**Como conferir um PR do Dependabot, antes do merge.**
+
+1. Traga o branch do PR: `git fetch origin` e `git switch <branch do PR>`.
+2. Confira qual runtime a imagem nova do SDK traz. Ele precisa ser o mesmo da imagem `aspnet` do PR:
+
+   ```powershell
+   (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
+   ```
+
+3. Rode as suítes, uma depois da outra: `docker compose -f docker-compose.testes.yml run --rm testes`, que inclui o teste do log do Caddy com a imagem do Compose, e, em `web/`, `npm.cmd test`.
+4. Recrie a API de desenvolvimento (`docker compose up -d api`) e confira a demonstração (veja "O alerta no celular", em Demonstração). Numa imagem de produção nova, suba também o Compose de produção no próprio computador (veja "Testar a publicação no próprio computador").
+5. Quando o PR subir o n8n do Compose de desenvolvimento, recrie-o (`docker compose up -d n8n`) e repita, além do alerta da demonstração, os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
+6. Só então faça o merge.
 
 ### Backup
 

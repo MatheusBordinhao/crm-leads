@@ -583,7 +583,7 @@ Em 13/10/2026, com a demonstração marcada para 15/10/2026, o Passo 11 foi adia
 
 Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o pagamento sair (seção 11). Até lá, um n8n local, no Compose de desenvolvimento, roda os 7 fluxos da seção 4.5 com dados de teste: o Passo 6 foi adiantado nele, com os fluxos dos Passos 4 e 9. Ficam para a terceira fase levar os fluxos ao n8n Cloud e o que depende do servidor, do app da Meta e da Gama. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
 
-Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o trabalho segue com tudo o que não depende da empresa, e fica para a terceira fase o que precisa de servidor, domínio, n8n Cloud, e-mail da empresa, Meta, Google Ads ou da Gama. A demonstração é conferida no fim de cada etapa desse trabalho, e, quando a reunião for marcada, tudo congela até ela.
+Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o trabalho segue com tudo o que não depende da empresa, e fica para a terceira fase o que precisa de servidor, domínio, n8n Cloud, e-mail da empresa, Meta, Google Ads ou da Gama. A demonstração é conferida no fim de cada etapa desse trabalho, e, quando a reunião for marcada, tudo congela até ela. O que tinha ficado para depois da reunião entra nesse trabalho: a divisão do pacote por tela (Passo 11) e, no Passo 6, os e-mails do `CRM - Erros` em massa e as execuções do n8n com chave.
 
 ### Passos
 
@@ -686,8 +686,8 @@ Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o 
   - o app da Meta em modo Live, com a credencial, e o teste com a Ferramenta de Teste;
   - o "Enviar dados de teste" de verdade do Google Ads;
   - levar os fluxos ao n8n Cloud, com o domínio do site, o e-mail da Gama e a chave do Google de produção;
-  - depois da reunião, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
-  - depois da reunião, as execuções com erro, que guardam o `google_key` e o `X-Crm-Chave` (4.5): avaliar a redação dos dados de execução do n8n ou outra saída.
+  - antes da reunião, no trabalho de 16/10/2026 (veja Ordem), os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
+  - também nesse trabalho, as execuções com erro, que guardam o `google_key` e o `X-Crm-Chave` (4.5). A redação dos dados de execução é só do plano Enterprise do n8n; no Starter, o caminho é não salvar as execuções.
 
 **Passo 7: tempo real**
 
@@ -732,7 +732,7 @@ Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o 
     - a notificação nativa pelo service worker, conferida de ponta a ponta no build de produção;
     - a revisão em 360 e 412 px do login, da lista, da ficha, do funil e do painel, com os diálogos. Não havia rolagem lateral, texto cortado nem campo com fonte menor que 16 px; as ações principais passaram a ter 40 px de altura no celular.
   - **Pendente:** a instalação e a notificação num celular de verdade, com o HTTPS do servidor, e os alvos de toque secundários ainda menores que 40 px (os botões do cartão Privacidade, o "Leads" de voltar da ficha, o "Buscar" e o fechar dos diálogos).
-- Pacote do front dividido por tela (rotas carregadas sob demanda), para o primeiro acesso no celular ficar mais leve. No fim do Passo 1, o build já avisava que o pacote passava de 500 kB (cerca de 200 kB compactado). **Pendente:** fica para depois da reunião de 15/10/2026, porque mexe no carregamento de todas as telas.
+- Pacote do front dividido por tela (rotas carregadas sob demanda), para o primeiro acesso no celular ficar mais leve. No fim do Passo 1, o build já avisava que o pacote passava de 500 kB (cerca de 200 kB compactado). **Pendente:** entra antes da reunião, no trabalho de 16/10/2026 (veja Ordem), depois dos alvos de toque, porque mexe no carregamento de todas as telas.
 - README de operação: publicar, fazer e restaurar backup, trocar as chaves. **Feito em 13/10/2026:** com o que depende do servidor e do domínio marcado, a troca de cada chave e senha com o efeito dela, o plano B da demonstração e o pedido do titular (LGPD), com o que fica fora do CRM.
 - Roteiro de treinamento de uma página para Adriana e Pietra. **Feito em 13/10/2026:** [docs/guia-das-atendentes.md](guia-das-atendentes.md), conferido por um roteiro do Playwright que fez o caminho do guia como uma atendente nova, no computador e em 360 px.
 - Aceite: as atendentes conseguem, sozinhas, receber um lead, registrar o contato e levá-lo até Ganho ou Perdido. **Pendente:** a validação com a Adriana e a Pietra, usando o guia.

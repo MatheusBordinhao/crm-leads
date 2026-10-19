@@ -74,10 +74,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - o relatório de erros aberto no Excel como um clique duplo: "Linha" e "Motivo" em colunas, com os acentos certos.
 - Só um CSV exportado de verdade pela Meta não foi testado: depende de uma exportação real da Gama ou da Meta.
 - No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio desde 06/10/2026, como precisam estar na demonstração: os leads da integração, os importados pelo rodízio e os cadastrados com "Rodízio" se alternam entre as duas. Desde 08/10/2026, o banco tem a massa da demonstração (`preparar-demonstracao`), e os leads de validação, como "teste" a "teste4", saíram. Em 12/10/2026 e em 13/10/2026, nas validações dos Passos 10 e 11, o comando rodou de novo, pelo contêiner. Em 14/10/2026, depois dos testes do n8n, ele rodou de novo: 60 leads, nenhum de teste, a fila de eventos vazia e a Adriana como a próxima da vez. Para voltar a esse estado antes da demonstração, é só rodar o comando de novo.
-- Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria, o teste da restauração e a conferência do log do Caddy com a API parada (README › Cuidados). Antes de publicar, também:
-  - conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G. Se o servidor tiver IPv6 e a rede do Compose não, o Docker repassa essas conexões pelo `docker-proxy`, e a auditoria mostra o gateway da rede (`172.30.0.1`). Com um proxy ou CDN na frente do Caddy, ele precisa do `trusted_proxies`;
-  - fixar a versão do Caddy no Compose de produção (por exemplo, `caddy:2.11`), para o `LogDoCaddyTests`, que usa a imagem do Compose, valer para o que roda no servidor. Com o `caddy:2` de hoje, o servidor pode baixar uma versão mais nova que a 2.11.4 do cache desta máquina; com o `caddy:2.11`, só o patch ainda pode variar;
-  - o teste que exige o `logging: *logs` em todo serviço do Compose de produção (`PublicacaoTests`), para um serviço novo, como um n8n no mesmo Compose, não ficar sem a rotação de log.
+- Falta a publicação do Passo 5, que depende do servidor, do domínio e do destino da cópia do backup. No servidor, repetir o HTTPS com certificado de verdade, a sessão depois de reiniciar a API, o IP real na auditoria, o teste da restauração e a conferência do log do Caddy com a API parada (README › Cuidados). Antes de publicar, também conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G. Se o servidor tiver IPv6 e a rede do Compose não, o Docker repassa essas conexões pelo `docker-proxy`, e a auditoria mostra o gateway da rede (`172.30.0.1`). Com um proxy ou CDN na frente do Caddy, ele precisa do `trusted_proxies`.
 - O log do Caddy saiu das pendências da publicação em 14/10/2026, antes do congelamento do código:
   - o bloco global do `deploy/Caddyfile` passa o log padrão do Caddy, onde caem o log de erro e o dos outros módulos, pelo `format filter`: a query string vira `?REDACTED`, e o `Referer` e o `X-Api-Key`, `REDACTED`. O `Cookie` e o `Authorization` continuam como `["REDACTED"]`, pelo próprio Caddy, e o log de erro continua ligado;
   - o `LogDoCaddyTests` sobe a imagem do Caddy do `docker-compose.prod.yml` com o Caddyfile de verdade e confere a entrada do 502. Com o Caddyfile anterior, ele falha na URL com a busca;
@@ -226,16 +223,29 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Do Passo 11, fica pendente:
   - as etapas definitivas, com a Gama;
   - a instalação e a notificação num celular de verdade, que exigem o HTTPS do servidor;
-  - a divisão do pacote por tela (rotas sob demanda), depois da reunião, porque mexe no carregamento de todas as telas. O build ainda avisa que o pacote passa de 500 kB;
-  - os alvos de toque secundários ainda menores que 40 px no celular: os botões do cartão Privacidade (só do admin), o "Leads" de voltar da ficha, o "Buscar", com 38 px (o Enter também busca), e o fechar dos diálogos, que têm o Cancelar;
-  - no celular, o aviso "Avisos do navegador" fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
+  - a divisão do pacote por tela (rotas sob demanda), no Lote 4B, porque mexe no carregamento de todas as telas. O build ainda avisa que o pacote passa de 500 kB;
+  - no Lote 4A, os alvos de toque secundários ainda menores que 40 px no celular: os botões do cartão Privacidade (só do admin), o "Leads" de voltar da ficha, o "Buscar", com 38 px (o Enter também busca), e o fechar dos diálogos, que têm o Cancelar;
+  - no Lote 4A, o aviso "Avisos do navegador", que no celular fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
-  - aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
-  - depois da reunião, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior;
-  - depois da reunião, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
-  - depois da reunião, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. Avaliar a redação dos dados de execução do n8n ou outra saída;
-  - as imagens do .NET com o runtime 10.0.13 (CVE-2026-70159). O hub não liga o stateful reconnect, e a imagem de produção pega o runtime novo no build da publicação; nas de desenvolvimento e dos testes, um `docker pull` das imagens `mcr.microsoft.com/dotnet/sdk:10.0` e `aspnet:10.0`, depois da reunião.
+  - no Lote 3, aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
+  - no Lote 5, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior;
+  - no Lote 2A, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
+  - no Lote 2A, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. A redação dos dados de execução do n8n é só do Enterprise; o caminho no Starter é não salvar as execuções.
+- Lote 1 (infraestrutura), feito em 19/10/2026:
+  - toda imagem tem a versão exata (README › Versões fixadas):
+    - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
+    - o ASP.NET Core 10.0.13 na imagem de produção;
+    - a `caddy:2.11.4`, a `postgres:17.11` em desenvolvimento e em produção e a `node:22.23.3-alpine3.24` no build do front;
+    - o `ImagensTests` cobra isso, e os testes de integração usam a imagem do PostgreSQL do Compose de produção;
+  - o `PublicacaoTests` exige o `logging: *logs` em todo serviço do Compose de produção;
+  - o Dependabot (`.github/dependabot.yml`) abre um PR por mês com as imagens, com o `Dockerfile` e os Compose juntos, e outro com o NuGet, sem o npm e sem versão principal. Ele só vale depois do push, com os alertas ligados em Settings › Code security;
+  - conferido pelo Claude:
+    - a suíte .NET no contêiner: 729 de 729, em 3 min 14 s com o build;
+    - a API de desenvolvimento recriada com o ASP.NET Core 10.0.13, e o banco recriado com a `postgres:17.11`, com os dados de antes (62 leads). A `postgres:17.11` é uma reconstrução mais nova da imagem que o `postgres:17` do cache, com o mesmo PostgreSQL;
+    - a imagem de produção num Compose descartável (`-p crm-imagens`, portas 8097 e 8467), com a imagem da API com outro nome, para não trocar a do plano B. O build levou 1 min 52 s. As migrations terminaram com `Exited (0)`. A API rodou o ASP.NET Core 10.0.13, o Caddy foi o v2.11.4, e o PostgreSQL, o 17.11. Pelo Caddy, o `/health` e o login responderam 200, com HSTS e CSP. No fim, o projeto saiu com `down -v`;
+    - num banco novo, o migration bundle registra um "Failed executing DbCommand" do `SELECT` na `__EFMigrationsHistory`, que ainda não existe, e segue aplicando as migrations. É o comportamento do EF Core, não deste lote;
+    - a suíte do front, que este lote não mudou: com o padrão de workers, de 2 a 4 falhas de tempo por rodada, em arquivos diferentes, que passam sozinhos; com `--maxWorkers=4`, 260 de 260. A máquina estava com 2,7 GB de memória livre. A causa fica para o Lote 4A.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -281,6 +291,7 @@ docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef nu
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
 .claude/                     permissões do projeto e o comando /passo
+.github/                     o Dependabot (um PR por mês com as imagens e outro com o NuGet, sem o npm)
 .mcp.json                    servidor MCP do n8n Cloud (o do n8n local fica no ~/.claude.json, fora do Git)
 ```
 
@@ -298,6 +309,7 @@ dotnet test                                              # testes da API (os de 
 docker compose -f docker-compose.testes.yml run --rm testes   # os testes .NET num contêiner Linux (nesta máquina, o jeito que roda)
 cd web && npm test                                       # testes do front (vitest run, sem modo watch)
 dotnet format                                            # formata o C# (--verify-no-changes só confere)
+MSYS_NO_PATHCONV=1 docker compose -f docker-compose.testes.yml run --rm -e ArtifactsPath=/artefatos --entrypoint dotnet testes format Crm.sln --verify-no-changes   # o mesmo, pelo contêiner dos testes
 cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
 docker compose run --rm ef migrations add <NomeDescritivo>   # dotnet ef num contêiner (nesta máquina, o jeito que roda)
 dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef no Windows
@@ -438,7 +450,9 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Um e-mail mandado de uma conta do Gmail para um alias dela mesma, como o `+adriana`, chega como enviado, sem notificar o celular. Por isso, o remetente dos alertas é outra conta.
 - A auditoria do NuGet, com os avisos tratados como erro, derruba o build quando sai um alerta novo para um pacote. Foi o caso da CVE-2026-70159 do SignalR.Common, em 13/10/2026. Suba o pacote para a versão corrigida, no `Directory.Packages.props`.
 - Nos testes do front, o MSW usa o tratador registrado por último. O `comQuadro()` e o `comCadastros()` registram as campanhas padrão: registre as do teste depois deles.
-- O primeiro teste de um arquivo do front carrega a tela a frio. Com a suíte inteira, um `findBy` logo depois de abrir `/` pode passar de 1 s: dê a ele um `timeout` maior, como no primeiro teste do painel.
+- O primeiro teste de um arquivo do front carrega a tela a frio. Com a suíte inteira, um `findBy` logo depois de abrir `/` pode passar de 1 s: dê a ele um `timeout` maior, como no primeiro teste do painel. A causa é investigada no Lote 4A: em 19/10/2026, com pouca memória livre, a suíte teve falhas de tempo em arquivos diferentes a cada rodada e passou inteira com `--maxWorkers=4`.
+- Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot.
+- Um `docker compose -p <descartável> -f docker-compose.prod.yml up --build` troca a imagem `crm-api`, a mesma do plano B. Para não mexer nela, dê outro nome à imagem por um override (`image:` dos serviços `api` e `migracoes`).
 
 ## n8n
 
@@ -461,7 +475,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   1. Passos 7 e 8, tudo local. A demonstração para o chefe vem logo depois do 8.
   2. Depois, os Passos 9 e 10, enquanto o servidor não chega.
   3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
-- Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para depois da reunião, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
+- Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para o Lote 4B, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
 - Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
 - Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
   - 1: infraestrutura (as imagens com versão fixa e o Dependabot);
