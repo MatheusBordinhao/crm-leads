@@ -9,6 +9,36 @@ public class PublicacaoTests
 
     private static List<string> Linhas(string arquivo) => [.. Ler(arquivo).Split('\n').Select(l => l.TrimEnd('\r'))];
 
+    /// <summary>As linhas de cada serviço do Compose, pelo nome: as que vêm entre o nome dele e o próximo.</summary>
+    private static Dictionary<string, List<string>> Servicos(string arquivo)
+    {
+        var servicos = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var emServicos = false;
+        List<string>? atual = null;
+        foreach (var linha in Linhas(arquivo))
+        {
+            // Uma chave sem recuo, como services:, networks: ou volumes:, abre outra seção do arquivo.
+            if (linha.Length > 0 && !char.IsWhiteSpace(linha[0]) && !linha.StartsWith('#'))
+            {
+                emServicos = linha.TrimEnd() == "services:";
+                atual = null;
+                continue;
+            }
+
+            var nome = Regex.Match(linha, @"^  ([\w-]+):\s*$");
+            if (emServicos && nome.Success)
+            {
+                atual = servicos[nome.Groups[1].Value] = [];
+            }
+            else
+            {
+                atual?.Add(linha);
+            }
+        }
+
+        return servicos;
+    }
+
     [Fact]
     public void O_env_nunca_vai_para_a_imagem_de_producao()
     {
@@ -51,6 +81,21 @@ public class PublicacaoTests
 
         Assert.NotEmpty(proxy);
         Assert.Equal(caddy, proxy);
+    }
+
+    /// <summary>
+    /// O log de cada contêiner gira (5 arquivos de 10 MB, o <c>x-logs</c>): sem isso, o log do Docker cresce até encher o
+    /// disco do servidor. Vale também para um serviço que entrar depois, como um n8n no mesmo Compose.
+    /// </summary>
+    [Fact]
+    public void Todo_servico_do_compose_de_producao_gira_o_log()
+    {
+        var servicos = Servicos("docker-compose.prod.yml");
+
+        Assert.Superset(new HashSet<string> { "db", "migracoes", "api", "caddy", "backup" }, servicos.Keys.ToHashSet());
+        Assert.All(servicos, servico => Assert.True(
+            servico.Value.Any(l => l.Trim() == "logging: *logs"),
+            $"O serviço {servico.Key} não tem o logging: *logs, e o log dele não gira."));
     }
 
     [Theory]
