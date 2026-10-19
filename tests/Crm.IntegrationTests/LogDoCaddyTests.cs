@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Crm.IntegrationTests.Infra;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -28,7 +27,7 @@ public class LogDoCaddyTests
 
         // Na rede do teste, o nome "api" é o próprio Caddy, que não escuta na 8080: o proxy recebe a conexão recusada, como
         // com a API reiniciando. Com DOMINIO=:80, o site é servido em HTTP, sem certificado, e o log é o mesmo.
-        await using var caddy = new ContainerBuilder(ImagemDoCaddy())
+        await using var caddy = new ContainerBuilder(Repositorio.ImagemDoComposeDeProducao("caddy"))
             .WithNetwork(rede)
             .WithNetworkAliases("api")
             .WithEnvironment("DOMINIO", ":80")
@@ -63,15 +62,6 @@ public class LogDoCaddyTests
         Assert.Equal("REDACTED", Assert.Single(cabecalhos.GetProperty("Authorization").EnumerateArray()).GetString());
         string[] sigilosos = ["maria.sigilosa", "referer.sigiloso", "chave-sigilosa", "cookie-sigiloso", "token-sigiloso", "busca="];
         Assert.All(sigilosos, sigiloso => Assert.DoesNotContain(sigiloso, log, StringComparison.Ordinal));
-    }
-
-    /// <summary>A imagem do Caddy do docker-compose.prod.yml, a mesma que o servidor baixa.</summary>
-    private static string ImagemDoCaddy()
-    {
-        var compose = File.ReadAllText(Path.Combine(Repositorio.Raiz, "docker-compose.prod.yml"));
-        var imagem = Regex.Match(compose, @"image:\s*(caddy:\S+)").Groups[1].Value;
-        Assert.NotEmpty(imagem);
-        return imagem;
     }
 
     /// <summary>

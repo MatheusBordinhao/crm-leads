@@ -3,8 +3,10 @@ using System.Text.RegularExpressions;
 namespace Crm.UnitTests.Infra;
 
 /// <summary>
-/// As imagens do Docker têm versão fixa (README › Versões fixadas). O SDK do .NET é o mesmo no build de produção, na API de
-/// desenvolvimento, no dotnet ef e nos testes, e a imagem de produção roda um ASP.NET Core com a correção da CVE-2026-70159.
+/// As imagens do Docker têm versão fixa (README › Versões fixadas), e não uma tag que muda sozinha, como 10.0, 2, 17 ou
+/// 22-alpine. O SDK do .NET é o mesmo no build de produção, na API de desenvolvimento, no dotnet ef e nos testes, o
+/// PostgreSQL é o mesmo em desenvolvimento e em produção, e a imagem de produção roda um ASP.NET Core com a correção da
+/// CVE-2026-70159.
 /// </summary>
 public class ImagensTests
 {
@@ -12,10 +14,44 @@ public class ImagensTests
 
     private const string Runtime = "mcr.microsoft.com/dotnet/aspnet";
 
+    private const string Postgres = "postgres";
+
+    /// <summary>A imagem da API, que o próprio Compose de produção constrói pelo Dockerfile.</summary>
+    private const string ImagemDaApi = "crm-api";
+
     /// <summary>A primeira versão do ASP.NET Core 10 com a correção da CVE-2026-70159, no SignalR.</summary>
     private static readonly Version RuntimeCorrigido = new(10, 0, 13);
 
     private static readonly string[] Arquivos = ["Dockerfile", "docker-compose.yml", "docker-compose.prod.yml", "docker-compose.testes.yml"];
+
+    /// <summary>O formato da versão fixa de cada imagem. Uma imagem nova entra aqui, com a versão exata.</summary>
+    private static readonly Dictionary<string, string> VersaoFixa = new(StringComparer.Ordinal)
+    {
+        [Sdk] = @"^\d+\.\d+\.\d+$",
+        [Runtime] = @"^\d+\.\d+\.\d+$",
+        ["node"] = @"^\d+\.\d+\.\d+-alpine\d+\.\d+$",
+        // O PostgreSQL numera as versões com dois números, como 17.11: a principal e a correção.
+        [Postgres] = @"^\d+\.\d+$",
+        ["caddy"] = @"^\d+\.\d+\.\d+$",
+        ["n8nio/n8n"] = @"^\d+\.\d+\.\d+$",
+    };
+
+    [Fact]
+    public void Toda_imagem_tem_a_versao_fixa()
+    {
+        var imagens = Imagens().Where(i => i.Nome != ImagemDaApi).ToList();
+
+        Assert.NotEmpty(imagens);
+        Assert.All(imagens, i =>
+        {
+            if (!VersaoFixa.TryGetValue(i.Nome, out var formato))
+            {
+                Assert.Fail($"A imagem {i.Nome}, do {i.Arquivo}, é nova: ponha o formato da versão fixa dela no ImagensTests.");
+            }
+
+            Assert.Matches(formato, i.Tag);
+        });
+    }
 
     [Fact]
     public void O_SDK_do_NET_e_o_mesmo_no_build_de_producao_no_desenvolvimento_e_nos_testes()
@@ -27,12 +63,12 @@ public class ImagensTests
     }
 
     [Fact]
-    public void As_imagens_do_NET_tem_a_versao_completa()
+    public void O_PostgreSQL_e_o_mesmo_no_desenvolvimento_e_na_producao()
     {
-        var dotnet = Imagens().Where(i => i.Nome is Sdk or Runtime).ToList();
+        var postgres = Imagens().Where(i => i.Nome == Postgres).ToList();
 
-        Assert.NotEmpty(dotnet);
-        Assert.All(dotnet, i => Assert.Matches(@"^\d+\.\d+\.\d+$", i.Tag));
+        Assert.Equal(["docker-compose.prod.yml", "docker-compose.yml"], postgres.Select(i => i.Arquivo).Distinct().Order(StringComparer.Ordinal));
+        Assert.Single(postgres.Select(i => i.Tag).Distinct());
     }
 
     [Fact]

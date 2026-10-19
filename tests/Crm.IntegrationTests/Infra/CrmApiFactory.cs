@@ -15,8 +15,8 @@ namespace Crm.IntegrationTests.Infra;
 /// </summary>
 public sealed class CrmApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    /// <summary>A mesma imagem do docker-compose.yml.</summary>
-    public const string ImagemPostgres = "postgres:17";
+    /// <summary>A imagem do PostgreSQL do docker-compose.prod.yml: os testes rodam na mesma versão da produção.</summary>
+    public static string ImagemPostgres { get; } = Repositorio.ImagemDoComposeDeProducao("postgres");
 
     public const string AmbienteTestes = "Testing";
 

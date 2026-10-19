@@ -4,7 +4,7 @@
 # "migracoes" do docker-compose.prod.yml roda antes de a API subir. As imagens têm versão fixa (README › Versões fixadas).
 
 # 1. Front: o build do React, que vai para o wwwroot da API.
-FROM node:22-alpine AS front
+FROM node:22.23.3-alpine3.24 AS front
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci

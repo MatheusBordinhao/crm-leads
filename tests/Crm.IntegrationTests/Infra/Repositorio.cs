@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace Crm.IntegrationTests.Infra;
 
@@ -9,6 +10,17 @@ namespace Crm.IntegrationTests.Infra;
 internal static class Repositorio
 {
     public static string Raiz { get; } = AcharRaiz();
+
+    /// <summary>
+    /// A imagem do docker-compose.prod.yml pelo nome, como <c>postgres</c> ou <c>caddy</c>, com a versão fixa: os testes
+    /// usam a mesma imagem que o servidor baixa.
+    /// </summary>
+    public static string ImagemDoComposeDeProducao(string nome)
+    {
+        var compose = File.ReadAllText(Path.Combine(Raiz, "docker-compose.prod.yml"));
+        var imagem = Regex.Match(compose, $@"image:\s*({Regex.Escape(nome)}:\S+)").Groups[1].Value;
+        return imagem.Length > 0 ? imagem : throw new InvalidOperationException($"O docker-compose.prod.yml não tem a imagem {nome}.");
+    }
 
     private static string AcharRaiz([CallerFilePath] string esteArquivo = "")
     {
