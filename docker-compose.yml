@@ -85,7 +85,7 @@ services:
   # e os eventos ficam pendentes. A API o chama em http://n8n:5678, e os fluxos chamam a API em http://api:5080.
   # A conta de dono, as credenciais e a chave que as criptografa ficam no volume, nunca aqui.
   n8n:
-    image: n8nio/n8n:2.43.5
+    image: n8nio/n8n:2.43.7
     restart: unless-stopped
     environment:
       # Os agendamentos no horário de Brasília. Os fluxos do CRM também levam o fuso nas configurações deles.
