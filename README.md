@@ -567,7 +567,7 @@ Com o Controle Inteligente de Aplicativos do Windows ligado, o `dotnet test` nã
 docker compose -f docker-compose.testes.yml run --rm testes
 ```
 
-- O código entra só para leitura: o build fica num volume do Docker, e nada muda nas pastas `bin/` e `obj/` do Windows. Por isso, ele roda mesmo com a API de desenvolvimento aberta, que trava o `Crm.Api.exe` do build do Windows.
+- O código entra só para leitura: o build fica num volume do Docker, e nada muda nas pastas `bin/` e `obj/` do Windows. Por isso, ele roda mesmo com a API de desenvolvimento aberta, que trava o `Crm.Api.exe` do build do Windows. Os resultados dos testes (`TestResults`) também vão para esse volume: no `/src`, só para leitura, o `dotnet test` não consegue criá-los.
 - O PostgreSQL dos testes sobe no Docker do computador, como no `dotnet test` normal.
 - A primeira vez baixa a imagem do SDK e os pacotes, o que leva alguns minutos; as seguintes reaproveitam os volumes. Para apagá-los: `docker compose -f docker-compose.testes.yml down -v`.
 - O que vem depois de `testes` vai para o `dotnet test`. Para rodar uma classe só:

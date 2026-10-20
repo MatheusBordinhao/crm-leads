@@ -79,6 +79,19 @@ public class WorkflowsTests
     }
 
     [Fact]
+    public void O_conteiner_dos_testes_grava_os_resultados_no_volume_do_build()
+    {
+        // O código entra só para leitura, e o dotnet test cria a pasta dos resultados na pasta de trabalho. Num checkout
+        // limpo, como o do CI, ela não existe, e a suíte falha antes de rodar. Aqui, uma TestResults vazia na cópia do
+        // Windows esconde o erro.
+        var compose = Ler("docker-compose.testes.yml");
+
+        Assert.Contains("- .:/src:ro", compose);
+        Assert.Contains("- artefatos:/artefatos", compose);
+        Assert.Matches(@"entrypoint: \[""dotnet"", ""test"",.*""--results-directory"", ""/artefatos/", compose);
+    }
+
+    [Fact]
     public void As_5_rodadas_do_front_so_rodam_a_mao_e_em_paralelo()
     {
         var texto = LerWorkflow("front-5-rodadas.yml");
