@@ -1,0 +1,43 @@
+# As suítes a cada push na master e em todo PR, inclusive os do Dependabot (README › Testes e qualidade › CI).
+# O .NET roda pelo mesmo Compose dos testes desta máquina, e o front, na imagem do Node do Dockerfile, a do build de
+# produção. Os passos depois do primeiro rodam mesmo se ele falhar, para uma rodada mostrar todos os problemas.
+name: Testes
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ['**.md']
+  pull_request:
+    paths-ignore: ['**.md']
+
+permissions:
+  contents: read
+
+# Um push novo na mesma branch cancela a rodada anterior, que ficou velha: economiza minutos.
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes:
+    name: .NET e front
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Testes .NET
+        run: docker compose -f docker-compose.testes.yml run --rm -T testes
+
+      # No mesmo contêiner e nos mesmos volumes da suíte: aproveita o restore dela.
+      - name: Formatação do C#
+        if: ${{ !cancelled() }}
+        run: >-
+          docker compose -f docker-compose.testes.yml run --rm -T -e ArtifactsPath=/artefatos
+          --entrypoint dotnet testes format Crm.sln --verify-no-changes
+
+      - name: Front
+        if: ${{ !cancelled() }}
+        run: sh .github/scripts/front.sh completo

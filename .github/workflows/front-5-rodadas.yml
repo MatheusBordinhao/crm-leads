@@ -1,0 +1,35 @@
+# As 5 rodadas da suíte do front, cada uma num runner próprio, para medir a folga das esperas no runner do GitHub
+# (README › Testes e qualidade › CI). As rodadas não disputam CPU entre si, e cada uma roda o mesmo script do
+# testes.yml, só com a suíte. Só roda quando alguém dispara, pela tela do Actions.
+name: 'Front: 5 rodadas em paralelo'
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    name: Rodada ${{ matrix.rodada }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      # Uma rodada que falha não cancela as outras: o que interessa é ver as 5.
+      fail-fast: false
+      matrix:
+        rodada: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Suíte do front
+        run: sh .github/scripts/front.sh suite
+        env:
+          RESULTADO: ${{ runner.temp }}/front
+
+      # Na página da rodada: a máquina, o tempo, as falhas e os 10 testes mais lentos.
+      - name: Resumo
+        if: ${{ !cancelled() }}
+        run: node .github/scripts/resumo-do-front.mjs "$RUNNER_TEMP/front/vitest.json" >> "$GITHUB_STEP_SUMMARY"
