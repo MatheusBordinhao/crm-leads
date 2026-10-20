@@ -54,7 +54,7 @@ describe('todo campo de formulário tem id ou name', () => {
     const { usuario } = renderizarApp('/leads/1024')
 
     expect(await screen.findByRole('heading', { name: 'Maria Souza' })).toBeInTheDocument()
-    await screen.findByRole('option', { name: 'Perdido' })
+    await within(screen.getByLabelText('Mudar para')).findByRole('option', { name: 'Perdido' })
     expect(camposSemIdNemName()).toEqual([])
 
     await usuario.click(screen.getByRole('button', { name: 'Registrar interação' }))
