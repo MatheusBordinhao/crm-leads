@@ -229,7 +229,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
   - no Lote 3, aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
-  - no Lote 5, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior;
+  - no Lote 5, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e subir o `source-map-js` da 1.2.1 para a 1.2.2, que corrige o alerta alto do Dependabot, pelo caminho do contêiner. O outro alerta alto, o do `braces` 3.0.3, ainda sem correção, é descartado no GitHub, com o motivo: ele só chega pela CLI do `shadcn` (`fast-glob` › `micromatch` › `braces`), e nem o `web/dist` nem a imagem de produção o têm (conferido em 20/10/2026);
   - no Lote 2A, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
   - no Lote 2A, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. A redação dos dados de execução do n8n é só do Enterprise; o caminho no Starter é não salvar as execuções.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
