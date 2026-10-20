@@ -267,6 +267,20 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - Na demonstração de fim do item, o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 389, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois.
   - Validado por mim em 20/10/2026: o e-mail de alerta do lead 389 chegou no celular.
   - O volume `crm-medicao-node-modules`, com o `node_modules` do contêiner da medição, fica para o Lote 1B e é apagado no fim dele.
+- Lote 1B (CI no GitHub Actions), implementado em 20/10/2026, falta a validação no GitHub:
+  - três workflows em `.github/workflows` (README › Testes e qualidade › CI no GitHub Actions):
+    - `testes.yml`, em todo push na `master` e em todo PR, menos os só de `.md`: a suíte .NET, o `dotnet format` e o front completo;
+    - `imagem.yml`, quando muda o que entra na imagem ou nos Compose: o build e o Compose de produção com dados sorteados, com as migrations, o `/health` pelo Caddy e o runtime 10.0.13 ou mais novo;
+    - `front-5-rodadas.yml`, disparado por mim pela tela do Actions: a suíte do front em 5 runners ao mesmo tempo, com o resumo de cada rodada na página dela;
+  - o front roda pelo `.github/scripts/front.sh`, na imagem do Node do `Dockerfile`, e o resumo das rodadas sai do `.github/scripts/resumo-do-front.mjs`;
+  - o Dependabot ganhou as ações, num PR por mês, com as versões principais;
+  - o `WorkflowsTests` cobra a permissão só de leitura, o SHA das ações, o `persist-credentials: false` e a falta de segredos e do `pull_request_target`;
+  - conferido pelo Claude:
+    - o `actionlint` 1.7.12, com o `shellcheck`, sem erros nos três workflows, e o `shellcheck` sem avisos no `front.sh`;
+    - três regras quebradas de propósito (o `persist-credentials`, uma tag no lugar do SHA e o `pull_request_target`) deram 4 falhas no `WorkflowsTests`, e só elas;
+    - o `front.sh` no contêiner de 2 CPUs: o `completo` em 259 s, com a suíte em 176 s, e o `suite` em 184 s, com o resumo. O `node_modules` e o `dist` do Windows não mudaram, e nenhum volume ficou;
+    - o `dotnet format` levou 77 s, com o restore pronto, e o build da imagem sem cache, 128 s, com as imagens base já baixadas;
+  - falta: o push, a primeira rodada no GitHub, um commit só de `.md`, as 5 rodadas do front pela tela do Actions e o PR #1 do Dependabot pelo CI.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -312,7 +326,7 @@ docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef nu
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
 .claude/                     permissões do projeto e o comando /passo
-.github/                     o Dependabot (um PR por mês com as imagens e outro com o NuGet, sem o npm)
+.github/                     o CI (os workflows e, em scripts/, o front.sh e o resumo das 5 rodadas) e o Dependabot (um PR por mês com as imagens, outro com o NuGet e outro com as ações, sem o npm)
 .mcp.json                    servidor MCP do n8n Cloud (o do n8n local fica no ~/.claude.json, fora do Git)
 ```
 
@@ -332,6 +346,8 @@ cd web && npm test                                       # testes do front (vite
 dotnet format                                            # formata o C# (--verify-no-changes só confere)
 MSYS_NO_PATHCONV=1 docker compose -f docker-compose.testes.yml run --rm -e ArtifactsPath=/artefatos --entrypoint dotnet testes format Crm.sln --verify-no-changes   # o mesmo, pelo contêiner dos testes
 cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
+sh .github/scripts/front.sh completo                     # o front como no CI, num contêiner Alpine, sem tocar no node_modules do Windows
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo:ro" -w /repo rhysd/actionlint:1.7.12   # confere os workflows do CI
 docker compose run --rm ef migrations add <NomeDescritivo>   # dotnet ef num contêiner (nesta máquina, o jeito que roda)
 dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef no Windows
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
@@ -480,6 +496,13 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Para encurtar nos testes do front um intervalo que espera o relógio de verdade, como o da consulta de andamento da importação, ponha a constante num módulo próprio e troque o valor por `vi.mock`, sem relógio falso (`importacao/andamento.ts`).
 - Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot.
 - Um `docker compose -p <descartável> -f docker-compose.prod.yml up --build` troca a imagem `crm-api`, a mesma do plano B. Para não mexer nela, dê outro nome à imagem por um override (`image:` dos serviços `api` e `migracoes`).
+- Os workflows do CI só leem o repositório, e o `WorkflowsTests` cobra isso em todo arquivo de `.github/workflows`:
+  - a permissão `contents: read`;
+  - toda ação de terceiros fixada pelo SHA, com a versão num comentário, que o Dependabot atualiza;
+  - todo checkout com `persist-credentials: false`;
+  - nada de `secrets`, `github.token` ou `pull_request_target`.
+- No GitHub Free, repositório privado não tem proteção de branch: o check vermelho não impede o merge. A conferência de um PR é manual (README › Versões fixadas).
+- O `front.sh` monta o `web/` só para leitura, com o `node_modules` num volume anônimo, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria o `web/node_modules` antes, o que no runner é uma pasta vazia.
 
 ## n8n
 

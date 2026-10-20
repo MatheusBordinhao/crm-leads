@@ -576,6 +576,33 @@ docker compose -f docker-compose.testes.yml run --rm testes
   docker compose -f docker-compose.testes.yml run --rm testes --project tests/Crm.IntegrationTests/Crm.IntegrationTests.csproj --filter-class "Crm.IntegrationTests.ImportacaoTests"
   ```
 
+### CI no GitHub Actions
+
+Três workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em runners Ubuntu de 2 vCPUs:
+
+| Workflow | Quando roda | O que faz |
+| --- | --- | --- |
+| `Testes` ([testes.yml](.github/workflows/testes.yml)) | Em todo push na `master` e em todo PR, inclusive os do Dependabot, menos quando só mudam arquivos `.md` | A suíte .NET pelo `docker-compose.testes.yml`, o `dotnet format --verify-no-changes` e o front: o `npm ci`, o lint, o `format:check`, a suíte e o build |
+| `Imagem de produção` ([imagem.yml](.github/workflows/imagem.yml)) | Quando muda o que entra na imagem ou nos Compose: o `Dockerfile`, os Compose, os `.props`, o `global.json`, o `dotnet-tools.json`, o `package.json` e o lockfile do front ou o Caddyfile | O build da imagem e o Compose de produção num projeto só do CI, com dados sorteados: as migrations terminam com 0, o `/health` responde 200 pelo Caddy, e a API roda o ASP.NET Core 10.0.13 ou mais novo |
+| `Front: 5 rodadas em paralelo` ([front-5-rodadas.yml](.github/workflows/front-5-rodadas.yml)) | Só quando alguém dispara, pela tela do Actions | A suíte do front 5 vezes ao mesmo tempo, cada uma num runner próprio, para medir a folga das esperas |
+
+- **O front roda na imagem do Node do `Dockerfile`**, a mesma do build de produção, pelo [.github/scripts/front.sh](.github/scripts/front.sh). Assim, o CI pega um problema do build em Alpine e acompanha sozinho a versão que o Dependabot subir. O script roda igual aqui, pelo Git Bash, sem tocar no `node_modules` nem no `dist` do Windows:
+
+  ```bash
+  sh .github/scripts/front.sh completo
+  FRONT_DOCKER_OPCOES="--cpuset-cpus=0,1 --memory=7g" sh .github/scripts/front.sh completo   # com 2 CPUs, como o runner
+  ```
+
+- **As 5 rodadas do front:** em Actions › "Front: 5 rodadas em paralelo" › Run workflow, na `master`. As rodadas não disputam CPU entre si, e cada uma escreve na página da rodada o processador do runner, o tempo da suíte, as falhas e os 10 testes mais lentos, com o "Perdido pede o motivo" em destaque. Rode depois de uma mudança grande no front ou quando o `Testes` falhar por tempo: uma espera acima de 1 s mostra que a folga do runner acabou.
+- **Os workflows só leem o repositório:** a permissão é só de leitura, o checkout não guarda o token do GitHub no `.git` (`persist-credentials: false`), nenhum usa segredos nem o `pull_request_target`, e as ações de terceiros ficam fixadas pelo commit (SHA), com a versão num comentário. O `WorkflowsTests` cobra isso. Para conferir os workflows antes do push:
+
+  ```powershell
+  docker run --rm -v "${PWD}:/repo:ro" -w /repo rhysd/actionlint:1.7.12
+  ```
+
+- **Minutos:** o repositório é privado, e o GitHub Free dá 2.000 minutos por mês, com cada job arredondado para o minuto de cima. Pela estimativa, uma rodada do `Testes` leva de 12 a 18 minutos. O `Imagem de produção` roda poucas vezes por mês, e as 5 rodadas do front gastam uns 25 minutos por disparo. Sem forma de pagamento cadastrada, o Actions para quando a cota acaba, sem cobrança.
+- **O check vermelho não impede o merge:** no GitHub Free, repositório privado não tem proteção de branch. A conferência antes do merge é manual (veja "Versões fixadas").
+
 ## Banco de dados
 
 ```bash
@@ -616,7 +643,8 @@ deploy/                      Caddyfile e scripts de backup e de teste da restaur
 docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
                              importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
-.github/                     o Dependabot: um PR por mês com as imagens e outro com o NuGet (veja "Versões fixadas")
+.github/                     o CI, com os workflows e os scripts deles (veja "CI no GitHub Actions"), e o Dependabot: um PR
+                             por mês com as imagens, outro com o NuGet e outro com as ações (veja "Versões fixadas")
 ```
 
 ## Publicação
@@ -636,7 +664,8 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 - o log do Caddy, que grava as falhas do proxy sem a query string, o `Referer` e o `X-Api-Key` (veja "Cuidados");
 - o backup e o teste da restauração;
 - a importação e o PWA no build de produção;
-- as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas").
+- as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas");
+- o build da imagem e a subida do Compose com dados fictícios, também no CI, a cada mudança nas imagens ou nos pacotes (veja "CI no GitHub Actions").
 
 Falta:
 
@@ -738,38 +767,39 @@ O serviço `migracoes` aplica as migrations novas antes de a API subir. As sess�
 
 ### Versões fixadas
 
-Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `2` ou `17`. Assim, o servidor, este computador e os testes rodam a mesma versão.
+Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `2` ou `17`. Assim, o servidor, este computador e os testes rodam a mesma versão. O número fica só nos arquivos, e não aqui, para o PR mensal do Dependabot não deixar esta tabela velha.
 
-| Imagem | Onde | Versão |
-| --- | --- | --- |
-| `mcr.microsoft.com/dotnet/sdk` | `Dockerfile` (build), `docker-compose.yml` (`api` e `ef`) e `docker-compose.testes.yml` | 10.0.402, que traz o runtime 10.0.13 |
-| `mcr.microsoft.com/dotnet/aspnet` | `Dockerfile` (a imagem final) | 10.0.13, com a correção da CVE-2026-70159 |
-| `node` | `Dockerfile` (build do front) | 22.23.3-alpine3.24 |
-| `postgres` | `docker-compose.yml` e `docker-compose.prod.yml` (`db` e `backup`); os testes de integração usam a do Compose de produção | 17.11 |
-| `caddy` | `docker-compose.prod.yml`; o teste do log do Caddy usa a do Compose | 2.11.4 |
-| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento | 2.43.5 |
+| Imagem | Onde |
+| --- | --- |
+| `mcr.microsoft.com/dotnet/sdk` | `Dockerfile` (build), `docker-compose.yml` (`api` e `ef`) e `docker-compose.testes.yml`, a mesma nos quatro lugares. O runtime que ela traz é o da imagem `aspnet` |
+| `mcr.microsoft.com/dotnet/aspnet` | `Dockerfile` (a imagem final), na 10.0.13 ou mais nova, com a correção da CVE-2026-70159 |
+| `node` | `Dockerfile` (build do front). O CI roda o front nela |
+| `postgres` | `docker-compose.yml` e `docker-compose.prod.yml` (`db` e `backup`), a mesma nos dois. Os testes de integração usam a do Compose de produção |
+| `caddy` | `docker-compose.prod.yml`. O teste do log do Caddy usa a do Compose |
+| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento. Acompanha a do n8n Cloud |
 
 O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lugares, o mesmo PostgreSQL em desenvolvimento e em produção e o runtime com a correção. Uma imagem nova precisa entrar nele.
 
 **Quando subir.**
-- O Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) abre, uma vez por mês, um PR com as imagens novas, com o `Dockerfile` e os Compose juntos, e outro com os pacotes do NuGet.
-- A versão principal (.NET 11, PostgreSQL 18, Node 24) fica de fora, porque é uma decisão nossa.
+- O Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) abre, uma vez por mês, um PR com as imagens novas, com o `Dockerfile` e os Compose juntos, um com os pacotes do NuGet e um com as ações dos workflows.
+- Nas imagens e no NuGet, a versão principal (.NET 11, PostgreSQL 18, Node 24) fica de fora, porque é uma decisão nossa. Nas ações, ela entra: ficar parado numa versão principal antiga acaba em aviso de descontinuação do GitHub, e o próprio CI testa o PR.
 - O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê, e não instale nem atualize nada no Windows.
 - O Dependabot só funciona com o arquivo no GitHub e os alertas ligados no repositório (Settings › Code security).
 
-**Como conferir um PR do Dependabot, antes do merge.**
+**Como conferir um PR do Dependabot, antes do merge.** No GitHub Free, repositório privado não tem proteção de branch: nada impede o merge com o check vermelho. A conferência é manual:
 
-1. Traga o branch do PR: `git fetch origin` e `git switch <branch do PR>`.
-2. Confira qual runtime a imagem nova do SDK traz. Ele precisa ser o mesmo da imagem `aspnet` do PR:
+1. O check do PR está verde: o `Testes` e, quando o PR muda as imagens, os pacotes ou as ações, o `Imagem de produção` (veja "CI no GitHub Actions"). O `Testes` roda as duas suítes, com o teste do log do Caddy na imagem do Compose, e o `Imagem de produção` sobe o Compose de produção.
+2. Num PR de imagens:
+   - a versão nova saiu há pelo menos 3 dias. Nesses PRs, o Dependabot avisa que não aplicou a espera de 3 dias, porque o registro não informa a data de publicação: confira a data no Docker Hub ou no registro da Microsoft;
+   - o runtime que a imagem nova do SDK traz é o mesmo da imagem `aspnet` do PR:
 
-   ```powershell
-   (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
-   ```
+     ```powershell
+     (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
+     ```
 
-3. Rode as suítes, uma depois da outra: `docker compose -f docker-compose.testes.yml run --rm testes`, que inclui o teste do log do Caddy com a imagem do Compose, e, em `web/`, `npm.cmd test`.
-4. Recrie a API de desenvolvimento (`docker compose up -d api`) e confira a demonstração (veja "O alerta no celular", em Demonstração). Numa imagem de produção nova, suba também o Compose de produção no próprio computador (veja "Testar a publicação no próprio computador").
-5. Quando o PR subir o n8n do Compose de desenvolvimento, recrie-o (`docker compose up -d n8n`) e repita, além do alerta da demonstração, os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
-6. Só então faça o merge.
+3. Traga o branch do PR (`git fetch origin` e `git switch <branch do PR>`), recrie a API de desenvolvimento (`docker compose up -d api`) e confira a demonstração (veja "O alerta no celular", em Demonstração).
+4. Quando o PR subir o n8n do Compose de desenvolvimento, recrie-o (`docker compose up -d n8n`) e repita, além do alerta da demonstração, os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
+5. Só então faça o merge.
 
 ### Backup
 
