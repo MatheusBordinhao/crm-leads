@@ -264,6 +264,9 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - no contêiner de 2 CPUs, com 1 worker, como o CI: 5 rodadas seguidas sem falha, em 173 a 197 s (antes, em 185 a 229 s). O "Perdido pede o motivo", o teste de menos folga, levou de 684 a 1.350 ms, com mediana de 776 ms (antes, 1.140 ms).
   - A medição vale com a máquina sem carga pesada de fora. Em 20/10/2026, um vídeo no Chrome ocupou de 3 a 4 threads, e a máquina ficou cerca de 1,7 vez mais lenta: no contêiner com 1 worker, 4 testes falharam por tempo (3 esperas de 1 s e 1 limite de 5 s). Essas rodadas ficaram fora da conta.
   - A folga do CI é menor que isso. No Lote 1B, antes de o CI ser considerado pronto, a suíte do front roda 5 vezes no runner do GitHub. Se alguma espera estourar, decidimos juntos.
+  - Na demonstração de fim do item, o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 389, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois.
+  - Validado por mim em 20/10/2026: o e-mail de alerta do lead 389 chegou no celular.
+  - O volume `crm-medicao-node-modules`, com o `node_modules` do contêiner da medição, fica para o Lote 1B e é apagado no fim dele.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -503,7 +506,7 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
 - Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
   - 1: infraestrutura (as imagens com versão fixa e o Dependabot), fechado em 19/10/2026;
-  - a causa do teste instável do front, trazida do 4A em 19/10/2026;
+  - a causa do teste instável do front, trazida do 4A em 19/10/2026 e fechada em 20/10/2026;
   - 1B: CI no GitHub Actions;
   - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
   - 3: troca de chaves sem parar;
