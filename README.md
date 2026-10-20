@@ -600,7 +600,7 @@ Três workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em 
   docker run --rm -v "${PWD}:/repo:ro" -w /repo rhysd/actionlint:1.7.12
   ```
 
-- **Minutos:** o repositório é privado, e o GitHub Free dá 2.000 minutos por mês, com cada job arredondado para o minuto de cima. Pela estimativa, uma rodada do `Testes` leva de 12 a 18 minutos. O `Imagem de produção` roda poucas vezes por mês, e as 5 rodadas do front gastam uns 25 minutos por disparo. Sem forma de pagamento cadastrada, o Actions para quando a cota acaba, sem cobrança.
+- **Minutos:** o repositório é privado, e o GitHub Free dá 2.000 minutos por mês, com cada job arredondado para o minuto de cima. Na primeira rodada verde, em 20/10/2026, o `Testes` levou 4 min 37 s, e o `Imagem de produção`, 2 min 24 s: com o arredondamento, uns 5 e 3 minutos. O `Imagem de produção` roda poucas vezes por mês. As 5 rodadas do front terminaram em 2 min 40 s, o que dá até 3 minutos cobrados por rodada, 15 por disparo. Sem forma de pagamento cadastrada, o Actions para quando a cota acaba, sem cobrança.
 - **O check vermelho não impede o merge:** no GitHub Free, repositório privado não tem proteção de branch. A conferência antes do merge é manual (veja "Versões fixadas").
 
 ## Banco de dados

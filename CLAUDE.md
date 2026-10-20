@@ -229,6 +229,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
   - no Lote 3, aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
+  - no Lote 4A, o PR #2 do Dependabot (Caddy 2.11.7 e n8n 2.43.7) não tem nenhuma rodada do CI: ele foi aberto antes de os workflows existirem na `master`. Antes da avaliação, um `@dependabot rebase` faz o CI rodar nele;
   - no Lote 5, as dependências do front, com os alertas do Dependabot no `web/package-lock.json`:
     - passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) ou, se a ideia der certo, tirar o pacote. O app só usa dele o CSS (`shadcn/tailwind.css`);
     - subir pelo caminho do contêiner o `source-map-js` da 1.2.1 para a 1.2.2, que corrige um alerta alto;
@@ -268,11 +269,11 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - com 2 workers: 10 rodadas seguidas sem falha, em 97 a 134 s;
     - no contêiner de 2 CPUs, com 1 worker, como o CI: 5 rodadas seguidas sem falha, em 173 a 197 s (antes, em 185 a 229 s). O "Perdido pede o motivo", o teste de menos folga, levou de 684 a 1.350 ms, com mediana de 776 ms (antes, 1.140 ms).
   - A medição vale com a máquina sem carga pesada de fora. Em 20/10/2026, um vídeo no Chrome ocupou de 3 a 4 threads, e a máquina ficou cerca de 1,7 vez mais lenta: no contêiner com 1 worker, 4 testes falharam por tempo (3 esperas de 1 s e 1 limite de 5 s). Essas rodadas ficaram fora da conta.
-  - A folga do CI é menor que isso. No Lote 1B, antes de o CI ser considerado pronto, a suíte do front roda 5 vezes no runner do GitHub. Se alguma espera estourar, decidimos juntos.
+  - No runner do GitHub, a folga é maior que no contêiner daqui: no Lote 1B, as 5 rodadas da suíte do front passaram, cerca de 2 vezes mais rápidas.
   - Na demonstração de fim do item, o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 389, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois.
   - Validado por mim em 20/10/2026: o e-mail de alerta do lead 389 chegou no celular.
   - O volume `crm-medicao-node-modules`, com o `node_modules` do contêiner da medição, fica para o Lote 1B e é apagado no fim dele.
-- Lote 1B (CI no GitHub Actions), implementado em 20/10/2026, falta a validação no GitHub:
+- Lote 1B (CI no GitHub Actions), implementado em 20/10/2026 e verde no GitHub no mesmo dia:
   - três workflows em `.github/workflows` (README › Testes e qualidade › CI no GitHub Actions):
     - `testes.yml`, em todo push na `master` e em todo PR, menos os só de `.md`: a suíte .NET, o `dotnet format` e o front completo;
     - `imagem.yml`, quando muda o que entra na imagem ou nos Compose: o build e o Compose de produção com dados sorteados, com as migrations, o `/health` pelo Caddy e o runtime 10.0.13 ou mais novo;
@@ -289,7 +290,20 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - o `dotnet test` cria a pasta dos resultados na pasta de trabalho, que no contêiner é o `/src`, só para leitura. Aqui passava porque a cópia do Windows tem uma `TestResults` vazia (Armadilhas conhecidas);
     - reproduzido pelo Claude num clone limpo, com volumes novos, e corrigido com o `--results-directory /artefatos/TestResults` (`662d61d`). Num clone novo da correção, também com volumes novos, a suíte deu 749 de 749, e a formatação passou;
   - o Dependabot fechou o PR #1 e abriu o #3, com os mesmos 12 pacotes do NuGet. É ele que passa pelo CI, com o `@dependabot rebase` depois da correção no GitHub;
-  - falta: o push da correção, a primeira rodada verde do `Testes` e do `Imagem de produção`, o commit só de `.md`, num push sozinho, e o PR #3 pelo CI.
+  - validado por mim no GitHub, em 20/10/2026:
+    - com a correção (`40133cc`), o `Testes` ficou verde em 4 min 37 s, e o `Imagem de produção`, em 2 min 24 s. O `Imagem de produção` também passou nas rodadas anteriores, em 2 min 22 s e 2 min 14 s;
+    - no PR #3, cada workflow rodou uma vez só, pelo `pull_request`, sem rodada a mais pelo push do branch do Dependabot: o `push` dos workflows vale só para a `master`;
+    - o vermelho já apareceu numa falha de verdade, a da `TestResults`;
+    - as 5 rodadas do front passaram, com 260 testes e nenhuma falha em cada uma, e o disparo terminou em 2 min 40 s:
+      - a suíte levou de 73 a 121 s (mediana de 91 s), contra 170 a 193 s no contêiner de 2 CPUs daqui, pela mesma medida do resumo: cerca de 2 vezes mais rápido, de 1,4 a 2,6 vezes nos extremos;
+      - o processador muda de uma rodada para outra (AMD EPYC 9V45, 9V74 e 7763), e a 7763 foi a mais lenta;
+      - o "Perdido pede o motivo" levou de 397 a 644 ms, contra 684 a 1.350 ms aqui;
+      - o mais lento em todas foi o "recarrega quando um lead ou o funil muda, pelo tempo real", de 1,09 a 1,15 s, que espera o relógio de verdade e tem prazo próprio. Fora ele, nenhum teste passou de 903 ms;
+      - com isso, o critério das 5 rodadas está cumprido, e a folga no runner é maior que no contêiner daqui;
+  - falta:
+    - conferir que o push do commit que registra isto, só de `.md`, não roda nenhum workflow;
+    - o `@dependabot rebase` no PR #3, o check verde nele e o merge, depois da demonstração;
+    - a demonstração de fim de lote e apagar o volume `crm-medicao-node-modules`.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
