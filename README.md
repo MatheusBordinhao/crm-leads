@@ -555,6 +555,8 @@ cd web && npm run format                 # Prettier; format:check só confere
 
 O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os da anonimização também usam bancos só deles, porque uma importação processando, de qualquer teste, faz a anonimização responder 409. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`). O teste do log do Caddy (`LogDoCaddyTests`) sobe, também pelo Testcontainers, a imagem do Caddy do Compose de produção com o Caddyfile de verdade.
 
+A suíte do front usa no máximo 2 workers (`maxWorkers: '25%'`, no [web/vite.config.ts](web/vite.config.ts)), e 1 numa máquina de 2 CPUs, como o runner do CI. Com mais workers, os testes disputam a CPU e estouram os tempos de espera: 1 s no `findBy` e no `waitFor` e 5 s por teste. Pelo mesmo motivo, rode-a sem carga pesada na máquina, como um vídeo no navegador, e nunca ao mesmo tempo que a suíte .NET.
+
 No Windows PowerShell 5.1, use `npm.cmd` no lugar de `npm` (a política de execução bloqueia o `npm.ps1`) e rode os comandos em linhas separadas, porque o `&&` não existe nele: `cd web` e, depois, `npm.cmd test`.
 
 ### Testes .NET num contêiner Linux

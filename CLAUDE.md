@@ -248,7 +248,22 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a suíte do front, que este lote não mudou: com o padrão de workers, de 2 a 4 falhas de tempo por rodada, em arquivos diferentes, que passam sozinhos; com `--maxWorkers=4`, 260 de 260. A máquina estava com 2,7 GB de memória livre;
     - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 328, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 5,6 s depois;
   - validado por mim em 19/10/2026: o e-mail de alerta do lead 328 chegou no celular da Adriana, às 10:08.
-- Em 19/10/2026, o teste instável do front saiu do Lote 4A e vem antes do Lote 1B: o CI vai rodar a suíte do front num runner de 2 vCPUs, e, com a suíte falhando por tempo, ele ficaria vermelho à toa.
+- A causa do teste instável do front, trazida do Lote 4A em 19/10/2026, foi medida e corrigida em 20/10/2026, antes do Lote 1B: o CI vai rodar a suíte do front num runner de 2 vCPUs, e, com ela falhando por tempo, ele ficaria vermelho à toa.
+  - Todas as falhas eram de tempo (esperas de 1 s e limites de 5 s por teste), nenhuma de asserção.
+  - A causa principal era a disputa: o Vitest abria 7 workers nos 4 núcleos, a memória livre caía a cerca de 300 MB, e tudo ficava de 4 a 6 vezes mais lento. Só o render inicial de uma tela ia de 150 ms para 700 a 940 ms.
+  - Agravava o custo das consultas por papel em telas grandes (Armadilhas conhecidas).
+  - O teste do service worker não tinha corrida: a mensagem chegava e a navegação acontecia, mas, com a disputa, a ficha não renderizava a tempo. O `TempoReal.tsx` não mudou.
+  - A correção:
+    - no máximo 2 workers (`maxWorkers: '25%'`, no `web/vite.config.ts`);
+    - consultas mais baratas nos testes da ficha, da importação e do painel, sem mudar o que eles conferem, e sem os prazos de 3 s;
+    - o `INTERVALO_ANDAMENTO` num módulo próprio (`importacao/andamento.ts`), que os testes trocam por `vi.mock`, com a consulta a cada 200 ms. Na tela, ele continua com 1 s.
+  - Conferido pelo Claude, com a suíte inteira:
+    - antes, em 19/10/2026, com o padrão: de 3 a 13 falhas por rodada, em 80 a 106 s;
+    - em 20/10/2026, com 4 workers e a máquina mais ocupada: 2 das 10 rodadas falharam, por lentidão geral;
+    - com 2 workers: 10 rodadas seguidas sem falha, em 97 a 134 s;
+    - no contêiner de 2 CPUs, com 1 worker, como o CI: 5 rodadas seguidas sem falha, em 173 a 197 s (antes, em 185 a 229 s). O "Perdido pede o motivo", o teste de menos folga, levou de 684 a 1.350 ms, com mediana de 776 ms (antes, 1.140 ms).
+  - A medição vale com a máquina sem carga pesada de fora. Em 20/10/2026, um vídeo no Chrome ocupou de 3 a 4 threads, e a máquina ficou cerca de 1,7 vez mais lenta: no contêiner com 1 worker, 4 testes falharam por tempo (3 esperas de 1 s e 1 limite de 5 s). Essas rodadas ficaram fora da conta.
+  - A folga do CI é menor que isso. No Lote 1B, antes de o CI ser considerado pronto, a suíte do front roda 5 vezes no runner do GitHub. Se alguma espera estourar, decidimos juntos.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -453,7 +468,13 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Um e-mail mandado de uma conta do Gmail para um alias dela mesma, como o `+adriana`, chega como enviado, sem notificar o celular. Por isso, o remetente dos alertas é outra conta.
 - A auditoria do NuGet, com os avisos tratados como erro, derruba o build quando sai um alerta novo para um pacote. Foi o caso da CVE-2026-70159 do SignalR.Common, em 13/10/2026. Suba o pacote para a versão corrigida, no `Directory.Packages.props`.
 - Nos testes do front, o MSW usa o tratador registrado por último. O `comQuadro()` e o `comCadastros()` registram as campanhas padrão: registre as do teste depois deles.
-- O primeiro teste de um arquivo do front carrega a tela a frio. Com a suíte inteira, um `findBy` logo depois de abrir `/` pode passar de 1 s: dê a ele um `timeout` maior, como no primeiro teste do painel. A causa é investigada no Lote 4A: em 19/10/2026, com pouca memória livre, a suíte teve falhas de tempo em arquivos diferentes a cada rodada e passou inteira com `--maxWorkers=4`.
+- A suíte do front roda com no máximo 2 workers (`maxWorkers: '25%'`, no `web/vite.config.ts`), o que dá 1 no runner de 2 vCPUs do CI.
+  - Com o padrão do Vitest (todas as CPUs menos uma), os 7 workers disputavam os 4 núcleos, e a suíte falhava por tempo em toda rodada.
+  - Por que 2 e não 4: com a máquina mais ocupada, 4 workers falharam em 2 das 10 rodadas de 20/10/2026, e as falhas eram de lentidão geral, não de um teste específico.
+  - A medição só vale com a máquina sem carga pesada de fora. Em 20/10/2026, um vídeo no Chrome ocupou de 3 a 4 threads e derrubou rodadas, até no contêiner com 1 worker.
+  - Um `findBy` que só falha com a suíte inteira não ganha um `timeout` maior: meça antes onde vai o tempo.
+- Nos testes do front, uma consulta por papel (`*ByRole`) numa tela grande custa caro e, numa espera, se repete a cada mudança no DOM. Com a disputa, a consulta da opção da etapa na ficha ia de 11 para 91 ms, e o `getAllByRole('cell', { name })` numa tabela de 100 linhas respondia por 4,4 s de um teste de 5,1 s. Em tela grande, procure pelo rótulo (`getByLabelText`), pelo texto ou dentro de um pedaço da tela (`within`), como o `seletorDeEtapa()` da ficha.
+- Para encurtar nos testes do front um intervalo que espera o relógio de verdade, como o da consulta de andamento da importação, ponha a constante num módulo próprio e troque o valor por `vi.mock`, sem relógio falso (`importacao/andamento.ts`).
 - Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot.
 - Um `docker compose -p <descartável> -f docker-compose.prod.yml up --build` troca a imagem `crm-api`, a mesma do plano B. Para não mexer nela, dê outro nome à imagem por um override (`image:` dos serviços `api` e `migracoes`).
 
