@@ -280,7 +280,11 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - três regras quebradas de propósito (o `persist-credentials`, uma tag no lugar do SHA e o `pull_request_target`) deram 4 falhas no `WorkflowsTests`, e só elas;
     - o `front.sh` no contêiner de 2 CPUs: o `completo` em 259 s, com a suíte em 176 s, e o `suite` em 184 s, com o resumo. O `node_modules` e o `dist` do Windows não mudaram, e nenhum volume ficou;
     - o `dotnet format` levou 77 s, com o restore pronto, e o build da imagem sem cache, 128 s, com as imagens base já baixadas;
-  - falta: o push, a primeira rodada no GitHub, um commit só de `.md`, as 5 rodadas do front pela tela do Actions e o PR #1 do Dependabot pelo CI.
+  - no primeiro push (`4e6872c`) e no PR #3 do Dependabot, o `Testes` falhou na suíte .NET, com `Read-only file system : '/src/TestResults'` e o código 134. A formatação e o front passaram:
+    - o `dotnet test` cria a pasta dos resultados na pasta de trabalho, que no contêiner é o `/src`, só para leitura. Aqui passava porque a cópia do Windows tem uma `TestResults` vazia (Armadilhas conhecidas);
+    - reproduzido pelo Claude num clone limpo, com volumes novos, e corrigido com o `--results-directory /artefatos/TestResults` (`662d61d`). Num clone novo da correção, também com volumes novos, a suíte deu 749 de 749, e a formatação passou;
+  - o Dependabot fechou o PR #1 e abriu o #3, com os mesmos 12 pacotes do NuGet. É ele que passa pelo CI, com o `@dependabot rebase` depois da correção no GitHub;
+  - falta: o push da correção, a primeira rodada verde do `Testes` e do `Imagem de produção`, o commit só de `.md`, num push sozinho, e o PR #3 pelo CI.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -503,6 +507,9 @@ docker compose up -d n8n                                 # n8n local em http://l
   - nada de `secrets`, `github.token` ou `pull_request_target`.
 - No GitHub Free, repositório privado não tem proteção de branch: o check vermelho não impede o merge. A conferência de um PR é manual (README › Versões fixadas).
 - O `front.sh` monta o `web/` só para leitura, com o `node_modules` num volume anônimo, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria o `web/node_modules` antes, o que no runner é uma pasta vazia.
+- No modo do Microsoft.Testing.Platform, o `dotnet test` cria a pasta dos resultados (`TestResults`) na pasta de trabalho. No contêiner dos testes, ela é o `/src`, só para leitura, e o `docker-compose.testes.yml` manda os resultados para o volume (`--results-directory /artefatos/TestResults`). Sem isso, num checkout limpo, como o do CI, a suíte falha antes de rodar, com o código 134.
+  - Aqui, a cópia do Windows tem uma `TestResults` vazia desde 28/09/2026, que o `.gitignore` esconde, e o erro não aparece.
+  - Uma mudança no contêiner dos testes ou no CI se confere num clone limpo, numa pasta temporária, com um projeto do Compose descartável (`-p`), que tem volumes novos, como o runner. No fim, o `down -v` desse projeto e o clone apagado.
 
 ## n8n
 
