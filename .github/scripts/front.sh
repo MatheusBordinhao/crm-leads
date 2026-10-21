@@ -43,10 +43,12 @@ case "$modo" in
     ;;
 esac
 
-# O ponto de montagem do volume precisa existir: dentro do web/ só para leitura, o Docker não consegue criá-lo.
-mkdir -p "$raiz/web/node_modules"
+# O web/dist e o web/coverage ficam escondidos por volumes vazios. Só com o web/ montado, o .gitignore da raiz não vale,
+# e o Tailwind leria um build velho do Windows e geraria classes a mais: o build daqui sairia diferente do da produção.
+# Os pontos de montagem precisam existir: dentro do web/ só para leitura, o Docker não consegue criá-los.
+mkdir -p "$raiz/web/node_modules" "$raiz/web/dist" "$raiz/web/coverage"
 
-set -- --rm -v "$(caminho_docker "$raiz/web"):/web:ro" -v /web/node_modules -w /web
+set -- --rm -v "$(caminho_docker "$raiz/web"):/web:ro" -v /web/node_modules -v /web/dist -v /web/coverage -w /web
 if [ -n "$resultado" ]; then
   set -- "$@" -v "$(caminho_docker "$resultado"):/resultado"
 fi
