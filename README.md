@@ -167,6 +167,7 @@ docker compose stop api           # para a API
 - O código entra só para leitura, e o build fica num volume do Docker: as pastas `bin/` e `obj/` do Windows não mudam.
 - A primeira subida baixa a imagem do SDK e os pacotes, o que leva alguns minutos. Nas seguintes, o build só recompila o que mudou.
 - Depois de mudar o `.env`, use o `restart`: a API lê o arquivo quando sobe. Depois de mudar o `docker-compose.yml`, use `docker compose up -d api`, que recria o contêiner com a configuração nova.
+- Depois de atualizar ou reiniciar o Docker Desktop, o banco e o n8n voltam sozinhos (`restart: unless-stopped`), e a API não: rode `docker compose up -d api`. Ela fica sem `restart` de propósito. Com o código sem compilar, o Docker a subiria de novo em laço, recompilando a cada uns 30 s com quase 2 CPUs, sem ninguém ver.
 - O log mostra a hora de Brasília, como no Windows.
 - Na auditoria, o IP de quem acessa aparece como o do Docker (o gateway da rede do Compose, como `172.18.0.1`), e não como `127.0.0.1`.
 - O que vier depois do nome do serviço num `docker compose run` vai para a API, como o `preparar-demonstracao` (veja "Demonstração"). Pare o `api` antes, porque os dois compilam no mesmo volume e usam a porta 5080. Para subir sem mandar eventos ao n8n:
@@ -484,7 +485,7 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.e
 Para mostrar o e-mail de alerta chegando no celular quando um lead novo cai para a Adriana:
 
 1. Rode o `preparar-demonstracao`: com a massa nova, a Adriana é a próxima do rodízio.
-2. Deixe no ar a API, o n8n e o front: `docker compose up -d api n8n` e, em `web/`, `npm.cmd run dev`.
+2. Deixe no ar a API, o n8n e o front: `docker compose up -d api n8n` e, em `web/`, `npm.cmd run dev`. Confira com o `docker compose ps` que a `api` está no ar: depois de atualizar ou reiniciar o Docker Desktop, ela não volta sozinha (veja "API e dotnet ef num contêiner Linux", em Dia a dia).
 3. No n8n, deixe o `CRM - Erros` e o `CRM - Alertas` publicados. No `.env`, deixe `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`.
 4. Os e-mails saem do `testecrmfs@gmail.com` para os aliases das atendentes (`+adriana` e `+pietra`) e para o seu Gmail.
    - O remetente precisa ser outra conta. Um e-mail mandado de uma conta para um alias dela mesma chega como enviado, sem notificar o celular.
