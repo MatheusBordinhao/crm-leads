@@ -240,7 +240,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) ou, se a ideia der certo, tirar o pacote. O app só usa dele o CSS (`shadcn/tailwind.css`);
     - subir pelo caminho do contêiner o `source-map-js` da 1.2.1 para a 1.2.2, que corrige um alerta alto;
     - o `hono` 4.13.10 tem um alerta moderado (GHSA-5r4p-p66f-jhc7), corrigido na 4.13.11. Ele só chega pela CLI do `shadcn` (`@modelcontextprotocol/sdk` › `hono`): o CRM não usa o Hono, e a falha só vale para quem serve arquivos com o `serveStatic` dele. Sobe junto com o `source-map-js` ou sai junto com o pacote `shadcn`;
-    - o outro alerta alto, o do `braces` 3.0.3, ainda sem correção, é descartado no GitHub, com o motivo: ele só chega pela CLI do `shadcn` (`fast-glob` › `micromatch` › `braces`);
+    - o outro alerta alto, o do `braces` 3.0.3, ainda sem correção, foi descartado no GitHub em 20/10/2026, com o motivo: ele só chega pela CLI do `shadcn` (`fast-glob` › `micromatch` › `braces`);
     - conferido em 20/10/2026: o `web/src` não importa o `braces` nem o `hono`, e nem o `web/dist` nem a imagem de produção os têm;
   - no Lote 2A, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
   - no Lote 2A, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. A redação dos dados de execução do n8n é só do Enterprise; o caminho no Starter é não salvar as execuções.
