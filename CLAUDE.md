@@ -236,12 +236,6 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
       - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
       - a conferência pegou um byte e um arquivo a mais;
       - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada;
-  - no Lote 5, as dependências do front, com os alertas do Dependabot no `web/package-lock.json`:
-    - passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) ou, se a ideia der certo, tirar o pacote. O app só usa dele o CSS (`shadcn/tailwind.css`);
-    - subir pelo caminho do contêiner o `source-map-js` da 1.2.1 para a 1.2.2, que corrige um alerta alto;
-    - o `hono` 4.13.10 tem um alerta moderado (GHSA-5r4p-p66f-jhc7), corrigido na 4.13.11. Ele só chega pela CLI do `shadcn` (`@modelcontextprotocol/sdk` › `hono`): o CRM não usa o Hono, e a falha só vale para quem serve arquivos com o `serveStatic` dele. Sobe junto com o `source-map-js` ou sai junto com o pacote `shadcn`;
-    - o outro alerta alto, o do `braces` 3.0.3, ainda sem correção, foi descartado no GitHub em 20/10/2026, com o motivo: ele só chega pela CLI do `shadcn` (`fast-glob` › `micromatch` › `braces`);
-    - conferido em 20/10/2026: o `web/src` não importa o `braces` nem o `hono`, e nem o `web/dist` nem a imagem de produção os têm;
   - no Lote 2A, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
   - no Lote 2A, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. A redação dos dados de execução do n8n é só do Enterprise; o caminho no Starter é não salvar as execuções.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
@@ -325,6 +319,37 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a árvore igual à do branch do #3, fora os `.md` do `e4cfd71`;
     - o branch local apagado, e o `git fetch --prune` tirou as referências do #1 e do #3;
   - na limpeza, em 20/10/2026, saíram o volume `crm-medicao-node-modules` e a pasta `TestResults` vazia da raiz da pasta do projeto.
+- Lote 5 (dependências do front), antecipado para antes do 2A e feito em 21/10/2026:
+  - o motivo foram 3 alertas novos do Dependabot no vite. Todos são do `launch-editor`, que vem dentro do vite e só roda no servidor de desenvolvimento, na função de abrir um arquivo no editor. O vite de 8.3.0 a 8.3.2 é afetado nos três, e a 8.3.3 corrige:
+    - #6, GHSA-587h-7wmj-h5pm, alto (7,5): só no Windows, com execução de comando por um caminho montado de propósito;
+    - #4, GHSA-698v-4r3x-3vcv, moderado (6,3): só no Windows, com um arquivo com `&` ou `%` no nome;
+    - #5, GHSA-r825-w8mm-5pxw, moderado (6,3): no WSL, com o Vim, o Emacs ou o Notepad++ com plugin;
+  - o servidor do Vite escuta só no próprio computador: sem `host` no `vite.config.ts` nem `--host` nos scripts, o `npm run dev` ficou só no `::1:5173`;
+  - a classificação dos alertas:
+    - o vite só roda no servidor de desenvolvimento. O npm o conta como de produção, porque ele é peer do `@tailwindcss/vite`, mas a imagem só leva o `web/dist`;
+    - o `source-map-js` vem pelo `postcss`, pelo `css-tree` e pelo `@tailwindcss/node`, que rodam no Node, e não vai para o pacote do navegador;
+    - o `npm audit` achou 10 pacotes vulneráveis, 9 altos e 1 moderado. Fora o vite e o source-map-js, os 8 só chegavam pela CLI do `shadcn`: o próprio `shadcn`, o `hono`, o `@modelcontextprotocol/sdk` e a cadeia que leva ao `braces` (`ts-morph`, `@ts-morph/common`, `fast-glob` e `micromatch`);
+    - o NuGet não tinha nenhum pacote vulnerável;
+  - os commits:
+    - `a8d8c9f`: o lockfile como o npm 11.17.0 o escreve, com as 6 `bundleDependencies` do `@tailwindcss/oxide-wasm32-wasi` (Armadilhas conhecidas);
+    - `041bad6`: o vite da 8.3.1 para a 8.3.3 (o lockfile tinha a 8.3.1, e não a 8.3.2) e o source-map-js da 1.2.1 para a 1.2.2. A 8.3.4 troca o rolldown, e a 8.3.5 tinha menos de 3 dias;
+    - `4d64e35`: o CSS do shadcn em `web/src/shadcn.css` e o pacote `shadcn` fora do `package.json`. Saíram 245 entradas do lockfile, com o `hono`, o `braces` e o `@modelcontextprotocol/sdk`, e o `npm ci` no Linux foi de 673 para 428 pacotes. O build deu o mesmo `web/dist`, arquivo por arquivo;
+    - `630b329`: 3 marcas `devOptional` que o `uninstall` deixou velhas, recalculadas como `dev`;
+    - `ea9883c`: o roteiro "Um pacote do npm com alerta" no README e o `.github/scripts/nativos-do-lock.mjs`;
+    - `436a72b`: o `front.sh` esconde o `web/dist` e o `web/coverage` (Armadilhas conhecidas);
+    - `82d6b67`: a `api` de desenvolvimento, que não volta sozinha depois de atualizar o Docker Desktop, no README e nas Armadilhas conhecidas;
+  - o `cn` 0.4.0 fica. Conferido por mim no npm: o mantenedor é o shadcn, o repositório é o shadcn-ui/cn, e a 0.4.0 foi publicada com proveniência. O nome era de outro pacote em 2013 e passou para o shadcn em 09/2026;
+  - conferido pelo Claude:
+    - o npm 11.17.0 escreve o mesmo lockfile, byte a byte, no contêiner, no contêiner com `--os=win32 --cpu=x64` e no Windows. No Windows, o `--package-lock-only` regravou o `node_modules/.package-lock.json`, com o mesmo conteúdo, e por isso o lockfile é escrito no contêiner;
+    - a cada commit do lockfile, a conferência por entrada mostrou só as mudanças esperadas, e as entradas com binário nativo ficaram iguais. Das 51, só saiu o `systeminformation`, que é JavaScript;
+    - o `front.sh completo`, no contêiner de 2 CPUs, passou com 260 de 260 testes depois do vite novo, depois da saída do shadcn e com as máscaras do `436a72b`. A suíte .NET, no contêiner, deu 749 de 749;
+    - no Windows, o `npm.cmd install --dry-run --ignore-scripts` não mudou nada e mostrou só o vite, o source-map-js e as 245 saídas. O `npm.cmd install --ignore-scripts` fez o mesmo, sem mudar o lockfile. Depois, o lint, o `format:check`, o build e a suíte (260 de 260) passaram, e o `npm.cmd audit` deu 0;
+    - a demonstração, antes do push: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 511, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,3 s depois;
+  - validado por mim em 21/10/2026: o e-mail do lead 511 chegou às 12:46, no endereço da Adriana, com os dados certos e o link da ficha, que abriu no front com o vite 8.3.3. No push dos 5 primeiros commits (`ea9883c`), o `Testes` #6 ficou verde em 6 min 39 s, e o `Imagem de produção` #6, em 2 min 41 s;
+  - os alertas: o lockfile da `master` não tem mais as versões afetadas, e o `npm audit` dá 0. O `braces`, com o alerta descartado em 20/10/2026, saiu do lockfile com o pacote `shadcn`. O fechamento dos 5 alertas abertos ficou pendente no GitHub:
+    - às 14:01, o Dependabot continuava com os 5 abertos e o "checked yesterday", e o Dependency graph, com o vite 8.3.1, o source-map-js 1.2.1 e o hono 4.13.10;
+    - o GitHub estava com um incidente desde as 11:52, com atraso na fila de eventos, e o push das 12:50 caiu dentro dele;
+    - o fechamento entra no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -370,7 +395,7 @@ docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef nu
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
 .claude/                     permissões do projeto e o comando /passo
-.github/                     o CI (os workflows e, em scripts/, o front.sh e o resumo das 5 rodadas) e o Dependabot (um PR por mês com as imagens, outro com o NuGet e outro com as ações, sem o npm)
+.github/                     o CI (os workflows e, em scripts/, o front.sh e o resumo das 5 rodadas), a conferência dos binários nativos do lockfile do front (scripts/nativos-do-lock.mjs) e o Dependabot (um PR por mês com as imagens, outro com o NuGet e outro com as ações, sem o npm)
 .mcp.json                    servidor MCP do n8n Cloud (o do n8n local fica no ~/.claude.json, fora do Git)
 ```
 
@@ -392,6 +417,7 @@ MSYS_NO_PATHCONV=1 docker compose -f docker-compose.testes.yml run --rm -e Artif
 cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
 sh .github/scripts/front.sh completo                     # o front como no CI, num contêiner Alpine, sem tocar no node_modules do Windows
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo:ro" -w /repo rhysd/actionlint:1.7.12   # confere os workflows do CI
+node .github/scripts/nativos-do-lock.mjs                 # o lockfile do front contra o do último commit: o que mudou e se os binários nativos ficaram iguais
 docker compose run --rm ef migrations add <NomeDescritivo>   # dotnet ef num contêiner (nesta máquina, o jeito que roda)
 dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef no Windows
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
@@ -548,7 +574,19 @@ docker compose up -d n8n                                 # n8n local em http://l
   - todo checkout com `persist-credentials: false`;
   - nada de `secrets`, `github.token` ou `pull_request_target`.
 - No GitHub Free, repositório privado não tem proteção de branch: o check vermelho não impede o merge. A conferência de um PR é manual (README › Versões fixadas).
-- O `front.sh` monta o `web/` só para leitura, com o `node_modules` num volume anônimo, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria o `web/node_modules` antes, o que no runner é uma pasta vazia.
+- O `front.sh` monta o `web/` só para leitura, com o `node_modules`, o `dist` e o `coverage` em volumes anônimos, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria as três pastas antes, o que no runner são pastas vazias.
+  - O `dist` e o `coverage` ficam escondidos desde 21/10/2026 (`436a72b`). Só com o `web/` montado, sem o `.git` e o `.gitignore` da raiz, o Tailwind procura classes também no `web/dist`. Com o build velho do Windows na pasta, o CSS do build no contêiner saía com 3,5 KB a mais; com os volumes, o build no contêiner é igual ao do Windows, arquivo por arquivo.
+  - A imagem de produção (o `.dockerignore` tira o `web/dist` e o `web/coverage`) e o CI (um checkout novo) não têm isso. Um contêiner novo que monte só o `web/` precisa do mesmo cuidado.
+- Um pacote do npm muda pelo roteiro do README (Versões fixadas › Um pacote do npm com alerta), e não por um `npm.cmd install <pacote>` direto no Windows, que baixaria um binário nativo novo antes de qualquer conferência. O Controle Inteligente de Aplicativos bloqueia um binário sem assinatura.
+  - O lockfile é escrito num contêiner, pelo npm da mesma versão do Windows (o 11.17.0, em 21/10/2026), com o `--package-lock-only`. O resultado é o mesmo, byte a byte, mas no Windows o `--package-lock-only` também regrava o `node_modules/.package-lock.json`.
+  - O roteiro termina com um `install` sem pacote: o `uninstall --package-lock-only` deixa marcas `devOptional` velhas, e o `install` sem pacote as recalcula.
+  - O `npm.cmd install --ignore-scripts` só vem depois de o `node .github/scripts/nativos-do-lock.mjs` dizer IGUAIS.
+  - O npm 11 avisa que o `msw` tem um script de instalação fora do `allowScripts`. Nada roda: no contêiner, o `--package-lock-only` não instala nada, e, no Windows, o `--ignore-scripts` não roda nenhum script.
+  - O lockfile tem as 6 `bundleDependencies` do `@tailwindcss/oxide-wasm32-wasi` (opcionais, `inBundle`, sem `os` nem `cpu`). O npm 11.17.0 as escreve com o `--package-lock-only`, e o `install` completo as mantém; o lockfile de antes, de 06/10/2026, não as tinha. Um lockfile que muda sem nenhum pacote mexido pede a conferência da versão do npm que o escreveu.
+- O CSS do shadcn fica em `web/src/shadcn.css`, copiado do `dist/tailwind.css` do pacote `shadcn` 4.21.0, com o aviso de licença MIT no cabeçalho. O pacote, que é a CLI, saiu do `package.json` em 21/10/2026 (`4d64e35`).
+  - Não formate o arquivo: ele fica no `.prettierignore`, igual ao original, para comparar com uma versão nova. Numa versão nova, troque tudo o que vem depois do comentário pelo `dist/tailwind.css` dela.
+  - Um componente novo vem pela CLI, num contêiner (README › Versões fixadas › Um componente novo do shadcn). Se ela trouxer de volta o pacote ou o `@import 'shadcn/tailwind.css'`, compare o CSS com o `web/src/shadcn.css` antes do commit.
+  - O `cn` não é a CLI: é o pacote da organização do shadcn que substitui o `clsx` e o `tailwind-merge`, e os componentes o importam. Ele fica.
 - No modo do Microsoft.Testing.Platform, o `dotnet test` cria a pasta dos resultados (`TestResults`) na pasta de trabalho. No contêiner dos testes, ela é o `/src`, só para leitura, e o `docker-compose.testes.yml` manda os resultados para o volume (`--results-directory /artefatos/TestResults`). Sem isso, num checkout limpo, como o do CI, a suíte falha antes de rodar, com o código 134.
   - Aqui, a pasta do projeto tinha uma `TestResults` vazia desde 28/09/2026, que o `.gitignore` escondia, e o erro não aparecia. Ela foi apagada em 20/10/2026. Se voltar, como depois de um `dotnet test` no Windows, o erro volta a ficar escondido aqui.
   - Uma mudança no contêiner dos testes ou no CI se confere num clone limpo, numa pasta temporária, com um projeto do Compose descartável (`-p`), que tem volumes novos, como o runner. No fim, o `down -v` desse projeto e o clone apagado.
@@ -580,10 +618,10 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 1: infraestrutura (as imagens com versão fixa e o Dependabot), fechado em 19/10/2026;
   - a causa do teste instável do front, trazida do 4A em 19/10/2026 e fechada em 20/10/2026;
   - 1B: CI no GitHub Actions, fechado em 21/10/2026;
+  - 5: dependências, antecipado para antes do 2A por causa de 3 alertas do vite e feito em 21/10/2026;
   - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
   - 3: troca de chaves sem parar;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
-  - 5: dependências;
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
 - Um passo só termina quando os critérios de aceite passam.
