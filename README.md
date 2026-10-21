@@ -643,8 +643,9 @@ deploy/                      Caddyfile e scripts de backup e de teste da restaur
 docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
                              importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
-.github/                     o CI, com os workflows e os scripts deles (veja "CI no GitHub Actions"), e o Dependabot: um PR
-                             por mês com as imagens, outro com o NuGet e outro com as ações (veja "Versões fixadas")
+.github/                     o CI, com os workflows e os scripts deles (veja "CI no GitHub Actions"), a conferência dos
+                             binários nativos do lockfile do front (veja "Um pacote do npm com alerta") e o Dependabot: um
+                             PR por mês com as imagens, outro com o NuGet e outro com as ações (veja "Versões fixadas")
 ```
 
 ## Publicação
@@ -783,7 +784,7 @@ O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lu
 **Quando subir.**
 - O Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) abre, uma vez por mês, um PR com as imagens novas, com o `Dockerfile` e os Compose juntos, um com os pacotes do NuGet e um com as ações dos workflows.
 - Nas imagens e no NuGet, a versão principal (.NET 11, PostgreSQL 18, Node 24) fica de fora, porque é uma decisão nossa. Nas ações, ela entra: ficar parado numa versão principal antiga acaba em aviso de descontinuação do GitHub, e o próprio CI testa o PR.
-- O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê, e não instale nem atualize nada no Windows.
+- O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows, e o "Create Dependabot security update" dos alertas dele não é usado. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê. Um pacote com alerta sobe pelo roteiro "Um pacote do npm com alerta", abaixo.
 - O Dependabot só funciona com o arquivo no GitHub e os alertas ligados no repositório (Settings › Code security).
 
 **Como conferir um PR do Dependabot.** No GitHub Free, repositório privado não tem proteção de branch: nada impede o merge com o check vermelho. A conferência é manual:
@@ -853,6 +854,29 @@ Se a versão nova der errado, volte o n8n à versão de antes, com os dados da c
 5. Só então apague a cópia: `docker volume rm crm-dados-n8n-copia`.
 
 Se a cópia não existir, o `docker run` cria um volume vazio com o nome dela, e os comandos param do mesmo jeito: a conferência diz "DIFERENTE", e a volta diz "PAROU". Apague esse volume vazio depois de investigar.
+
+**Um pacote do npm com alerta.** O Controle Inteligente de Aplicativos do Windows bloqueia um binário nativo novo que não seja assinado. Por isso, o lockfile muda num contêiner, e o Windows só recebe a mudança depois de conferida:
+
+1. Escolha a versão: a corrigida mais antiga do alerta, com pelo menos 3 dias, e que não troque nenhum pacote com binário nativo, como o rolldown, o lightningcss e o oxide do Tailwind. As dependências de cada versão saem do `npm.cmd view <pacote>@<versão> dependencies optionalDependencies`, e as datas, do `npm.cmd view <pacote> time`, que só leem.
+2. Na raiz do projeto, escreva o `package.json` e o `package-lock.json` num contêiner com a imagem do Node do `Dockerfile` e o mesmo npm do Windows. O `node_modules` fica num volume que sai com o contêiner, e o `--package-lock-only` não instala nada:
+
+   ```powershell
+   $imagem = (Select-String -Path Dockerfile -Pattern '^FROM (node:\S+)').Matches[0].Groups[1].Value
+   $npm = npm.cmd --version
+   function npmNoConteiner { docker run --rm -v "${PWD}\web:/web" -v /web/node_modules -w /web $imagem npx -y "npm@$npm" @args --package-lock-only --no-audit --no-fund }
+   npmNoConteiner install -D vite@8.3.3   # um pacote do package.json
+   npmNoConteiner update source-map-js    # um pacote que vem por outro
+   npmNoConteiner install                 # sempre no fim, sem pacote
+   ```
+
+   - O último `install`, sem pacote, recalcula as marcas `dev` e `devOptional` do lockfile, que podem ficar velhas depois de um `uninstall`. Rodado de novo, ele não pode mudar mais nada.
+   - O contêiner escreve o mesmo lockfile que o npm do Windows, byte a byte. A diferença é que o `--package-lock-only` no Windows regrava o `node_modules/.package-lock.json`, e o contêiner não toca no `node_modules` do Windows.
+   - O npm 11 avisa que o `msw` tem um script de instalação que não está no `allowScripts`. Nada roda: no contêiner, o `--package-lock-only` não instala nada, e, no passo 5, o `--ignore-scripts` não roda nenhum script.
+3. Confira o lockfile entrada por entrada: `node .github/scripts/nativos-do-lock.mjs` compara o do último commit com o da pasta do projeto, lista o que entrou, saiu ou mudou de versão e diz se as entradas com binário nativo (as que têm `os` ou `cpu`) ficaram IGUAIS. Com DIFERENTES, pare: o Windows receberia um binário novo.
+4. Valide como no CI, no Git Bash: `sh .github/scripts/front.sh completo`.
+5. Só com as nativas iguais, atualize o Windows, em `web/`: `npm.cmd install --ignore-scripts`. Ele só baixa os pacotes de JavaScript que mudaram. Depois, o `git status` não pode mostrar mudança no `package.json` nem no `package-lock.json`, e o `npm.cmd audit` não acha mais o alerta.
+
+**Um componente novo do shadcn.** O pacote `shadcn` saiu do `package.json` em 21/10/2026: o front só usava dele o CSS, que fica em `web/src/shadcn.css`, copiado do `dist/tailwind.css` da versão 4.21.0, com o aviso de licença. A CLI dele, que copia os componentes, roda pelo `npx`, no contêiner, como no passo 2 (`npx shadcn@<versão> add <componente>`). Esse caminho ainda não foi usado. A CLI escreve os arquivos do componente e pode pôr pacotes no `package.json`, e então o lockfile passa pelos passos 2 a 5. Se ela trouxer de volta o pacote `shadcn` ou o `@import 'shadcn/tailwind.css'`, compare o CSS dela com o `web/src/shadcn.css` antes do commit.
 
 ### Backup
 
