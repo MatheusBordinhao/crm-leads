@@ -278,8 +278,8 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - No runner do GitHub, a folga é maior que no contêiner daqui: no Lote 1B, as 5 rodadas da suíte do front passaram, cerca de 2 vezes mais rápidas.
   - Na demonstração de fim do item, o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 389, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois.
   - Validado por mim em 20/10/2026: o e-mail de alerta do lead 389 chegou no celular.
-  - O volume `crm-medicao-node-modules`, com o `node_modules` do contêiner da medição, fica para o Lote 1B e é apagado no fim dele.
-- Lote 1B (CI no GitHub Actions), implementado em 20/10/2026 e verde no GitHub no mesmo dia:
+  - O volume `crm-medicao-node-modules`, com o `node_modules` do contêiner da medição, foi apagado no fim do Lote 1B, em 20/10/2026.
+- Lote 1B (CI no GitHub Actions), feito e validado em 20/10/2026, com o registro do fechamento em 21/10/2026:
   - três workflows em `.github/workflows` (README › Testes e qualidade › CI no GitHub Actions):
     - `testes.yml`, em todo push na `master` e em todo PR, menos os só de `.md`: a suíte .NET, o `dotnet format` e o front completo;
     - `imagem.yml`, quando muda o que entra na imagem ou nos Compose: o build e o Compose de produção com dados sorteados, com as migrations, o `/health` pelo Caddy e o runtime 10.0.13 ou mais novo;
@@ -293,23 +293,38 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - o `front.sh` no contêiner de 2 CPUs: o `completo` em 259 s, com a suíte em 176 s, e o `suite` em 184 s, com o resumo. O `node_modules` e o `dist` do Windows não mudaram, e nenhum volume ficou;
     - o `dotnet format` levou 77 s, com o restore pronto, e o build da imagem sem cache, 128 s, com as imagens base já baixadas;
   - no primeiro push (`4e6872c`) e no PR #3 do Dependabot, o `Testes` falhou na suíte .NET, com `Read-only file system : '/src/TestResults'` e o código 134. A formatação e o front passaram:
-    - o `dotnet test` cria a pasta dos resultados na pasta de trabalho, que no contêiner é o `/src`, só para leitura. Aqui passava porque a cópia do Windows tem uma `TestResults` vazia (Armadilhas conhecidas);
+    - o `dotnet test` cria a pasta dos resultados na pasta de trabalho, que no contêiner é o `/src`, só para leitura. Aqui passava porque a pasta do projeto tinha uma `TestResults` vazia, apagada no fim do lote (Armadilhas conhecidas);
     - reproduzido pelo Claude num clone limpo, com volumes novos, e corrigido com o `--results-directory /artefatos/TestResults` (`662d61d`). Num clone novo da correção, também com volumes novos, a suíte deu 749 de 749, e a formatação passou;
   - o Dependabot fechou o PR #1 e abriu o #3, com os mesmos 12 pacotes do NuGet. É ele que passa pelo CI, com o `@dependabot rebase` depois da correção no GitHub;
   - validado por mim no GitHub, em 20/10/2026:
     - com a correção (`40133cc`), o `Testes` ficou verde em 4 min 37 s, e o `Imagem de produção`, em 2 min 24 s. O `Imagem de produção` também passou nas rodadas anteriores, em 2 min 22 s e 2 min 14 s;
     - no PR #3, cada workflow rodou uma vez só, pelo `pull_request`, sem rodada a mais pelo push do branch do Dependabot: o `push` dos workflows vale só para a `master`;
-    - o vermelho já apareceu numa falha de verdade, a da `TestResults`;
+    - o vermelho já apareceu numa falha de verdade, a da `TestResults`, com o e-mail de aviso do GitHub;
     - as 5 rodadas do front passaram, com 260 testes e nenhuma falha em cada uma, e o disparo terminou em 2 min 40 s:
       - a suíte levou de 73 a 121 s (mediana de 91 s), contra 170 a 193 s no contêiner de 2 CPUs daqui, pela mesma medida do resumo: cerca de 2 vezes mais rápido, de 1,4 a 2,6 vezes nos extremos;
       - o processador muda de uma rodada para outra (AMD EPYC 9V45, 9V74 e 7763), e a 7763 foi a mais lenta;
       - o "Perdido pede o motivo" levou de 397 a 644 ms, contra 684 a 1.350 ms aqui;
       - o mais lento em todas foi o "recarrega quando um lead ou o funil muda, pelo tempo real", de 1,09 a 1,15 s, que espera o relógio de verdade e tem prazo próprio. Fora ele, nenhum teste passou de 903 ms;
       - com isso, o critério das 5 rodadas está cumprido, e a folga no runner é maior que no contêiner daqui;
-  - falta:
-    - conferir que o push do commit que registra isto, só de `.md`, não roda nenhum workflow;
-    - o `@dependabot rebase` no PR #3, o check verde nele e o merge, depois da demonstração;
-    - a demonstração de fim de lote e apagar o volume `crm-medicao-node-modules`.
+  - o push só de `.md` (`e4cfd71`) não rodou nenhum workflow, nem o Automatic Dependency Submission, que é do próprio GitHub;
+  - o PR #3, depois do `@dependabot rebase`, ficou verde: o `Testes` #4 em 6 min 58 s e o `Imagem de produção` #4 em 2 min 23 s. No rebase, o Dependabot trocou o título para "Bump FluentValidation and 11 others";
+  - a demonstração no branch do PR #3 valeu como a de fim de lote:
+    - o `preparar-demonstracao` compilou com os 12 pacotes novos e gravou 60 leads;
+    - a API subiu com eles (FluentValidation 12.2.0, Identity 10.0.13, Scalar 2.18.2 e libphonenumber 9.0.41);
+    - o `site.json` criou o lead 450, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 5,7 s depois;
+    - validado por mim: o e-mail do lead 450 chegou às 13:34, no endereço da Adriana, com os dados certos e o link da ficha;
+  - o merge foi pelo "Squash and merge", com o título em português e o corpo do Dependabot (`b25ade7`). Na `master`, o `Testes` #5 ficou verde em 6 min 47 s, e o `Imagem de produção` #5, em 2 min 2 s;
+  - por passo, do `Testes` #3 (pacotes antigos) para o #5 (pacotes novos):
+    - a suíte .NET, de 2 min 6 s para 2 min 50 s (1,35 vez);
+    - a formatação, de 38 s para 1 min (1,58 vez);
+    - o front, de 1 min 45 s para 2 min 46 s (1,58 vez);
+    - o job inteiro, de 4 min 33 s para 6 min 41 s (1,47 vez);
+    - o front não usa nenhum pacote do NuGet e ficou mais lento na mesma proporção, e a suíte .NET até menos: a diferença é da máquina do runner, e não dos pacotes;
+  - depois do merge, conferido pelo Claude:
+    - a pasta do projeto na `master`, igual à `origin/master`, e a API recriada a partir dela, com os pacotes novos;
+    - a árvore igual à do branch do #3, fora os `.md` do `e4cfd71`;
+    - o branch local apagado, e o `git fetch --prune` tirou as referências do #1 e do #3;
+  - na limpeza, em 20/10/2026, saíram o volume `crm-medicao-node-modules` e a pasta `TestResults` vazia da raiz da pasta do projeto.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -534,7 +549,7 @@ docker compose up -d n8n                                 # n8n local em http://l
 - No GitHub Free, repositório privado não tem proteção de branch: o check vermelho não impede o merge. A conferência de um PR é manual (README › Versões fixadas).
 - O `front.sh` monta o `web/` só para leitura, com o `node_modules` num volume anônimo, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria o `web/node_modules` antes, o que no runner é uma pasta vazia.
 - No modo do Microsoft.Testing.Platform, o `dotnet test` cria a pasta dos resultados (`TestResults`) na pasta de trabalho. No contêiner dos testes, ela é o `/src`, só para leitura, e o `docker-compose.testes.yml` manda os resultados para o volume (`--results-directory /artefatos/TestResults`). Sem isso, num checkout limpo, como o do CI, a suíte falha antes de rodar, com o código 134.
-  - Aqui, a cópia do Windows tem uma `TestResults` vazia desde 28/09/2026, que o `.gitignore` esconde, e o erro não aparece.
+  - Aqui, a pasta do projeto tinha uma `TestResults` vazia desde 28/09/2026, que o `.gitignore` escondia, e o erro não aparecia. Ela foi apagada em 20/10/2026. Se voltar, como depois de um `dotnet test` no Windows, o erro volta a ficar escondido aqui.
   - Uma mudança no contêiner dos testes ou no CI se confere num clone limpo, numa pasta temporária, com um projeto do Compose descartável (`-p`), que tem volumes novos, como o runner. No fim, o `down -v` desse projeto e o clone apagado.
 
 ## n8n
@@ -563,7 +578,7 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
   - 1: infraestrutura (as imagens com versão fixa e o Dependabot), fechado em 19/10/2026;
   - a causa do teste instável do front, trazida do 4A em 19/10/2026 e fechada em 20/10/2026;
-  - 1B: CI no GitHub Actions;
+  - 1B: CI no GitHub Actions, fechado em 21/10/2026;
   - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
   - 3: troca de chaves sem parar;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
