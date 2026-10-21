@@ -229,7 +229,13 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
   - no Lote 3, aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
-  - no Lote 4A, o PR #2 do Dependabot (Caddy 2.11.7 e n8n 2.43.7) não tem nenhuma rodada do CI: ele foi aberto antes de os workflows existirem na `master`. Antes da avaliação, um `@dependabot rebase` faz o CI rodar nele;
+  - no Lote 4A, o PR #2 do Dependabot (Caddy 2.11.7 e n8n 2.43.7):
+    - ele não tem nenhuma rodada do CI, porque foi aberto antes de os workflows existirem na `master`. Antes da avaliação, um `@dependabot rebase` faz o CI rodar nele;
+    - como ele sobe o n8n, o volume `crm-leads_dados-n8n` é copiado e conferido antes, pelo roteiro do README (Versões fixadas › O n8n numa versão nova);
+    - o roteiro foi testado pelo Claude em 21/10/2026, com os mesmos comandos do README, em volumes de teste:
+      - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
+      - a conferência pegou um byte e um arquivo a mais;
+      - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada;
   - no Lote 5, as dependências do front, com os alertas do Dependabot no `web/package-lock.json`:
     - passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) ou, se a ideia der certo, tirar o pacote. O app só usa dele o CSS (`shadcn/tailwind.css`);
     - subir pelo caminho do contêiner o `source-map-js` da 1.2.1 para a 1.2.2, que corrige um alerta alto;
@@ -463,6 +469,7 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Com a API rodando no Windows (`dotnet run`), o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio. Para só conferir que compila, use `dotnet build Crm.sln --artifacts-path <pasta do scratchpad>`, que não escreve no `bin/`. A API do contêiner não trava nada no Windows: o build dela fica no volume `artefatos-api`.
 - Para gerar os tipos do front com a API do contêiner, rode `docker compose restart api`, para ela compilar o código novo, e depois o `npm run api:tipos`.
 - O serviço `api` e um `docker compose run ... api` (o `preparar-demonstracao`, a API sem o n8n) compilam no mesmo volume e usam a porta 5080: pare o `api` antes.
+- Com a API no ar e a configuração igual, o `docker compose up -d api` não faz nada: ela continua com o código e os pacotes que compilou ao subir. Para ela compilar de novo, como num PR do NuGet, use o `docker compose restart api` ou o `docker compose up -d --force-recreate api`, que recria só a API. Conferido em 20 e 21/10/2026: o mesmo contêiner, com a mesma hora de início, no `up -d api`, e o banco e o n8n no ar depois do `--force-recreate api`.
 - Para testar a API do contêiner sem tocar no banco de desenvolvimento, suba um PostgreSQL descartável na rede `crm-leads_default` e passe no `docker compose run`:
   - `-e ConnectionStrings__Crm=...` com o nome dele e `Admin__*` fictícios;
   - `-e DataProtection__Pasta=/tmp/chaves`, para as chaves não irem para o volume `chaves-sessao`;

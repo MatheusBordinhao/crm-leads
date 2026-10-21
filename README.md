@@ -776,7 +776,7 @@ Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `
 | `node` | `Dockerfile` (build do front). O CI roda o front nela |
 | `postgres` | `docker-compose.yml` e `docker-compose.prod.yml` (`db` e `backup`), a mesma nos dois. Os testes de integração usam a do Compose de produção |
 | `caddy` | `docker-compose.prod.yml`. O teste do log do Caddy usa a do Compose |
-| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento. Acompanha a do n8n Cloud |
+| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento. Acompanha a do n8n Cloud. Antes de uma versão nova, veja "O n8n numa versão nova", abaixo |
 
 O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lugares, o mesmo PostgreSQL em desenvolvimento e em produção e o runtime com a correção. Uma imagem nova precisa entrar nele.
 
@@ -786,10 +786,14 @@ O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lu
 - O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê, e não instale nem atualize nada no Windows.
 - O Dependabot só funciona com o arquivo no GitHub e os alertas ligados no repositório (Settings › Code security).
 
-**Como conferir um PR do Dependabot, antes do merge.** No GitHub Free, repositório privado não tem proteção de branch: nada impede o merge com o check vermelho. A conferência é manual:
+**Como conferir um PR do Dependabot.** No GitHub Free, repositório privado não tem proteção de branch: nada impede o merge com o check vermelho. A conferência é manual:
 
 1. O check do PR está verde: o `Testes` e, quando o PR muda as imagens, os pacotes ou as ações, o `Imagem de produção` (veja "CI no GitHub Actions"). O `Testes` roda as duas suítes, com o teste do log do Caddy na imagem do Compose, e o `Imagem de produção` sobe o Compose de produção.
-2. Num PR de imagens:
+2. O check vale para o que vai entrar:
+   - se a `master` andou depois do último rebase do PR só com arquivos `.md`, ele continua valendo;
+   - com qualquer outro arquivo, comente `@dependabot rebase` no PR e espere o check de novo;
+   - um PR sem nenhum check, como um aberto antes de os workflows existirem, também ganha os checks com o rebase.
+3. Num PR de imagens:
    - a versão nova saiu há pelo menos 3 dias. Nesses PRs, o Dependabot avisa que não aplicou a espera de 3 dias, porque o registro não informa a data de publicação: confira a data no Docker Hub ou no registro da Microsoft;
    - o runtime que a imagem nova do SDK traz é o mesmo da imagem `aspnet` do PR:
 
@@ -797,9 +801,58 @@ O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lu
      (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
      ```
 
-3. Traga o branch do PR (`git fetch origin` e `git switch <branch do PR>`), recrie a API de desenvolvimento (`docker compose up -d api`) e confira a demonstração (veja "O alerta no celular", em Demonstração).
-4. Quando o PR subir o n8n do Compose de desenvolvimento, recrie-o (`docker compose up -d n8n`) e repita, além do alerta da demonstração, os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
-5. Só então faça o merge.
+4. Traga o branch do PR para a pasta do projeto (`git fetch origin` e `git switch <branch do PR>`) e suba o ambiente de desenvolvimento com ele:
+   - num PR do NuGet, `docker compose up -d --force-recreate api`, que recria só a API, e ela compila com os pacotes novos. Com a API no ar e a configuração igual, o `docker compose up -d api` não faz nada, e ela continua com os pacotes antigos;
+   - num PR de imagens, `docker compose up -d`, que recria só os serviços cuja imagem mudou (o `ef`, que tem perfil, fica de fora). Se o PR sobe o n8n, antes copie e confira o volume dele (veja "O n8n numa versão nova", abaixo).
+5. Confira a demonstração (veja "O alerta no celular", em Demonstração). Quando o PR sobe o n8n, repita também os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
+6. Só então faça o merge, pelo "Squash and merge": a `master` fica sem merge commits. Troque o título do Dependabot, em inglês, por um em português, como "Pacotes do NuGet: FluentValidation 12.2.0 e outros 11 (#3)", e mantenha o corpo dele, que lista as versões.
+7. Depois do merge, a pasta do projeto volta para a `master`:
+   1. `git switch master` e `git pull --ff-only`. O `git status` mostra a `master` igual à `origin/master`, sem nada à frente nem atrás.
+   2. Suba o ambiente com a `master`: num PR do NuGet, recrie a API (`docker compose up -d --force-recreate api`); num PR de imagens, o `docker compose up -d` recria os serviços que mudaram.
+   3. Confira a árvore inteira: `git diff --stat master <branch do PR>` só pode mostrar arquivos `.md`, os que a `master` ganhou depois do último rebase do PR. Se aparecer qualquer outro arquivo, pare e investigue antes de apagar o branch.
+   4. Apague o branch local: `git branch -D <branch do PR>`. Com o squash, o commit do PR não entra no histórico da `master`, e o `git branch -d` recusa. O Dependabot apaga o branch dele no GitHub, e o `git fetch --prune` tira a referência.
+   5. Se o PR subiu o n8n, confira o n8n com a `master` (ele entra, os fluxos e as credenciais estão lá, e os publicados continuam publicados) e só então apague a cópia do volume: `docker volume rm crm-dados-n8n-copia`.
+
+**O n8n numa versão nova.** O volume `crm-leads_dados-n8n` guarda o banco do n8n local, com os fluxos, as Data Tables e as credenciais, e o arquivo `config`, com a chave que as criptografa. Uma versão nova pode mudar esse banco de um jeito que a anterior não abre mais. Por isso, antes de o n8n subir na versão nova, copie o volume para o `crm-dados-n8n-copia`.
+
+- Neste roteiro, "a cópia" é sempre esse volume. A pasta do projeto, quando volta para a `master`, é só o `git switch master`.
+- Nenhum passo apaga nada sem conferir a cópia.
+- As mensagens dos comandos saem sem acento, para não saírem trocadas no PowerShell 5.1.
+
+Antes de o n8n subir na versão nova:
+
+1. Pare o n8n e copie o volume. O original entra só para leitura. Se o volume da cópia não existir, o `docker run` o cria. Se ele já tiver arquivos, de uma atualização anterior, o comando para com "PAROU" sem copiar nada: confira essa cópia velha e apague-a antes de seguir.
+
+   ```powershell
+   docker compose stop n8n
+   docker run --rm -v crm-leads_dados-n8n:/n8n:ro -v crm-dados-n8n-copia:/copia alpine:3.22 sh -c 'find /copia -mindepth 1 | grep -q . && { echo PAROU: crm-dados-n8n-copia tem arquivos de antes; exit 1; }; cp -a /n8n/. /copia/'
+   ```
+
+2. Confira a cópia contra o original: a mesma lista de arquivos e os mesmos tamanhos, e o `database.sqlite` e o `config` com conteúdo. O comando diz "OK" ou "DIFERENTE".
+
+   ```powershell
+   docker run --rm -v crm-leads_dados-n8n:/n8n:ro -v crm-dados-n8n-copia:/copia:ro alpine:3.22 sh -c 'for v in n8n copia; do (cd /$v && { find . -mindepth 1 -type f -exec stat -c %n:%s {} +; find . -mindepth 1 ! -type f; } | sort > /tmp/$v); done; cmp -s /tmp/n8n /tmp/copia && test -s /copia/database.sqlite && test -s /copia/config && echo OK: mesmos arquivos e tamanhos || { echo DIFERENTE: pare aqui; exit 1; }'
+   ```
+
+   Com "DIFERENTE", o n8n não sobe na versão nova. A pasta do projeto volta para a `master` (`git switch master`), para um `docker compose up -d` não subir a versão nova por engano, e o `docker compose start n8n` religa o contêiner de antes. Investigue antes de tentar de novo.
+3. Com "OK", siga o passo 4 de "Como conferir um PR do Dependabot": o `docker compose up -d` sobe o n8n na versão nova.
+
+Se a versão nova der errado, volte o n8n à versão de antes, com os dados da cópia:
+
+1. Pare o n8n e volte a pasta do projeto para a `master`, que ainda tem a versão de antes.
+2. Ponha a cópia de volta. O comando confere antes que a cópia tem o `database.sqlite` e o `config` com conteúdo. Sem eles, ele para com "PAROU" sem apagar nada: sem a cópia, esvaziar o volume apagaria as credenciais, e a senha de app do e-mail só existe lá. Com eles, o comando esvazia o volume do n8n, para não sobrar o `-wal` do SQLite da versão nova, e põe a cópia de volta.
+
+   ```powershell
+   docker compose stop n8n
+   git switch master
+   docker run --rm -v crm-dados-n8n-copia:/copia:ro -v crm-leads_dados-n8n:/n8n alpine:3.22 sh -c 'test -s /copia/database.sqlite && test -s /copia/config || { echo PAROU: sem o database.sqlite e o config, nada foi apagado; exit 1; }; find /n8n -mindepth 1 -delete && cp -a /copia/. /n8n/'
+   ```
+
+3. Rode de novo a conferência, a do passo 2 da lista de cima: ela precisa dizer "OK".
+4. Suba o ambiente (`docker compose up -d`) e confira o n8n na tela: ele entra, os fluxos e as credenciais estão lá, e os publicados continuam publicados.
+5. Só então apague a cópia: `docker volume rm crm-dados-n8n-copia`.
+
+Se a cópia não existir, o `docker run` cria um volume vazio com o nome dela, e os comandos param do mesmo jeito: a conferência diz "DIFERENTE", e a volta diz "PAROU". Apague esse volume vazio depois de investigar.
 
 ### Backup
 
