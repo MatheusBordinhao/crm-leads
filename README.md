@@ -360,6 +360,7 @@ docker compose stop n8n
 | `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste; `google-sem-nome.json`, com a chave: vai para as recusadas |
 | `CRM - Reenvio de pendentes` | De hora em hora, das 8h às 20h, de segunda a sexta | Não | Execução manual, depois de um envio com a API parada |
 | `CRM - Relatório semanal Gama` | Segunda às 8h | Não | Execução manual: o CSV da semana anterior vai para o `emailGama` |
+| `CRM - Resumo diário` | Todo dia às 8h | Não | Execução manual: o e-mail com as contagens do dia anterior vai para o `emailAdmin`, se houver algo a contar, e as recusadas com mais de 7 dias saem |
 | `CRM - Entrada Meta` | Gatilho de Lead Ads | Não, sem o app Live | `test_workflow` do MCP, com `meta-gatilho.json` e `meta-graph.json` |
 
 ```powershell
@@ -651,7 +652,7 @@ web/                         React + TypeScript + Vite: features/ por módulo (a
                              api/ com o cliente e os tipos gerados, pwa/ com o registro do service worker; public/ com o
                              manifesto, os ícones e o service worker do PWA; icones/ com as fontes dos ícones e o script que
                              gera os PNGs
-n8n/                         JSON dos 7 fluxos do n8n da seção 4.5 e, em exemplos/, os payloads fictícios dos testes
+n8n/                         JSON dos 8 fluxos do n8n da seção 4.5 e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
 docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
                              importação (exemplos/)
@@ -746,6 +747,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` |
    | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
    | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |
+   | `CRM - Resumo diário` | `emailAdmin` e `remetente` (o `diasRecusadas` fica) |
 
    E também:
    - escolha a credencial nos nós que a pedem;
@@ -766,7 +768,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
 7. **[servidor]** No `.env` do servidor, ponha `N8n__WebhookUrl=https://<instância>.app.n8n.cloud/webhook/crm-alertas` e rode `docker compose -f docker-compose.prod.yml up -d api`.
 8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`.
 9. Confira:
-   - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório;
+   - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório e do resumo diário;
    - no fim, confira em Executions que nenhuma execução ficou salva e veja por quanto tempo o plano guarda uma execução "crashed", a interrompida por uma queda do n8n.
 10. No Claude Code, aponte o `.mcp.json` para o MCP do n8n Cloud e remova o local: `claude mcp remove --scope user n8n-local`.
 

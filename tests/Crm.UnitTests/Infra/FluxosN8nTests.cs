@@ -48,6 +48,7 @@ public class FluxosN8nTests
                 "crm-entrada-site.json",
                 "crm-reenvio-de-pendentes.json",
                 "crm-relatorio-semanal-gama.json",
+                "crm-resumo-diario.json",
             },
             Fluxos().Select(f => f.Data).ToHashSet());
     }
@@ -225,6 +226,22 @@ public class FluxosN8nTests
                 Assert.DoesNotContain("google_key", texto, StringComparison.Ordinal);
                 Assert.DoesNotContain(".body", texto, StringComparison.Ordinal);
             });
+    }
+
+    /// <summary>
+    /// O resumo diário roda uma vez por dia, às 8h: no n8n Cloud, cada execução conta no limite do plano, inclusive as agendadas
+    /// (cerca de 30 por mês, seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_resumo_diario_roda_uma_vez_por_dia()
+    {
+        using var fluxo = Ler("crm-resumo-diario.json");
+        var gatilho = Nos(fluxo).Single(no => no.GetProperty("type").GetString() == "n8n-nodes-base.scheduleTrigger");
+        var regras = gatilho.GetProperty("parameters").GetProperty("rule").GetProperty("interval").EnumerateArray().ToList();
+
+        var regra = Assert.Single(regras);
+        Assert.Equal("cronExpression", regra.GetProperty("field").GetString());
+        Assert.Equal("0 8 * * *", regra.GetProperty("expression").GetString());
     }
 
     private static JsonDocument Ler(string arquivo) => JsonDocument.Parse(File.ReadAllText(Path.Combine(Pasta, arquivo)));

@@ -384,6 +384,7 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 | `CRM - Entrada Site` | Webhook `POST`, com CORS liberado só para o domínio do site | Descarta envios com o campo isca `website` preenchido (responde do mesmo jeito), gera o idExterno (UUID), responde `{ "recebido": true }` e envia ao CRM, com as UTMs. O lead do site nunca é de teste | 6 |
 | `CRM - Reenvio de pendentes` | Schedule de hora em hora, das 8h às 20h, de segunda a sexta | Reenvia até 20 linhas por rodada da Data Table `crm_entradas_pendentes` (`linhasPorRodada`), as mais antigas primeiro, uma por segundo e uma tentativa por linha. Apaga a linha quando dá certo (inclusive `ja_recebido`). Na recusa da entrada (400 ou 413), tira a linha da fila e a guarda nas recusadas. Na falha temporária ou de configuração, soma a tentativa e grava o erro; na de configuração, manda um e-mail só por rodada | 6 |
 | `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o resumo e o CSV do relatório sem datas, que vêm com a semana anterior (4.4), e manda o CSV para a Gama por e-mail, anexo, com o período e o total no texto | 9 |
+| `CRM - Resumo diário` | Schedule todo dia às 8h | Conta, do dia anterior no horário de Brasília, as recusadas por tipo (as recusadas pelo CRM por origem, a chave errada do Google e os leads da Meta sem campanha, pelos números no CRM) e as entradas pendentes, com a mais antiga. Manda ao admin um e-mail só com números, quando há algo a contar. Apaga as recusadas com mais de 7 dias (`diasRecusadas`). As datas são comparadas num Code: no n8n local, o filtro de data da Data Table compara texto | 6 |
 
 - **Configuração e segredos:**
   - Cada fluxo começa por um nó Set chamado "Configuração", com os endereços e os e-mails: o endereço do CRM, o e-mail do admin, o remetente e o e-mail da Gama. Os segredos ficam só em credenciais.
@@ -414,10 +415,10 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
   - A Meta aceita um único webhook por app, então alternar entre a URL de teste e a de produção do n8n desliga a outra. Teste direto na URL de produção, com a Ferramenta de Teste de Anúncios de Cadastro. Os leads dessa ferramenta devem chegar com `teste: true`.
   - Se o acesso a leads for restrito nas configurações do negócio (Integrações > Acesso a leads), libere o app lá.
 - **Google:** a Gama cola a URL do webhook e a chave no formulário de lead do Google Ads. O botão "Enviar dados de teste" manda `is_test: true`. A chave errada responde 403 e só conta a tentativa (`google_chave_errada`), sem nada do envio: o lead se recupera pelo CSV do Google Ads.
-- **Orçamento de execuções:** com 300 leads por mês, o consumo fica perto de 900 execuções: cerca de 300 de entrada, 300 de alerta, 290 de reenvio e 4 de relatório. Isso cabe no plano Starter, que tem 2.500 por mês.
+- **Orçamento de execuções:** com 300 leads por mês, o consumo fica perto de 930 execuções: cerca de 300 de entrada, 300 de alerta, 290 de reenvio, 4 de relatório e 30 de resumo diário. Isso cabe no plano Starter, que tem 2.500 por mês.
 - **Execuções:** nenhuma fica salva (3.8). Para investigar uma falha, o salvamento das execuções com erro é ligado só no fluxo, por um tempo, e as execuções salvas são apagadas no fim (README › n8n local › Investigar uma falha no n8n). As configurações de execução valem na hora, sem publicar o fluxo de novo, e o fluxo de erro só dispara nas execuções de produção.
 - **Instâncias:**
-  - Desenvolvimento: desde 14/10/2026, um n8n Community (2.43.5) no Compose de desenvolvimento, com os 7 fluxos testados com dados de teste (README › n8n local). A instância de teste `matheusbordinhao.app.n8n.cloud` acabou em 06/10/2026.
+  - Desenvolvimento: desde 14/10/2026, um n8n Community (2.43.5) no Compose de desenvolvimento, com os 8 fluxos testados com dados de teste (README › n8n local). A instância de teste `matheusbordinhao.app.n8n.cloud` acabou em 06/10/2026.
   - Produção: o n8n Cloud, numa conta da empresa, quando o pagamento sair (seção 11).
   - Os JSONs em `n8n/` levam os fluxos de uma instância para outra. No destino, são refeitos as credenciais, a Data Table, os valores do nó "Configuração" e o fluxo de erro (README › n8n Cloud: importar os fluxos).
 
@@ -591,7 +592,7 @@ Em 13/10/2026, com a demonstração marcada para 15/10/2026, o Passo 11 foi adia
 - a instalação e a notificação no celular, que exigem o HTTPS do servidor;
 - a divisão do pacote por tela, que fica para depois da reunião.
 
-Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o pagamento sair (seção 11). Até lá, um n8n local, no Compose de desenvolvimento, roda os 7 fluxos da seção 4.5 com dados de teste: o Passo 6 foi adiantado nele, com os fluxos dos Passos 4 e 9. Ficam para a terceira fase levar os fluxos ao n8n Cloud e o que depende do servidor, do app da Meta e da Gama. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
+Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o pagamento sair (seção 11). Até lá, um n8n local, no Compose de desenvolvimento, roda os 8 fluxos da seção 4.5 com dados de teste: o Passo 6 foi adiantado nele, com os fluxos dos Passos 4 e 9. Ficam para a terceira fase levar os fluxos ao n8n Cloud e o que depende do servidor, do app da Meta e da Gama. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
 
 Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o trabalho segue com tudo o que não depende da empresa, e fica para a terceira fase o que precisa de servidor, domínio, n8n Cloud, e-mail da empresa, Meta, Google Ads ou da Gama. A demonstração é conferida no fim de cada etapa desse trabalho, e, quando a reunião for marcada, tudo congela até ela. O que tinha ficado para depois da reunião entra nesse trabalho: a divisão do pacote por tela (Passo 11) e, no Passo 6, os e-mails do `CRM - Erros` em massa e as execuções do n8n com chave.
 
