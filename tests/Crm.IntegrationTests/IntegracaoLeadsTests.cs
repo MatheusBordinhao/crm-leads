@@ -6,6 +6,9 @@ using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Dados;
 using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -268,5 +271,33 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
             "/api/integracoes/leads", new StringContent("{ nao é json", System.Text.Encoding.UTF8, "application/json"), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+    }
+
+    /// <summary>
+    /// O n8n trata o 413 como recusa da própria entrada, como o 400: a linha vai para as recusadas, e o reenvio não a tenta de
+    /// novo. Um 500 aqui faria o reenvio tentar a mesma linha para sempre (seção 4.5).
+    /// O limite do <c>[RequestSizeLimit]</c> só vale num servidor de verdade: o TestServer aceita o corpo inteiro. Por isso, a
+    /// fábrica deste teste sobe o Kestrel, no 127.0.0.1 e numa porta livre. Sem o endereço explícito, ele escutaria na porta
+    /// padrão da imagem do .NET, a 8080 de todos os endereços.
+    /// </summary>
+    [Fact]
+    public async Task Corpo_acima_de_64_KB_responde_413_e_nao_cria_o_lead()
+    {
+        using var api = fabrica.WithWebHostBuilder(_ => { });
+        api.UseKestrel(opcoes => opcoes.Listen(IPAddress.Loopback, 0));
+        api.StartServer();
+        var endereco = api.Services.GetRequiredService<IServer>().Features.GetRequiredFeature<IServerAddressesFeature>().Addresses.First();
+        using var n8n = new HttpClient { BaseAddress = new Uri(endereco) };
+        n8n.DefaultRequestHeaders.Add("X-Api-Key", CrmApiFactory.ChaveIntegracao);
+        var corpo = LeadsDeTeste.CorpoIntegracao("site");
+        corpo["respostasExtras"] = new Dictionary<string, string> { ["Mensagem"] = new string('x', 70_000) };
+
+        var normal = await n8n.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao("site"));
+        var grande = await n8n.EnviarLeadAsync(corpo);
+
+        Assert.Equal(HttpStatusCode.Created, normal.StatusCode);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, grande.StatusCode);
+        Assert.Equal("Requisição grande demais", (await grande.LerJsonAsync()).GetProperty("title").GetString());
+        Assert.Equal(0, await ContarLeadsComEmailAsync((string)corpo["email"]!));
     }
 }

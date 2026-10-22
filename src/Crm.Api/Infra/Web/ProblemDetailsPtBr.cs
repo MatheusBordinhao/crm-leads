@@ -16,6 +16,7 @@ internal static class ProblemDetailsPtBr
         [StatusCodes.Status404NotFound] = "Recurso não encontrado",
         [StatusCodes.Status405MethodNotAllowed] = "Método não permitido",
         [StatusCodes.Status409Conflict] = "Conflito",
+        [StatusCodes.Status413PayloadTooLarge] = "Requisição grande demais",
         [StatusCodes.Status415UnsupportedMediaType] = "Tipo de conteúdo não suportado",
         [StatusCodes.Status422UnprocessableEntity] = "Dados inválidos",
         [StatusCodes.Status429TooManyRequests] = "Muitas requisições",
@@ -28,6 +29,7 @@ internal static class ProblemDetailsPtBr
     [
         "An error occurred while processing your request.",
         "One or more validation errors occurred.",
+        "Content Too Large",
     ];
 
     public static IServiceCollection AddProblemDetailsPtBr(this IServiceCollection services) =>

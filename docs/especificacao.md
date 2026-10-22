@@ -233,6 +233,7 @@ O formulário do site passa pelo n8n porque o navegador não pode guardar a chav
 
 - Autenticação pelo cabeçalho `X-Api-Key`, comparado em tempo constante (`CryptographicOperations.FixedTimeEquals`).
 - Limite de 120 requisições por minuto.
+- Corpo de até 64 KB. Acima disso, a resposta é 413, sem criar o lead.
 
 ```json
 {
@@ -278,6 +279,7 @@ O formulário do site passa pelo n8n porque o navegador não pode guardar a chav
 | 200 | `{ "leadId": 1024, "situacao": "ja_recebido" }`, quando a mesma origem e o mesmo idExterno já foram processados | Segue |
 | 400 | ProblemDetails com os erros | Não reenvia e avisa o admin |
 | 401 | Vazio | Não reenvia e avisa o admin |
+| 413 | ProblemDetails, com o corpo acima de 64 KB | Não reenvia e avisa o admin |
 | 429, 5xx ou tempo esgotado | Vazio | Tenta de novo e, se não der, guarda na fila de pendentes |
 
 A resposta 400 vale só para problemas de estrutura: falta de nome, falta de e-mail e telefone ao mesmo tempo, origem inválida ou falta de idExterno. Formatos inválidos são aceitos com aviso (3.1).

@@ -48,7 +48,15 @@ app.Configuration.ExigirConnectionString();
 
 // Primeiro: o resto do pipeline já vê o IP e o esquema de quem acessa, e não os do Caddy.
 app.UseForwardedHeaders();
-app.UseExceptionHandler();
+
+// A BadHttpRequestException, como a do corpo acima do [RequestSizeLimit], responde com o código dela, e não com 500: o n8n
+// trata o 413 da integração como recusa da entrada, e um 500 o faria reenviar a mesma entrada para sempre (seção 4.5).
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    StatusCodeSelector = erro => erro is BadHttpRequestException requisicaoRuim
+        ? requisicaoRuim.StatusCode
+        : StatusCodes.Status500InternalServerError,
+});
 app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
