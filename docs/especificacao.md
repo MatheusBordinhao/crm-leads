@@ -236,7 +236,7 @@ O formulário do site passa pelo n8n porque o navegador não pode guardar a chav
 
 - Autenticação pelo cabeçalho `X-Api-Key`, comparado em tempo constante (`CryptographicOperations.FixedTimeEquals`).
 - Limite de 120 requisições por minuto.
-- Corpo de até 64 KB. Acima disso, a resposta é 413, sem criar o lead.
+- Corpo de até 64 KB. Acima disso, a resposta é 413, sem criar o lead. Os fluxos do n8n conferem o mesmo limite antes de mandar (4.5).
 
 ```json
 {
@@ -397,8 +397,9 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 - **Relatório semanal:** o HTTP Request chama `GET /api/integracoes/relatorios/campanhas` e o `/csv` sem datas, e o CRM devolve a semana anterior inteira: o fluxo não calcula data. O CSV chega como texto e vai anexo em UTF-8 com BOM, o mesmo arquivo que o admin baixa na tela, para o endereço da Gama do nó "Configuração". Se a Gama preferir uma planilha, o fluxo usa só o JSON.
 - **Falhas no envio ao CRM:**
   - O HTTP Request tenta 3 vezes, a cada 5 segundos, com tempo limite de 10 s. O site e o Google já receberam a resposta antes.
+  - Antes de mandar, o fluxo mede a entrada em bytes. Acima dos 64 KB do CRM (4.2), ela nem vai ao CRM nem entra na fila: fica nas recusadas, sem o corpo, só com o tamanho no detalhe. O webhook do site é público, o n8n aceita corpos de até 16 MiB, e as Data Tables dividem um teto de 200 MiB: sem o limite, uns poucos envios grandes encheriam as tabelas, e a fila pararia de gravar.
   - O destino da falha sai de uma função só, a `destinoDaFalha`, com o mesmo texto nos fluxos de entrada e no reenvio:
-    - **recusa da entrada** (400 ou 413): o lead montado vai para a Data Table `crm_entradas_recusadas` (colunas: tipo, payload, detalhe, criado_em), sem e-mail. Tentar de novo não resolve;
+    - **recusa da entrada** (400 ou 413): a entrada vai para a Data Table `crm_entradas_recusadas` (colunas: tipo, payload, detalhe, criado_em), sem e-mail, com no máximo os primeiros 8 KB do lead montado e o tamanho original no detalhe. Num 413, ela vai sem o corpo. Tentar de novo não resolve;
     - **temporária** (408, 429, 5xx, tempo esgotado ou falha de conexão): o payload vai para a `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em), sem e-mail, e o reenvio tenta de novo;
     - **configuração** (401, 403, 404 e qualquer outro código): o payload vai para a `crm_entradas_pendentes`, e o fluxo manda na hora um e-mail ao admin, sem os dados da entrada, para corrigir a credencial ou o `urlCrm`.
   - Os fluxos acham as Data Tables pelo nome.

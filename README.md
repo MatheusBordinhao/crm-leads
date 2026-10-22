@@ -1052,7 +1052,7 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 | --- | --- | --- |
 | Execuções do n8n | Nenhuma é salva. Ficam só uma execução interrompida por uma queda do n8n, como "crashed", e uma salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"), com o que chegou | Em Executions, apague as do dia em que o lead entrou, se houver |
 | Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
-| Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400 ou 413), com os dados da pessoa, por 7 dias | Apague a linha da pessoa, se houver |
+| Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400), com até 8 KB dos dados da pessoa, por 7 dias. A entrada acima de 64 KB e o 413 ficam sem o corpo | Apague a linha da pessoa, se houver |
 | Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
 | E-mails de alerta | O nome, a empresa, a origem e a campanha, na caixa da responsável e nos enviados da conta que manda os alertas | Peça à responsável para apagar os e-mails do lead e apague-os dos enviados |
 | Backups | O `pg_dump` diário guarda a pessoa até ser apagado, em 14 dias, no servidor e na cópia de fora | Eles somem sozinhos em 14 dias. Não restaure um backup de antes da anonimização sem anonimizar de novo (veja "Restaurar de verdade") |

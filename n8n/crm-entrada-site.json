@@ -124,7 +124,7 @@
       "name": "Enviar ao CRM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1344, 160],
+      "position": [1792, 160],
       "parameters": {
         "method": "POST",
         "url": "={{ $(\"Configuração\").item.json.urlCrm }}/api/integracoes/leads",
@@ -149,11 +149,11 @@
       "name": "Classificar a falha",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1568, 320],
+      "position": [2016, 320],
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
-        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\n// A regra do destino é a mesma nos fluxos de entrada e no reenvio, e o FluxosN8nTests confere que o texto dela é igual nos quatro.\nfunction destinoDaFalha(codigo) {\n  // A recusa da própria entrada: tentar de novo não resolve, e ela vai para as recusadas.\n  if (codigo === '400' || codigo === '413') return 'recusada';\n  // O CRM fora do ar, lento ou no limite de requisições: o reenvio tenta de novo, sem e-mail.\n  if (codigo === '' || codigo === '408' || codigo === '429' || /^5[0-9]{2}$/.test(codigo)) return 'temporaria';\n  // A chave ou o endereço do CRM (401, 403, 404) e qualquer outro código: a entrada espera na fila, e o admin corrige.\n  return 'configuracao';\n}\n\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst bruto = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\nconst codigo = /^[0-9]{3}$/.test(bruto) ? bruto : '';\n\nlet ultimoErro;\nif (codigo) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\nreturn { json: { destino: destinoDaFalha(codigo), ultimoErro: ultimoErro, lead: $('Montar o lead').item.json.lead } };"
+        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\n// A regra do destino é a mesma nos fluxos de entrada e no reenvio, e o FluxosN8nTests confere que o texto dela é igual nos quatro.\nfunction destinoDaFalha(codigo) {\n  // A recusa da própria entrada: tentar de novo não resolve, e ela vai para as recusadas.\n  if (codigo === '400' || codigo === '413') return 'recusada';\n  // O CRM fora do ar, lento ou no limite de requisições: o reenvio tenta de novo, sem e-mail.\n  if (codigo === '' || codigo === '408' || codigo === '429' || /^5[0-9]{2}$/.test(codigo)) return 'temporaria';\n  // A chave ou o endereço do CRM (401, 403, 404) e qualquer outro código: a entrada espera na fila, e o admin corrige.\n  return 'configuracao';\n}\n\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst bruto = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\nconst codigo = /^[0-9]{3}$/.test(bruto) ? bruto : '';\n\nlet ultimoErro;\nif (codigo) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Nas recusadas, o corpo vai inteiro só até 8 KB; acima disso, os primeiros 8 KB, e o detalhe guarda o tamanho original. Num 413,\n// vai sem o corpo. As Data Tables dividem um teto de 200 MiB, e o webhook do site é público.\nconst LIMITE_GUARDADO = 8 * 1024;\nconst lead = $('Montar o lead').item.json.lead;\nconst corpo = JSON.stringify(lead);\nconst tamanho = Buffer.byteLength(corpo, 'utf8');\nlet guardado = corpo;\nif (codigo === '413') {\n  guardado = '';\n} else if (tamanho > LIMITE_GUARDADO) {\n  guardado = Buffer.from(corpo, 'utf8').subarray(0, LIMITE_GUARDADO).toString('utf8').replace(/�$/, '');\n}\nconst cortado = guardado !== '' && guardado.length < corpo.length;\n\nreturn {\n  json: {\n    destino: destinoDaFalha(codigo),\n    ultimoErro: ultimoErro,\n    lead: lead,\n    payloadRecusada: guardado,\n    detalheRecusada: ultimoErro + ', entrada de ' + tamanho + ' bytes' + (cortado ? ', guardados os primeiros 8 KB' : ''),\n  },\n};"
       }
     },
     {
@@ -161,7 +161,7 @@
       "name": "Guardar na fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [2016, 400],
+      "position": [2464, 400],
       "parameters": {
         "resource": "row",
         "operation": "insert",
@@ -223,7 +223,7 @@
       "typeVersion": 1,
       "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Entrada Site\nRecebe o formulário do site, descarta o envio com o campo isca (`website`) preenchido, gera o id externo (UUID), responde ao site e manda o lead ao CRM (seção 4.2). Se o CRM recusar a entrada (400 ou 413), ela vai para a Data Table `crm_entradas_recusadas`, por 7 dias, e conta no resumo diário. Se o CRM estiver fora do ar ou recusar a configuração (401, 403, 404), ela vai para a `crm_entradas_pendentes`, e o CRM - Reenvio de pendentes a manda depois; na configuração, o admin recebe um e-mail na hora. O endereço do CRM e os e-mails ficam no nó \"Configuração\"; o domínio do site, no CORS do Webhook.",
+        "content": "## CRM - Entrada Site\nRecebe o formulário do site, descarta o envio com o campo isca (`website`) preenchido, gera o id externo (UUID), responde ao site e manda o lead ao CRM (seção 4.2). Acima de 64 KB, o limite do CRM, a entrada nem vai ao CRM: fica na Data Table `crm_entradas_recusadas`, sem o corpo. Se o CRM recusar a entrada (400 ou 413), ela vai para as recusadas, com no máximo 8 KB do corpo, por 7 dias. Se o CRM estiver fora do ar ou recusar a configuração (401, 403, 404), ela vai para a `crm_entradas_pendentes`, e o CRM - Reenvio de pendentes a manda depois; na configuração, o admin recebe um e-mail na hora. O endereço do CRM e os e-mails ficam no nó \"Configuração\"; o domínio do site, no CORS do Webhook.",
         "color": 7,
         "width": 1056,
         "height": 304
@@ -234,7 +234,7 @@
       "name": "Recusada pelo CRM?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1792, 320],
+      "position": [2240, 320],
       "parameters": {
         "conditions": {
           "options": {
@@ -260,7 +260,7 @@
       "name": "Guardar nas recusadas",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [2016, 240],
+      "position": [2464, 240],
       "parameters": {
         "resource": "row",
         "operation": "insert",
@@ -269,8 +269,8 @@
           "mappingMode": "defineBelow",
           "value": {
             "tipo": "={{ $json.lead.origem }}_recusada",
-            "payload": "={{ JSON.stringify($json.lead) }}",
-            "detalhe": "={{ $json.ultimoErro }}",
+            "payload": "={{ $json.payloadRecusada }}",
+            "detalhe": "={{ $json.detalheRecusada }}",
             "criado_em": "={{ $now.toISO() }}"
           },
           "schema": [
@@ -320,7 +320,7 @@
       "name": "Falha de configuração?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2240, 400],
+      "position": [2688, 400],
       "parameters": {
         "conditions": {
           "options": {
@@ -346,7 +346,7 @@
       "name": "Avisar da configuração",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [2464, 400],
+      "position": [2912, 400],
       "parameters": {
         "operation": "send",
         "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
@@ -358,6 +358,104 @@
       },
       "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
       "webhookId": "56391b0f-fee6-4c5e-b3d3-3bc08d0aa401"
+    },
+    {
+      "id": "e82e7a10-f477-4da9-a207-2de8ea718004",
+      "name": "Conferir o tamanho",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1344, 160],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Mede a entrada em bytes, como o CRM conta o limite do corpo: 64 KB (seção 4.2). Acima dele, a entrada nem vai ao CRM nem entra\n// na fila: fica nas recusadas, sem o corpo, só com o tamanho. O webhook do site é público, o n8n aceita corpos de até 16 MiB, e\n// as Data Tables dividem um teto de 200 MiB.\nconst LIMITE_DO_CRM = 64 * 1024;\nconst tamanho = Buffer.byteLength(JSON.stringify($json.lead), 'utf8');\nreturn { json: { ...$json, tamanho: tamanho, cabeNoCrm: tamanho <= LIMITE_DO_CRM } };"
+      }
+    },
+    {
+      "id": "7b806ff7-f584-4916-99d4-d8a67b9b21da",
+      "name": "Cabe no CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1568, 160],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.cabeNoCrm }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "41fae7ae-2ca8-409e-91bb-19e5e82f2944",
+      "name": "Recusar pelo tamanho",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1792, 0],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "={{ $json.lead.origem }}_recusada",
+            "payload": "",
+            "detalhe": "=Entrada de {{ $json.tamanho }} bytes, acima do limite de 64 KB do CRM",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -371,7 +469,6 @@
     },
     "Gerar o id": { "main": [[{ "node": "Montar o lead", "type": "main", "index": 0 }]] },
     "Montar o lead": { "main": [[{ "node": "Responder ao site", "type": "main", "index": 0 }]] },
-    "Responder ao site": { "main": [[{ "node": "Enviar ao CRM", "type": "main", "index": 0 }]] },
     "Enviar ao CRM": {
       "main": [[], [{ "node": "Classificar a falha", "type": "main", "index": 0 }]]
     },
@@ -389,6 +486,16 @@
     },
     "Falha de configuração?": {
       "main": [[{ "node": "Avisar da configuração", "type": "main", "index": 0 }]]
+    },
+    "Responder ao site": {
+      "main": [[{ "node": "Conferir o tamanho", "type": "main", "index": 0 }]]
+    },
+    "Conferir o tamanho": { "main": [[{ "node": "Cabe no CRM?", "type": "main", "index": 0 }]] },
+    "Cabe no CRM?": {
+      "main": [
+        [{ "node": "Enviar ao CRM", "type": "main", "index": 0 }],
+        [{ "node": "Recusar pelo tamanho", "type": "main", "index": 0 }]
+      ]
     }
   },
   "settings": {

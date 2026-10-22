@@ -229,6 +229,45 @@ public class FluxosN8nTests
     }
 
     /// <summary>
+    /// A entrada acima de 64 KB, o limite do CRM (seção 4.2), nem vai ao CRM nem entra na fila: fica nas recusadas, sem o corpo. O
+    /// webhook do site é público, o n8n aceita corpos de até 16 MiB, e as Data Tables dividem um teto de 200 MiB: sem o limite, uns
+    /// poucos envios grandes encheriam tudo, e a fila pararia de gravar (seção 4.5).
+    /// </summary>
+    [Theory]
+    [InlineData("crm-entrada-site.json")]
+    [InlineData("crm-entrada-google.json")]
+    [InlineData("crm-entrada-meta.json")]
+    public void O_fluxo_de_entrada_confere_o_tamanho_antes_de_mandar_ao_CRM(string arquivo)
+    {
+        using var fluxo = Ler(arquivo);
+        var codigo = No(fluxo, "Conferir o tamanho").GetProperty("parameters").GetProperty("jsCode").GetString()!;
+        var recusa = No(fluxo, "Recusar pelo tamanho").GetProperty("parameters").GetProperty("columns").GetProperty("value");
+
+        Assert.Contains("const LIMITE_DO_CRM = 64 * 1024;", codigo, StringComparison.Ordinal);
+        Assert.Equal(new[] { ("Cabe no CRM?", 0) }, Entradas(fluxo, "Enviar ao CRM"));
+        Assert.Equal(new[] { ("Cabe no CRM?", 1) }, Entradas(fluxo, "Recusar pelo tamanho"));
+        Assert.Equal("", recusa.GetProperty("payload").GetString());
+    }
+
+    /// <summary>
+    /// Nas recusadas, o corpo vai inteiro só até 8 KB; acima disso, os primeiros 8 KB, com o tamanho original no detalhe. Num 413,
+    /// vai sem o corpo (seção 4.5).
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(FluxosQueEnviamAoCrm))]
+    public void A_recusa_guarda_no_maximo_8_KB_do_corpo(string arquivo)
+    {
+        using var fluxo = Ler(arquivo);
+        var codigo = No(fluxo, "Classificar a falha").GetProperty("parameters").GetProperty("jsCode").GetString()!;
+        var recusa = No(fluxo, "Guardar nas recusadas").GetProperty("parameters").GetProperty("columns").GetProperty("value");
+
+        Assert.Contains("const LIMITE_GUARDADO = 8 * 1024;", codigo, StringComparison.Ordinal);
+        Assert.Contains("if (codigo === '413') {\n  guardado = '';", codigo, StringComparison.Ordinal);
+        Assert.Equal("={{ $json.payloadRecusada }}", recusa.GetProperty("payload").GetString());
+        Assert.Equal("={{ $json.detalheRecusada }}", recusa.GetProperty("detalhe").GetString());
+    }
+
+    /// <summary>
     /// O resumo diário roda uma vez por dia, às 8h: no n8n Cloud, cada execução conta no limite do plano, inclusive as agendadas
     /// (cerca de 30 por mês, seção 4.5).
     /// </summary>
@@ -247,6 +286,17 @@ public class FluxosN8nTests
     private static JsonDocument Ler(string arquivo) => JsonDocument.Parse(File.ReadAllText(Path.Combine(Pasta, arquivo)));
 
     private static JsonElement No(JsonDocument fluxo, string nome) => Nos(fluxo).Single(no => no.GetProperty("name").GetString() == nome);
+
+    /// <summary>De onde chegam as ligações a um nó: o nó de origem e a saída dele.</summary>
+    private static List<(string Origem, int Saida)> Entradas(JsonDocument fluxo, string nome) =>
+    [
+        .. fluxo.RootElement.GetProperty("connections").EnumerateObject().SelectMany(origem => origem.Value.GetProperty("main")
+            .EnumerateArray()
+            .Select((ligacoes, saida) => (ligacoes, saida))
+            .Where(par => par.ligacoes.ValueKind == JsonValueKind.Array
+                && par.ligacoes.EnumerateArray().Any(ligacao => ligacao.GetProperty("node").GetString() == nome))
+            .Select(par => (origem.Name, par.saida))),
+    ];
 
     private static IEnumerable<JsonElement> Nos(JsonDocument fluxo) => fluxo.RootElement.GetProperty("nodes").EnumerateArray();
 }
