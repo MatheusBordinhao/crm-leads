@@ -742,7 +742,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    | --- | --- |
    | `CRM - Erros`, `CRM - Alertas` | `emailAdmin` e `remetente` (o e-mail da credencial SMTP) |
    | `CRM - Entrada Site` | `urlCrm` (`https://` e o `DOMINIO`), `emailAdmin` e `remetente` |
-   | `CRM - Reenvio de pendentes` | `urlCrm` |
+   | `CRM - Reenvio de pendentes` | `urlCrm`, `emailAdmin` e `remetente` (o `linhasPorRodada` fica) |
    | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` |
    | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
    | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |

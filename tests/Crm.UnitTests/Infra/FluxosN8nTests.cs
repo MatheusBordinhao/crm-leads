@@ -32,6 +32,7 @@ public class FluxosN8nTests
         "crm-entrada-site.json",
         "crm-entrada-google.json",
         "crm-entrada-meta.json",
+        "crm-reenvio-de-pendentes.json",
     ];
 
     [Fact]
@@ -153,15 +154,36 @@ public class FluxosN8nTests
 
     /// <summary>
     /// Um Stop and Error dispara o <c>CRM - Erros</c>, com um e-mail a cada vez: um robô mandando envios inválidos lotaria a caixa
-    /// do admin. As recusas ficam nas Data Tables, e a falha de configuração manda o próprio e-mail (seção 4.5).
+    /// do admin. As recusas ficam nas Data Tables, e a falha de configuração manda o próprio e-mail (seção 4.5). O
+    /// <c>CRM - Erros</c> fica só para o erro inesperado.
     /// </summary>
     [Theory]
-    [MemberData(nameof(FluxosQueEnviamAoCrm))]
-    public void O_fluxo_que_envia_ao_CRM_nao_termina_com_erro_de_proposito(string arquivo)
+    [MemberData(nameof(Fluxos))]
+    public void O_fluxo_nao_termina_com_erro_de_proposito(string arquivo)
     {
         using var fluxo = Ler(arquivo);
 
         Assert.DoesNotContain(Nos(fluxo), no => no.GetProperty("type").GetString() == "n8n-nodes-base.stopAndError");
+    }
+
+    /// <summary>
+    /// O reenvio leva no máximo as linhas do "Configuração" por rodada, as mais antigas primeiro. Com o CRM lento, cada linha leva
+    /// até 11 s (10 s de tempo limite e 1 s de intervalo), e a rodada precisa caber nos 5 minutos por execução do Starter
+    /// (seção 4.5). A falha de configuração manda um e-mail só por rodada, e não um por linha.
+    /// </summary>
+    [Fact]
+    public void O_reenvio_leva_no_maximo_20_linhas_por_rodada_e_manda_um_email_so()
+    {
+        using var fluxo = Ler("crm-reenvio-de-pendentes.json");
+        var configuracao = No(fluxo, "Configuração").GetProperty("parameters").GetProperty("assignments").GetProperty("assignments")
+            .EnumerateArray().Single(campo => campo.GetProperty("name").GetString() == "linhasPorRodada");
+        var busca = No(fluxo, "Buscar os pendentes").GetProperty("parameters");
+
+        Assert.Equal(20, configuracao.GetProperty("value").GetInt32());
+        Assert.False(busca.GetProperty("returnAll").GetBoolean());
+        Assert.Contains("linhasPorRodada", busca.GetProperty("limit").GetString(), StringComparison.Ordinal);
+        Assert.Equal("ASC", busca.GetProperty("orderByDirection").GetString());
+        Assert.True(No(fluxo, "Avisar da configuração").GetProperty("executeOnce").GetBoolean());
     }
 
     /// <summary>
