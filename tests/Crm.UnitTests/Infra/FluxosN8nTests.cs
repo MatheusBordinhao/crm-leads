@@ -4,9 +4,10 @@ namespace Crm.UnitTests.Infra;
 
 /// <summary>
 /// Os fluxos do n8n guardados em <c>n8n/</c> (seção 4.5). Os JSONs levam os fluxos do n8n local para o n8n Cloud de produção,
-/// e as configurações de execução vão junto: nenhum fluxo do CRM salva as execuções de produção que deram certo, para o n8n não
-/// guardar dados pessoais sem necessidade (seção 3.8), e todos avisam o <c>CRM - Erros</c> quando falham. Os fluxos só usam o que
-/// também existe no n8n Cloud: os endereços ficam no nó "Configuração", e os segredos, nas credenciais.
+/// e as configurações de execução vão junto: nenhum fluxo do CRM salva execução, nem as que deram certo, nem as com erro, nem as
+/// manuais, porque o gatilho guarda o que recebeu, com os dados do lead e, no Alertas e no Google, a chave (seção 3.8). Todos avisam
+/// o <c>CRM - Erros</c> quando falham. Os fluxos só usam o que também existe no n8n Cloud: os endereços ficam no nó
+/// "Configuração", e os segredos, nas credenciais.
 /// </summary>
 public class FluxosN8nTests
 {
@@ -43,12 +44,16 @@ public class FluxosN8nTests
 
     [Theory]
     [MemberData(nameof(Fluxos))]
-    public void O_fluxo_e_do_CRM_e_nao_salva_as_execucoes_de_producao_que_deram_certo(string arquivo)
+    public void O_fluxo_e_do_CRM_e_nao_salva_nenhuma_execucao(string arquivo)
     {
         using var fluxo = Ler(arquivo);
+        var configuracoes = fluxo.RootElement.GetProperty("settings");
 
         Assert.StartsWith("CRM - ", fluxo.RootElement.GetProperty("name").GetString(), StringComparison.Ordinal);
-        Assert.Equal("none", fluxo.RootElement.GetProperty("settings").GetProperty("saveDataSuccessExecution").GetString());
+        Assert.Equal("none", configuracoes.GetProperty("saveDataSuccessExecution").GetString());
+        Assert.Equal("none", configuracoes.GetProperty("saveDataErrorExecution").GetString());
+        Assert.False(configuracoes.GetProperty("saveManualExecutions").GetBoolean());
+        Assert.False(configuracoes.GetProperty("saveExecutionProgress").GetBoolean());
     }
 
     [Theory]
@@ -99,16 +104,19 @@ public class FluxosN8nTests
     }
 
     /// <summary>
-    /// O e-mail do <c>CRM - Erros</c> leva só o nome do fluxo, o nó e o link da execução (seção 4.5): a mensagem do erro pode
-    /// trazer um dado pessoal, como o corpo de uma resposta.
+    /// O e-mail do <c>CRM - Erros</c> leva só o nome do fluxo e o nó (seção 4.5). A mensagem do erro pode trazer um dado pessoal,
+    /// como o corpo de uma resposta, e o link da execução não abre nada: nenhuma execução fica salva.
     /// </summary>
     [Fact]
-    public void O_email_do_CRM_Erros_nao_leva_a_mensagem_do_erro()
+    public void O_email_do_CRM_Erros_nao_leva_a_mensagem_do_erro_nem_o_link()
     {
         var texto = File.ReadAllText(Path.Combine(Pasta, FluxoDeErros));
 
         Assert.DoesNotContain("execution.error", texto, StringComparison.Ordinal);
+        Assert.DoesNotContain("execution?.error", texto, StringComparison.Ordinal);
         Assert.DoesNotContain("trigger.error", texto, StringComparison.Ordinal);
+        Assert.DoesNotContain("execution.url", texto, StringComparison.Ordinal);
+        Assert.DoesNotContain("execution?.url", texto, StringComparison.Ordinal);
     }
 
     private static JsonDocument Ler(string arquivo) => JsonDocument.Parse(File.ReadAllText(Path.Combine(Pasta, arquivo)));

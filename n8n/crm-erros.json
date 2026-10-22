@@ -50,7 +50,7 @@
         "toEmail": "={{ $json.emailAdmin }}",
         "subject": "=[CRM] Falha no fluxo {{ $json.workflow.name }}",
         "emailFormat": "text",
-        "text": "=O fluxo {{ $json.workflow.name }} falhou.\n\nNó: {{ $json.execution?.lastNodeExecuted ?? \"não informado\" }}\nExecução: {{ $json.execution?.url ?? \"sem link\" }}\n\nO motivo está na execução. Este e-mail não traz a mensagem do erro, que pode ter dados pessoais.",
+        "text": "=O fluxo {{ $json.workflow.name }} falhou.\n\nNó: {{ $json.execution?.lastNodeExecuted ?? \"não informado\" }}\n\nA execução não fica salva, e este e-mail não traz a mensagem do erro, que pode ter dados pessoais. Para ver o motivo, siga \"Investigar uma falha no n8n\", no README do CRM.\n\nAs entradas que não chegaram ao CRM ficam nas Data Tables crm_entradas_pendentes e crm_entradas_recusadas.",
         "options": { "appendAttribution": false }
       },
       "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
@@ -63,7 +63,7 @@
       "typeVersion": 1,
       "position": [-32, -96],
       "parameters": {
-        "content": "## CRM - Erros\nÉ o fluxo de erro de todos os fluxos `CRM - `. Manda um e-mail ao admin com o nome do fluxo, o nó e o link da execução, sem a mensagem do erro, que pode trazer dado pessoal. Quem recebe e quem envia ficam no nó \"Configuração\".",
+        "content": "## CRM - Erros\nÉ o fluxo de erro de todos os fluxos `CRM - `. Manda um e-mail ao admin com o nome do fluxo e o nó, sem a mensagem do erro, que pode trazer dado pessoal, e sem o link: as execuções não ficam salvas. Quem recebe e quem envia ficam no nó \"Configuração\".",
         "color": 7,
         "width": 608,
         "height": 224
@@ -78,6 +78,9 @@
     "executionOrder": "v1",
     "availableInMCP": true,
     "timezone": "America/Sao_Paulo",
-    "saveDataSuccessExecution": "none"
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataErrorExecution": "none"
   }
 }

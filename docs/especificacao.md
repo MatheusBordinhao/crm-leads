@@ -200,7 +200,10 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - exportações e anonimizações;
   - exclusão de lead de teste;
   - mudanças em usuários e configurações.
-- No n8n, os fluxos `CRM - ` ficam com "salvar execuções de produção com sucesso" desligado, para não guardar dados pessoais sem necessidade. Os JSONs de `n8n/` já levam o ajuste (`saveDataSuccessExecution: none`), e um teste confere cada fluxo guardado. No n8n de produção, falta conferir o ajuste depois de importar os fluxos e ver por quanto tempo ficam as execuções com erro, que guardam o payload e o que o gatilho recebeu (4.5): no n8n Cloud, é o prazo do plano; no Community, `EXECUTIONS_DATA_PRUNE` e `EXECUTIONS_DATA_MAX_AGE`.
+- No n8n, os fluxos `CRM - ` não salvam nenhuma execução: nem as que deram certo, nem as com erro, nem as manuais, nem o progresso (`saveDataSuccessExecution` e `saveDataErrorExecution` em `none`, `saveManualExecutions` e `saveExecutionProgress` em `false`). O gatilho guardaria o que recebeu, com o payload do lead e, no Alertas e no Google, a chave. Os JSONs de `n8n/` levam o ajuste, e um teste confere cada fluxo guardado.
+  - Fica um resto: uma execução interrompida por uma queda do n8n fica como "crashed", com o que o gatilho recebeu.
+  - No n8n local, a mensagem do erro de uma execução que falha sai no log do contêiner.
+  - No n8n de produção, falta conferir o ajuste depois de importar os fluxos e ver por quanto tempo o plano guarda uma execução "crashed".
 
 ## 4. Integração com o n8n
 
@@ -375,7 +378,7 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 | Fluxo | Gatilho | O que faz | Passo |
 | --- | --- | --- | --- |
 | `CRM - Alertas` | Webhook `POST` com Header Auth | Recebe os eventos e manda e-mail para a responsável com nome, empresa, origem, campanha e o link da ficha. Sem responsável, avisa o e-mail de admin do nó "Configuração" | 4 |
-| `CRM - Erros` | Error Trigger | Manda e-mail para o admin com o nome do fluxo, o nó e o link da execução, sem a mensagem do erro, que pode trazer dado pessoal. É o fluxo de erro de todos os fluxos `CRM - ` | 4 |
+| `CRM - Erros` | Error Trigger | Manda e-mail para o admin com o nome do fluxo e o nó, sem a mensagem do erro, que pode trazer dado pessoal, e sem o link da execução, que não fica salva (3.8). É o fluxo de erro de todos os fluxos `CRM - ` | 4 |
 | `CRM - Entrada Meta` | Facebook Lead Ads Trigger | Busca na Graph API a campanha e a plataforma do lead, que o gatilho não traz, monta o JSON da seção 4.2 (`idExterno` é o id do lead na Meta) com campanha, conjunto, anúncio, formulário e plataforma, e envia ao CRM | 6 |
 | `CRM - Entrada Google` | Webhook `POST` | Confere o SHA-256 do `google_key` (errado: responde 403 e avisa o admin), responde 200 com `{}` e mapeia `user_column_data` pelo `column_id` (FULL_NAME, ou FIRST_NAME e LAST_NAME, EMAIL ou WORK_EMAIL, PHONE_NUMBER ou WORK_PHONE, COMPANY_NAME, REGION; as outras colunas vão para as respostas extras, pelo nome da pergunta). Usa `lead_id` como idExterno, `campaign_id`, `adgroup_id`, `creative_id` e `form_id` como campanha, conjunto, anúncio e formulário, como texto, `gcl_id` como gclid e `is_test` como teste | 6 |
 | `CRM - Entrada Site` | Webhook `POST`, com CORS liberado só para o domínio do site | Descarta envios com o campo isca `website` preenchido (responde do mesmo jeito), gera o idExterno (UUID), responde `{ "recebido": true }` e envia ao CRM, com as UTMs. O lead do site nunca é de teste | 6 |
@@ -407,7 +410,7 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
   - Se o acesso a leads for restrito nas configurações do negócio (Integrações > Acesso a leads), libere o app lá.
 - **Google:** a Gama cola a URL do webhook e a chave no formulário de lead do Google Ads. O botão "Enviar dados de teste" manda `is_test: true`.
 - **Orçamento de execuções:** com 300 leads por mês, o consumo fica perto de 900 execuções: cerca de 300 de entrada, 300 de alerta, 290 de reenvio e 4 de relatório. Isso cabe no plano Starter, que tem 2.500 por mês.
-- **Execuções com erro:** ficam salvas com o que o gatilho recebeu: o payload do lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas (3.8).
+- **Execuções:** nenhuma fica salva (3.8). Para investigar uma falha, o salvamento das execuções com erro é ligado só no fluxo, por um tempo, e as execuções salvas são apagadas no fim (README › n8n local › Investigar uma falha no n8n). As configurações de execução valem na hora, sem publicar o fluxo de novo, e o fluxo de erro só dispara nas execuções de produção.
 - **Instâncias:**
   - Desenvolvimento: desde 14/10/2026, um n8n Community (2.43.5) no Compose de desenvolvimento, com os 7 fluxos testados com dados de teste (README › n8n local). A instância de teste `matheusbordinhao.app.n8n.cloud` acabou em 06/10/2026.
   - Produção: o n8n Cloud, numa conta da empresa, quando o pagamento sair (seção 11).
@@ -688,8 +691,9 @@ Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o 
   - o app da Meta em modo Live, com a credencial, e o teste com a Ferramenta de Teste;
   - o "Enviar dados de teste" de verdade do Google Ads;
   - levar os fluxos ao n8n Cloud, com o domínio do site, o e-mail da Gama e a chave do Google de produção;
-  - antes da reunião, no trabalho de 16/10/2026 (veja Ordem), os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
-  - também nesse trabalho, as execuções com erro, que guardam o `google_key` e o `X-Crm-Chave` (4.5). A redação dos dados de execução é só do plano Enterprise do n8n; no Starter, o caminho é não salvar as execuções.
+  - antes da reunião, no trabalho de 16/10/2026 (veja Ordem), os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail.
+- **Feito em 22/10/2026, no trabalho de 16/10/2026 (Lote 2A):**
+  - nenhum fluxo salva execução, e o e-mail do `CRM - Erros` sai sem o link (3.8 e 4.5). A redação dos dados de execução é só do plano Enterprise do n8n; no Starter, o caminho é não salvar as execuções.
 
 **Passo 7: tempo real**
 
@@ -719,7 +723,7 @@ Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o 
 
 - Exportar os dados do titular, anonimizar e excluir leads de teste.
 - Exportação de leads com registro na auditoria e tela de auditoria.
-- Revisão das configurações de execução dos fluxos no n8n. No n8n local, os 7 fluxos não salvam as execuções de produção que deram certo, e o `CRM - Erros` é o fluxo de erro dos outros. Fica pendente a conferência no n8n de produção.
+- Revisão das configurações de execução dos fluxos no n8n. No n8n local, desde 22/10/2026 (Lote 2A), nenhum fluxo salva execução, e o `CRM - Erros` é o fluxo de erro dos outros. Fica pendente a conferência no n8n de produção.
 - Aceite:
   - depois de anonimizar, nenhum dado pessoal do lead aparece no banco, incluindo entradas e interações;
   - o painel mantém os totais.

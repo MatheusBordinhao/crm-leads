@@ -321,7 +321,7 @@ docker compose stop n8n
    Copiar-DoEnv Integracao__Chave
    ```
 3. Crie a Data Table `crm_entradas_pendentes` (Overview › Data tables), com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data). Os fluxos a acham pelo nome.
-4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e "Save successful production executions: Do not save". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
+4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e as quatro opções de salvar em "Do not save": "Save failed production executions", "Save successful production executions", "Save manual executions" e "Save execution progress". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
 5. Gere a chave do Google de desenvolvimento. Ela é aleatória e fica num arquivo fora do repositório; o SHA-256 dela vai para o `googleKeySha256` do nó "Configuração" do `CRM - Entrada Google`:
 
    ```powershell
@@ -378,7 +378,7 @@ Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para
 **Cuidados.**
 
 - Nunca publique nem execute um fluxo sem querer: publicado, o `CRM - Alertas` manda um e-mail de verdade a cada evento do CRM.
-- As execuções com erro ficam salvas com o que o gatilho recebeu: o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Apague as de teste (Executions › Delete).
+- Nenhuma execução fica salva, nem as com erro: o gatilho guardaria o que recebeu, com o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Para ver o motivo de uma falha, siga "Investigar uma falha no n8n", abaixo.
 - Não baixe um arquivo (formato de resposta "File") num HTTP Request com credencial. Nesse modo, o n8n guarda nos dados da execução a requisição inteira, com o cabeçalho da credencial. Por isso, o relatório semanal baixa o CSV como texto e refaz o anexo.
 - Depois de mudar um fluxo, exporte o JSON pelo CLI e deixe só `id`, `name`, `nodes`, `connections` e `settings` (sem `pinData`, `active`, `versionId`, `meta` e as datas). Depois, formate com o Prettier do `web/`, rodando no `web/`: `npx.cmd prettier --config .prettierrc.json --write "../n8n/*.json"`. O `FluxosN8nTests` confere as regras dos JSONs.
 
@@ -386,6 +386,16 @@ Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para
   docker compose exec n8n n8n export:workflow --id=<id do fluxo> --output=/tmp/fluxo.json
   docker compose cp n8n:/tmp/fluxo.json n8n/fluxo-exportado.json
   ```
+
+**Investigar uma falha no n8n.** Como nenhuma execução fica salva, o e-mail do `CRM - Erros` diz só o fluxo e o nó. Para ver o motivo:
+
+1. No fluxo, em Settings, ponha "Save failed production executions" em "Save". Para um teste pelo editor, ponha também "Save manual executions". A mudança vale na hora, sem publicar o fluxo de novo.
+2. Reproduza a falha e abra a execução em Executions. Uma execução manual não dispara o `CRM - Erros`.
+3. Apague as execuções salvas (Executions › Delete): elas guardam o que o gatilho recebeu, como os dados do lead, o `X-Crm-Chave` no Alertas e o `google_key` no Google.
+4. Volte as duas opções para "Do not save".
+
+- Não exporte o JSON do fluxo com o salvamento ligado: o `FluxosN8nTests` falha.
+- No n8n local, a mensagem do erro também sai no log do contêiner (`docker compose logs n8n`), sem salvar a execução. Ela pode trazer um dado do lead: não copie o log para fora do computador.
 
 ### Importação de leads
 
@@ -431,7 +441,7 @@ Em **Auditoria** (só admin) ficam, do mais recente para o mais antigo, os login
 - O "Ver na auditoria" da ficha abre a tela só com os registros do lead.
 - Os registros não têm dados pessoais: os leads aparecem pelo número.
 
-No n8n, os fluxos não salvam as execuções que deram certo (os JSONs de `n8n/` já levam o ajuste). As que dão erro ficam salvas com o que o gatilho recebeu, inclusive os dados do lead: veja "n8n local", em Dia a dia. Conferir o ajuste e o prazo das execuções com erro no n8n de produção fica para quando ele existir.
+No n8n, os fluxos não salvam nenhuma execução, nem as com erro (os JSONs de `n8n/` levam o ajuste): o gatilho guardaria o que recebeu, inclusive os dados do lead. Para investigar uma falha, veja "n8n local", em Dia a dia. Conferir o ajuste no n8n de produção fica para quando ele existir.
 
 O passo a passo de um pedido do titular, com o que fica fora do CRM, está em "Pedido do titular (LGPD)", no fim deste README.
 
@@ -736,7 +746,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
 
    E também:
    - escolha a credencial nos nós que a pedem;
-   - em Settings, deixe o Error Workflow no `CRM - Erros` (depois de publicá-lo), "Save successful production executions" em "Do not save" e o fuso em America/Sao_Paulo;
+   - em Settings, deixe o Error Workflow no `CRM - Erros` (depois de publicá-lo), as quatro opções de salvar em "Do not save" e o fuso em America/Sao_Paulo;
    - no `CRM - Entrada Site`, ponha o domínio do site em "Allowed Origins (CORS)" do Webhook;
    - na `CRM - Entrada Meta`, escolha a página e o formulário.
 5. Gere a chave do Google de produção. A chave vai para a área de transferência, para a Gama colar no formulário de lead do Google Ads, e o SHA-256 aparece na tela, para o `googleKeySha256`:
@@ -754,7 +764,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
 8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`.
 9. Confira:
    - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório;
-   - no fim, apague as execuções de teste e veja por quanto tempo o plano guarda as execuções com erro.
+   - no fim, confira em Executions que nenhuma execução ficou salva e veja por quanto tempo o plano guarda uma execução "crashed", a interrompida por uma queda do n8n.
 10. No Claude Code, aponte o `.mcp.json` para o MCP do n8n Cloud e remova o local: `claude mcp remove --scope user n8n-local`.
 
 ### Atualizar
@@ -1035,7 +1045,7 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 
 | Onde | O que fica | O que fazer |
 | --- | --- | --- |
-| Execuções do n8n | As que deram certo não são salvas. As com erro guardam o que chegou, com nome, e-mail e telefone, pelo prazo do plano (n8n Cloud) ou do `EXECUTIONS_DATA_MAX_AGE` (n8n Community) | Em Executions, filtre as com erro do dia em que o lead entrou e apague as dele |
+| Execuções do n8n | Nenhuma é salva. Ficam só uma execução interrompida por uma queda do n8n, como "crashed", e uma salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"), com o que chegou | Em Executions, apague as do dia em que o lead entrou, se houver |
 | Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
 | Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
 | E-mails de alerta | O nome, a empresa, a origem e a campanha, na caixa da responsável e nos enviados da conta que manda os alertas | Peça à responsável para apagar os e-mails do lead e apague-os dos enviados |
