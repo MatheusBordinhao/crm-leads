@@ -280,12 +280,12 @@ O formulário do site passa pelo n8n porque o navegador não pode guardar a chav
 | 201 | `{ "leadId": 1024, "situacao": "criado" }` | Segue |
 | 200 | `{ "leadId": 1024, "situacao": "vinculado" }`, quando a pessoa já existia | Segue |
 | 200 | `{ "leadId": 1024, "situacao": "ja_recebido" }`, quando a mesma origem e o mesmo idExterno já foram processados | Segue |
-| 400 | ProblemDetails com os erros | Não reenvia e avisa o admin |
-| 401 | Vazio | Não reenvia e avisa o admin |
-| 413 | ProblemDetails, com o corpo acima de 64 KB | Não reenvia e avisa o admin |
+| 400 | ProblemDetails com os erros | Não reenvia: a entrada vai para a Data Table de recusadas, sem e-mail (4.5) |
+| 401 | Vazio | Guarda na fila de pendentes e avisa o admin na hora: a chave do n8n está errada |
+| 413 | ProblemDetails, com o corpo acima de 64 KB | Como o 400 |
 | 429, 5xx ou tempo esgotado | Vazio | Tenta de novo e, se não der, guarda na fila de pendentes |
 
-A resposta 400 vale só para problemas de estrutura: falta de nome, falta de e-mail e telefone ao mesmo tempo, origem inválida ou falta de idExterno. Formatos inválidos são aceitos com aviso (3.1).
+A resposta 400 vale só para problemas de estrutura: falta de nome, falta de e-mail e telefone ao mesmo tempo, origem inválida ou falta de idExterno. Formatos inválidos são aceitos com aviso (3.1). Outro 4xx, como um 403 ou um 404, conta como o 401: é a configuração do n8n que está errada, e não a entrada.
 
 ### 4.3 Saída: eventos do CRM para o n8n
 
@@ -380,7 +380,7 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 | `CRM - Alertas` | Webhook `POST` com Header Auth | Recebe os eventos e manda e-mail para a responsável com nome, empresa, origem, campanha e o link da ficha. Sem responsável, avisa o e-mail de admin do nó "Configuração" | 4 |
 | `CRM - Erros` | Error Trigger | Manda e-mail para o admin com o nome do fluxo e o nó, sem a mensagem do erro, que pode trazer dado pessoal, e sem o link da execução, que não fica salva (3.8). É o fluxo de erro de todos os fluxos `CRM - ` | 4 |
 | `CRM - Entrada Meta` | Facebook Lead Ads Trigger | Busca na Graph API a campanha e a plataforma do lead, que o gatilho não traz, monta o JSON da seção 4.2 (`idExterno` é o id do lead na Meta) com campanha, conjunto, anúncio, formulário e plataforma, e envia ao CRM | 6 |
-| `CRM - Entrada Google` | Webhook `POST` | Confere o SHA-256 do `google_key` (errado: responde 403 e avisa o admin), responde 200 com `{}` e mapeia `user_column_data` pelo `column_id` (FULL_NAME, ou FIRST_NAME e LAST_NAME, EMAIL ou WORK_EMAIL, PHONE_NUMBER ou WORK_PHONE, COMPANY_NAME, REGION; as outras colunas vão para as respostas extras, pelo nome da pergunta). Usa `lead_id` como idExterno, `campaign_id`, `adgroup_id`, `creative_id` e `form_id` como campanha, conjunto, anúncio e formulário, como texto, `gcl_id` como gclid e `is_test` como teste | 6 |
+| `CRM - Entrada Google` | Webhook `POST` | Confere o SHA-256 do `google_key` (errado: responde 403 e só conta a tentativa, sem nada do envio), responde 200 com `{}` e mapeia `user_column_data` pelo `column_id` (FULL_NAME, ou FIRST_NAME e LAST_NAME, EMAIL ou WORK_EMAIL, PHONE_NUMBER ou WORK_PHONE, COMPANY_NAME, REGION; as outras colunas vão para as respostas extras, pelo nome da pergunta). Usa `lead_id` como idExterno, `campaign_id`, `adgroup_id`, `creative_id` e `form_id` como campanha, conjunto, anúncio e formulário, como texto, `gcl_id` como gclid e `is_test` como teste | 6 |
 | `CRM - Entrada Site` | Webhook `POST`, com CORS liberado só para o domínio do site | Descarta envios com o campo isca `website` preenchido (responde do mesmo jeito), gera o idExterno (UUID), responde `{ "recebido": true }` e envia ao CRM, com as UTMs. O lead do site nunca é de teste | 6 |
 | `CRM - Reenvio de pendentes` | Schedule de hora em hora, das 8h às 20h, de segunda a sexta | Reenvia o que está na Data Table `crm_entradas_pendentes`, um por segundo e uma tentativa por linha. Apaga a linha quando dá certo (inclusive `ja_recebido`); quando falha, soma a tentativa e grava o erro | 6 |
 | `CRM - Relatório semanal Gama` | Schedule toda segunda às 8h | Busca o resumo e o CSV do relatório sem datas, que vêm com a semana anterior (4.4), e manda o CSV para a Gama por e-mail, anexo, com o período e o total no texto | 9 |
@@ -395,20 +395,24 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 - **Chave do CRM:** fica na credencial Header Auth `CRM - Chave de integração` (`X-Api-Key`), usada pelos HTTP Request. Um HTTP Request com credencial nunca baixa a resposta como arquivo: nesse modo, o n8n guarda nos dados da execução a requisição inteira, com o cabeçalho da credencial.
 - **Relatório semanal:** o HTTP Request chama `GET /api/integracoes/relatorios/campanhas` e o `/csv` sem datas, e o CRM devolve a semana anterior inteira: o fluxo não calcula data. O CSV chega como texto e vai anexo em UTF-8 com BOM, o mesmo arquivo que o admin baixa na tela, para o endereço da Gama do nó "Configuração". Se a Gama preferir uma planilha, o fluxo usa só o JSON.
 - **Falhas no envio ao CRM:**
-  - O HTTP Request tenta 3 vezes, a cada 5 segundos, com tempo limite de 10 s.
-  - Se ainda falhar com 429, 5xx, tempo esgotado ou falha de conexão, o payload vai para `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em), que os fluxos acham pelo nome. O site e o Google já receberam a resposta antes.
-  - Um 4xx que não é 408 nem 429, como o 400 e o 401, não vai para a fila: o fluxo termina com erro e dispara o `CRM - Erros`.
-  - O `ultimo_erro` guarda só o código ou o tipo da falha (`HTTP 503`, `Tempo esgotado (10 s)`, `Falha de conexão`), nunca o corpo da resposta.
-- **Site:** o formulário manda, em JSON ou como formulário, `nome`, `email`, `telefone`, `empresa`, `uf`, `mensagem`, as UTMs (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content` e `utm_term`), o `gclid` e o campo isca `website`, escondido e vazio. A mensagem e qualquer outro campo preenchido vão para as respostas extras. Como o site recebe `{ "recebido": true }` antes do envio ao CRM, o formulário confere o nome e o e-mail ou o telefone: um envio sem eles responde 400 no CRM e avisa o admin.
+  - O HTTP Request tenta 3 vezes, a cada 5 segundos, com tempo limite de 10 s. O site e o Google já receberam a resposta antes.
+  - O destino da falha sai de uma função só, a `destinoDaFalha`, com o mesmo texto nos fluxos de entrada e no reenvio:
+    - **recusa da entrada** (400 ou 413): o lead montado vai para a Data Table `crm_entradas_recusadas` (colunas: tipo, payload, detalhe, criado_em), sem e-mail. Tentar de novo não resolve;
+    - **temporária** (408, 429, 5xx, tempo esgotado ou falha de conexão): o payload vai para a `crm_entradas_pendentes` (colunas: payload, tentativas, ultimo_erro, criado_em), sem e-mail, e o reenvio tenta de novo;
+    - **configuração** (401, 403, 404 e qualquer outro código): o payload vai para a `crm_entradas_pendentes`, e o fluxo manda na hora um e-mail ao admin, sem os dados da entrada, para corrigir a credencial ou o `urlCrm`.
+  - Os fluxos acham as Data Tables pelo nome.
+  - O `ultimo_erro` e o `detalhe` guardam só o código ou o tipo da falha (`HTTP 503`, `Tempo esgotado (10 s)`, `Falha de conexão`), nunca o corpo da resposta. Nenhuma Data Table guarda os cabeçalhos nem o corpo bruto do gatilho.
+  - As recusadas ficam 7 dias, e o resumo diário conta cada tipo (`CRM - Resumo diário`).
+- **Site:** o formulário manda, em JSON ou como formulário, `nome`, `email`, `telefone`, `empresa`, `uf`, `mensagem`, as UTMs (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content` e `utm_term`), o `gclid` e o campo isca `website`, escondido e vazio. A mensagem e qualquer outro campo preenchido vão para as respostas extras. Como o site recebe `{ "recebido": true }` antes do envio ao CRM, o formulário confere o nome e o e-mail ou o telefone: um envio sem eles responde 400 no CRM e fica nas recusadas, sem avisar o admin na hora.
 - **Meta:**
-  - O gatilho de Lead Ads do n8n traz o lead, o anúncio, o conjunto e o formulário, mas não a campanha nem a plataforma. O fluxo as busca no lead (`campaign_id`, `campaign_name` e `platform`) pela Graph API, com a mesma credencial. Se a consulta falhar, o lead entra sem elas, e o fluxo termina com erro, avisando o admin.
+  - O gatilho de Lead Ads do n8n traz o lead, o anúncio, o conjunto e o formulário, mas não a campanha nem a plataforma. O fluxo as busca no lead (`campaign_id`, `campaign_name` e `platform`) pela Graph API, com a mesma credencial. Se a consulta falhar, o lead entra sem elas, e a Data Table das recusadas guarda só o número dele no CRM (`meta_sem_campanha`), para o resumo diário.
   - Os campos seguem os que a importação reconhece no CSV da Meta. `fb` e `ig` viram `facebook` e `instagram`, a data `+0000` vira ISO 8601, e os valores `<test lead: …>` da Ferramenta de Teste marcam o lead como teste.
   - O gatilho escuta um formulário: para vários formulários, o fluxo leva um gatilho por formulário.
   - O app da Meta usado pela credencial do n8n precisa estar em modo Live, o que exige a URL da política de privacidade. Também precisa de acesso avançado a `public_profile` e da verificação da empresa concluída.
   - Quem autoriza a credencial precisa ser admin da página.
   - A Meta aceita um único webhook por app, então alternar entre a URL de teste e a de produção do n8n desliga a outra. Teste direto na URL de produção, com a Ferramenta de Teste de Anúncios de Cadastro. Os leads dessa ferramenta devem chegar com `teste: true`.
   - Se o acesso a leads for restrito nas configurações do negócio (Integrações > Acesso a leads), libere o app lá.
-- **Google:** a Gama cola a URL do webhook e a chave no formulário de lead do Google Ads. O botão "Enviar dados de teste" manda `is_test: true`.
+- **Google:** a Gama cola a URL do webhook e a chave no formulário de lead do Google Ads. O botão "Enviar dados de teste" manda `is_test: true`. A chave errada responde 403 e só conta a tentativa (`google_chave_errada`), sem nada do envio: o lead se recupera pelo CSV do Google Ads.
 - **Orçamento de execuções:** com 300 leads por mês, o consumo fica perto de 900 execuções: cerca de 300 de entrada, 300 de alerta, 290 de reenvio e 4 de relatório. Isso cabe no plano Starter, que tem 2.500 por mês.
 - **Execuções:** nenhuma fica salva (3.8). Para investigar uma falha, o salvamento das execuções com erro é ligado só no fluxo, por um tempo, e as execuções salvas são apagadas no fim (README › n8n local › Investigar uma falha no n8n). As configurações de execução valem na hora, sem publicar o fluxo de novo, e o fluxo de erro só dispara nas execuções de produção.
 - **Instâncias:**
@@ -690,10 +694,10 @@ Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o 
 - **Pendente:**
   - o app da Meta em modo Live, com a credencial, e o teste com a Ferramenta de Teste;
   - o "Enviar dados de teste" de verdade do Google Ads;
-  - levar os fluxos ao n8n Cloud, com o domínio do site, o e-mail da Gama e a chave do Google de produção;
-  - antes da reunião, no trabalho de 16/10/2026 (veja Ordem), os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail.
+  - levar os fluxos ao n8n Cloud, com o domínio do site, o e-mail da Gama e a chave do Google de produção.
 - **Feito em 22/10/2026, no trabalho de 16/10/2026 (Lote 2A):**
-  - nenhum fluxo salva execução, e o e-mail do `CRM - Erros` sai sem o link (3.8 e 4.5). A redação dos dados de execução é só do plano Enterprise do n8n; no Starter, o caminho é não salvar as execuções.
+  - nenhum fluxo salva execução, e o e-mail do `CRM - Erros` sai sem o link (3.8 e 4.5). A redação dos dados de execução é só do plano Enterprise do n8n; no Starter, o caminho é não salvar as execuções;
+  - o fim dos e-mails do `CRM - Erros` em massa. Antes, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparavam um e-mail, e um robô poderia lotar a caixa e estourar o limite diário de envio do Gmail. Agora, a recusa fica na Data Table das recusadas, sem e-mail (4.5).
 
 **Passo 7: tempo real**
 

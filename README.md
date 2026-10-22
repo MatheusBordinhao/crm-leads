@@ -299,7 +299,7 @@ docker compose stop n8n
 
 - A interface fica em `http://localhost:5679`, só no próprio computador. A 5678, a padrão, é de outro n8n desta máquina; dentro da rede do Compose, ele continua em `http://n8n:5678`.
 - Os fluxos chamam a API em `http://api:5080`, o `urlCrm` do nó "Configuração" de cada um. Com a API no `dotnet run` do Windows, troque por `http://host.docker.internal:5080`.
-- A conta de dono, as credenciais, a Data Table e as execuções ficam no volume `dados-n8n`.
+- A conta de dono, as credenciais e as Data Tables ficam no volume `dados-n8n`.
 - A API não depende dele. Com o n8n parado, o CRM funciona, e os eventos ficam tentando de novo; depois de cerca de 20 horas, falham, com o aviso no sino. Se ele vai ficar parado por muito tempo, esvazie o `N8n__WebhookUrl`.
 
 **Primeira vez.**
@@ -320,7 +320,9 @@ docker compose stop n8n
    function Copiar-DoEnv($nome) { $l = Select-String -Path .env -Pattern "^$nome=" | Select-Object -First 1; ($l.Line -replace "^$nome=", '' -replace '\s#.*$', '').Trim().Trim('"', "'") | Set-Clipboard }
    Copiar-DoEnv Integracao__Chave
    ```
-3. Crie a Data Table `crm_entradas_pendentes` (Overview › Data tables), com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data). Os fluxos a acham pelo nome.
+3. Crie as Data Tables (Overview › Data tables), que os fluxos acham pelo nome:
+   - `crm_entradas_pendentes`, com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data);
+   - `crm_entradas_recusadas`, com as colunas `tipo`, `payload` e `detalhe` (texto) e `criado_em` (data).
 4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e as quatro opções de salvar em "Do not save": "Save failed production executions", "Save successful production executions", "Save manual executions" e "Save execution progress". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
 5. Gere a chave do Google de desenvolvimento. Ela é aleatória e fica num arquivo fora do repositório; o SHA-256 dela vai para o `googleKeySha256` do nó "Configuração" do `CRM - Entrada Google`:
 
@@ -354,8 +356,8 @@ docker compose stop n8n
 | --- | --- | --- | --- |
 | `CRM - Erros` | Error Trigger | Sim | Qualquer falha dos outros fluxos manda o e-mail ao admin |
 | `CRM - Alertas` | `POST /webhook/crm-alertas`, com o `X-Crm-Chave` | Sim | Um lead pelo rodízio: o e-mail chega no alias da atendente |
-| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` não cria nada |
-| `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste |
+| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` não cria nada; `site-sem-nome.json` vai para as recusadas |
+| `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste; `google-sem-nome.json`, com a chave: vai para as recusadas |
 | `CRM - Reenvio de pendentes` | De hora em hora, das 8h às 20h, de segunda a sexta | Não | Execução manual, depois de um envio com a API parada |
 | `CRM - Relatório semanal Gama` | Segunda às 8h | Não | Execução manual: o CSV da semana anterior vai para o `emailGama` |
 | `CRM - Entrada Meta` | Gatilho de Lead Ads | Não, sem o app Live | `test_workflow` do MCP, com `meta-gatilho.json` e `meta-graph.json` |
@@ -365,7 +367,7 @@ docker compose stop n8n
 curl.exe -s -H "Content-Type: application/json" --data-binary "@n8n/exemplos/site.json" http://localhost:5679/webhook/crm-entrada-site
 
 # Google: a chave sai do arquivo e não aparece na tela. Responde 200 com {}; o segundo envio é "já recebido" no CRM.
-# Sem a chave (o exemplo como está), responde 403 e avisa o admin pelo CRM - Erros.
+# Sem a chave (o exemplo como está), responde 403 e só conta a tentativa na crm_entradas_recusadas, sem e-mail.
 $chave = (Get-Content ..\crm-google-chave-dev.txt -Raw).Trim()
 $corpo = (Get-Content n8n\exemplos\google-teste.json -Raw -Encoding UTF8).Replace('CHAVE_DO_GOOGLE', $chave)
 $resposta = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:5679/webhook/crm-entrada-google -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($corpo))
@@ -732,16 +734,17 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    - `CRM - Chave de integração` e `CRM - Chave dos eventos`: o `Integracao__Chave` e o `N8n__WebhookChave` do `.env` do servidor;
    - `CRM - E-mail`: o SMTP do e-mail da empresa;
    - `CRM - Meta Lead Ads`: com o app da Meta em modo Live (seção 4.5 da especificação).
-2. **[n8n Cloud]** Crie a Data Table `crm_entradas_pendentes`, com as mesmas colunas, no projeto dos fluxos.
+2. **[n8n Cloud]** Crie as Data Tables `crm_entradas_pendentes` e `crm_entradas_recusadas`, com as mesmas colunas, no projeto dos fluxos.
 3. **[n8n Cloud]** Importe pela tela (Workflows › Import from File), primeiro o `crm-erros.json`, depois os outros. A importação dá ids novos aos fluxos.
 4. Em cada fluxo, troque os valores do nó "Configuração":
 
    | Fluxo | Campos |
    | --- | --- |
    | `CRM - Erros`, `CRM - Alertas` | `emailAdmin` e `remetente` (o e-mail da credencial SMTP) |
-   | `CRM - Entrada Site`, `CRM - Reenvio de pendentes` | `urlCrm`: `https://` e o `DOMINIO` |
-   | `CRM - Entrada Google` | `urlCrm` e `googleKeySha256` (passo 5) |
-   | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica) |
+   | `CRM - Entrada Site` | `urlCrm` (`https://` e o `DOMINIO`), `emailAdmin` e `remetente` |
+   | `CRM - Reenvio de pendentes` | `urlCrm` |
+   | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` |
+   | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
    | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |
 
    E também:
@@ -941,9 +944,9 @@ grep '^Integracao__Chave=' .env   # para colar no n8n
 Depois, troque o valor na credencial `CRM - Chave de integração` do n8n (Header Auth, `X-Api-Key`), que os fluxos de entrada, o reenvio e o relatório usam.
 
 - A API sobe de novo em alguns segundos, e as sessões continuam.
-- Entre a troca no CRM e a troca no n8n, as entradas recebem 401, e o n8n não guarda um 401 na fila de pendentes: o lead fica só no e-mail do `CRM - Erros`.
-- Por isso, troque num horário calmo e atualize o n8n logo em seguida. Depois, confira os e-mails do `CRM - Erros` e traga o que ficou de fora pela Importação, com o CSV da Central de Leads da Meta.
-- Aceitar a chave antiga e a nova durante a troca, para nenhuma entrada se perder, está anotado como pendência.
+- Entre a troca no CRM e a troca no n8n, as entradas recebem 401: elas vão para a `crm_entradas_pendentes`, e cada fluxo de entrada manda um e-mail de configuração ao admin.
+- Por isso, troque num horário calmo e atualize o n8n logo em seguida. Depois, rode o `CRM - Reenvio de pendentes`, que manda as entradas que esperavam e apaga as linhas. Publicado, ele também roda sozinho, de hora em hora, nos dias úteis.
+- Aceitar a chave antiga e a nova durante a troca, para não haver o 401 nem os e-mails, está anotado como pendência.
 
 **Chave dos alertas (`N8n__WebhookChave`).** O CRM a manda no `X-Crm-Chave` para o fluxo `CRM - Alertas`.
 
@@ -958,7 +961,7 @@ Depois, troque o valor na credencial `CRM - Chave dos eventos` do n8n, a do Webh
 - Até lá, o n8n recusa os eventos, que ficam pendentes no CRM e são reenviados depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h.
 - Nada se perde se o n8n for atualizado em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
 
-**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no nó "Configuração". Para trocá-la, gere uma nova com o comando do passo 5 de "n8n Cloud: importar os fluxos", troque o `googleKeySha256` e passe a chave nova à Gama. Entre as duas trocas, os leads do Google recebem 403, ficam nas execuções com erro do n8n e avisam o admin pelo `CRM - Erros`. Traga os que faltarem pela Importação, com o CSV de leads do Google Ads.
+**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no nó "Configuração". Para trocá-la, gere uma nova com o comando do passo 5 de "n8n Cloud: importar os fluxos", troque o `googleKeySha256` e passe a chave nova à Gama. Entre as duas trocas, os leads do Google recebem 403 e não ficam no n8n, que só conta as tentativas (`google_chave_errada`, na `crm_entradas_recusadas`). Traga os que faltarem pela Importação, com o CSV de leads do Google Ads.
 
 **Senha do banco (`POSTGRES_PASSWORD`).** O PostgreSQL grava a senha quando o volume é criado: trocar só o `.env` deixa a API sem acesso ao banco. Troque no banco e no `.env`, nessa ordem:
 
@@ -1047,6 +1050,7 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 | --- | --- | --- |
 | Execuções do n8n | Nenhuma é salva. Ficam só uma execução interrompida por uma queda do n8n, como "crashed", e uma salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"), com o que chegou | Em Executions, apague as do dia em que o lead entrou, se houver |
 | Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
+| Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400 ou 413), com os dados da pessoa, por 7 dias | Apague a linha da pessoa, se houver |
 | Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
 | E-mails de alerta | O nome, a empresa, a origem e a campanha, na caixa da responsável e nos enviados da conta que manda os alertas | Peça à responsável para apagar os e-mails do lead e apague-os dos enviados |
 | Backups | O `pg_dump` diário guarda a pessoa até ser apagado, em 14 dias, no servidor e na cópia de fora | Eles somem sozinhos em 14 dias. Não restaure um backup de antes da anonimização sem anonimizar de novo (veja "Restaurar de verdade") |

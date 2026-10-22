@@ -27,7 +27,19 @@
         "includeOtherFields": true,
         "assignments": {
           "assignments": [
-            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" }
+            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" },
+            {
+              "id": "email-admin",
+              "name": "emailAdmin",
+              "value": "matheusbordinhao11@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "remetente",
+              "name": "remetente",
+              "value": "testecrmfs@gmail.com",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -141,33 +153,7 @@
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
-        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst codigo = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\n\nlet ultimoErro;\nif (/^[0-9]{3}$/.test(codigo)) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Um 4xx que não é 408 nem 429 é definitivo: tentar de novo não resolve, e o admin precisa olhar.\nconst definitiva = /^4[0-9]{2}$/.test(codigo) && codigo !== '408' && codigo !== '429';\nreturn { json: { definitiva: definitiva, ultimoErro: ultimoErro, lead: $('Montar o lead').item.json.lead } };"
-      }
-    },
-    {
-      "id": "ed85429b-71c7-429a-b1bf-824715cae971",
-      "name": "Falha temporária?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [1792, 320],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.definitiva }}",
-              "rightValue": false,
-              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\n// A regra do destino é a mesma nos fluxos de entrada e no reenvio, e o FluxosN8nTests confere que o texto dela é igual nos quatro.\nfunction destinoDaFalha(codigo) {\n  // A recusa da própria entrada: tentar de novo não resolve, e ela vai para as recusadas.\n  if (codigo === '400' || codigo === '413') return 'recusada';\n  // O CRM fora do ar, lento ou no limite de requisições: o reenvio tenta de novo, sem e-mail.\n  if (codigo === '' || codigo === '408' || codigo === '429' || /^5[0-9]{2}$/.test(codigo)) return 'temporaria';\n  // A chave ou o endereço do CRM (401, 403, 404) e qualquer outro código: a entrada espera na fila, e o admin corrige.\n  return 'configuracao';\n}\n\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst bruto = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\nconst codigo = /^[0-9]{3}$/.test(bruto) ? bruto : '';\n\nlet ultimoErro;\nif (codigo) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\nreturn { json: { destino: destinoDaFalha(codigo), ultimoErro: ultimoErro, lead: $('Montar o lead').item.json.lead } };"
       }
     },
     {
@@ -175,7 +161,7 @@
       "name": "Guardar na fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [2016, 240],
+      "position": [2016, 400],
       "parameters": {
         "resource": "row",
         "operation": "insert",
@@ -231,28 +217,147 @@
       }
     },
     {
-      "id": "dafdf31b-b2e6-415b-a6d0-34493805f84b",
-      "name": "Avisar o admin",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [2016, 400],
-      "parameters": {
-        "errorType": "errorMessage",
-        "errorMessage": "=O CRM recusou a entrada ({{ $json.ultimoErro }}). Ela não foi para a fila: os dados estão nesta execução."
-      }
-    },
-    {
       "id": "1dfa0753-d59b-472a-8d48-a9d0177519ba",
       "name": "Sobre o fluxo",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Entrada Site\nRecebe o formulário do site, descarta o envio com o campo isca (`website`) preenchido, gera o id externo (UUID), responde ao site e manda o lead ao CRM (seção 4.2). Se o CRM não responder, o lead vai para a Data Table `crm_entradas_pendentes`, e o CRM - Reenvio de pendentes o manda depois. Um 400 ou 401 avisa o admin pelo CRM - Erros. O endereço do CRM fica no nó \"Configuração\"; o domínio do site, no CORS do Webhook.",
+        "content": "## CRM - Entrada Site\nRecebe o formulário do site, descarta o envio com o campo isca (`website`) preenchido, gera o id externo (UUID), responde ao site e manda o lead ao CRM (seção 4.2). Se o CRM recusar a entrada (400 ou 413), ela vai para a Data Table `crm_entradas_recusadas`, por 7 dias, e conta no resumo diário. Se o CRM estiver fora do ar ou recusar a configuração (401, 403, 404), ela vai para a `crm_entradas_pendentes`, e o CRM - Reenvio de pendentes a manda depois; na configuração, o admin recebe um e-mail na hora. O endereço do CRM e os e-mails ficam no nó \"Configuração\"; o domínio do site, no CORS do Webhook.",
         "color": 7,
         "width": 1056,
         "height": 304
       }
+    },
+    {
+      "id": "a3c7b581-bc5c-4aea-ada2-3507f9692e7c",
+      "name": "Recusada pelo CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1792, 320],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.destino }}",
+              "rightValue": "recusada",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cace67ca-c946-47c4-b06c-ee4822c27a34",
+      "name": "Guardar nas recusadas",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [2016, 240],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "={{ $json.lead.origem }}_recusada",
+            "payload": "={{ JSON.stringify($json.lead) }}",
+            "detalhe": "={{ $json.ultimoErro }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "26eb3c50-96d5-4c09-9dfa-e18ad5b4c2d3",
+      "name": "Falha de configuração?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2240, 400],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Classificar a falha').item.json.destino }}",
+              "rightValue": "configuracao",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9189b3c7-fbdd-4cf0-83d4-326824c56357",
+      "name": "Avisar da configuração",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2464, 400],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
+        "toEmail": "={{ $('Configuração').first().json.emailAdmin }}",
+        "subject": "=[CRM] O CRM recusou o envio do fluxo {{ $workflow.name }}",
+        "emailFormat": "text",
+        "text": "=O fluxo {{ $workflow.name }} recebeu {{ $('Classificar a falha').item.json.ultimoErro }} do CRM ao enviar uma entrada.\n\nA entrada está na Data Table crm_entradas_pendentes e vai pelo CRM - Reenvio de pendentes quando a configuração estiver certa: a credencial CRM - Chave de integração, num 401, ou o urlCrm do nó \"Configuração\", num 404.\n\nEste e-mail não traz os dados da entrada.",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "webhookId": "56391b0f-fee6-4c5e-b3d3-3bc08d0aa401"
     }
   ],
   "connections": {
@@ -271,13 +376,19 @@
       "main": [[], [{ "node": "Classificar a falha", "type": "main", "index": 0 }]]
     },
     "Classificar a falha": {
-      "main": [[{ "node": "Falha temporária?", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Recusada pelo CRM?", "type": "main", "index": 0 }]]
     },
-    "Falha temporária?": {
+    "Recusada pelo CRM?": {
       "main": [
-        [{ "node": "Guardar na fila", "type": "main", "index": 0 }],
-        [{ "node": "Avisar o admin", "type": "main", "index": 0 }]
+        [{ "node": "Guardar nas recusadas", "type": "main", "index": 0 }],
+        [{ "node": "Guardar na fila", "type": "main", "index": 0 }]
       ]
+    },
+    "Guardar na fila": {
+      "main": [[{ "node": "Falha de configuração?", "type": "main", "index": 0 }]]
+    },
+    "Falha de configuração?": {
+      "main": [[{ "node": "Avisar da configuração", "type": "main", "index": 0 }]]
     }
   },
   "settings": {
