@@ -886,6 +886,12 @@ Se a cópia não existir, o `docker run` cria um volume vazio com o nome dela, e
    ```
 
    - O último `install`, sem pacote, recalcula as marcas `dev` e `devOptional` do lockfile, que podem ficar velhas depois de um `uninstall`. Rodado de novo, ele não pode mudar mais nada.
+   - O `install` de um pacote também resolve de novo as dependências dele e pega a mais nova de cada faixa. Se isso trouxer a versão nova de uma dependência que não precisava mudar, segure a do lockfile: instale-a junto e tire-a do `package.json` logo em seguida. Em 26/10/2026, o `install -D vitest@5.0.3` puxava o `magic-string` 1.4.4, publicado naquele dia, e a regra dos 3 dias a barra. O `--prefer-dedupe` não segurou, e o par abaixo segurou a 1.4.2:
+
+     ```powershell
+     npmNoConteiner install -D vitest@5.0.3 magic-string@1.4.2
+     npmNoConteiner uninstall magic-string
+     ```
    - O contêiner escreve o mesmo lockfile que o npm do Windows, byte a byte. A diferença é que o `--package-lock-only` no Windows regrava o `node_modules/.package-lock.json`, e o contêiner não toca no `node_modules` do Windows.
    - O npm 11 avisa que o `msw` tem um script de instalação que não está no `allowScripts`. Nada roda: no contêiner, o `--package-lock-only` não instala nada, e, no passo 5, o `--ignore-scripts` não roda nenhum script.
 3. Confira o lockfile entrada por entrada: `node .github/scripts/nativos-do-lock.mjs` compara o do último commit com o da pasta do projeto, lista o que entrou, saiu ou mudou de versão e diz se as entradas com binário nativo (as que têm `os` ou `cpu`) ficaram IGUAIS. Com DIFERENTES, pare: o Windows receberia um binário novo.

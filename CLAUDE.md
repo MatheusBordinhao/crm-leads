@@ -237,8 +237,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - o roteiro foi testado pelo Claude em 21/10/2026, com os mesmos comandos do README, em volumes de teste:
       - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
       - a conferência pegou um byte e um arquivo a mais;
-      - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada;
-  - os 4 alertas do npm achados em 26/10/2026, de pacotes que não mudaram: o `zod` 4.6.5, que vai para o navegador, e o `undici` 8.11.2 (pelo `jsdom`), o `vitest` 5.0.2 e o `@vitest/mocker` 5.0.2, só dos testes. Eles sobem pelo roteiro do README (Versões fixadas › Um pacote do npm com alerta), no lote que eu escolher.
+      - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -362,7 +361,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - `280b6a3`: o `CRM - Resumo diário`, às 8h, só com números, que também apaga as recusadas com mais de 7 dias;
     - `27fde39`, pedido por mim: a entrada acima de 64 KB nem vai ao CRM nem entra na fila, e fica nas recusadas sem o corpo. As outras recusadas guardam no máximo os primeiros 8 KB, e a do 413, nada. O limite de 64 KB existe agora no CRM e no n8n;
     - `253f516`, pedido por mim: o envio ao CRM sem o Retry On Fail, que repetia o 400 (a recusa foi de 10,30 s para 0,15 s), e o reenvio com as linhas de menos tentativas primeiro. O `maxTries` e o `waitBetweenTries` ficaram no "Enviar ao CRM" dos três fluxos de entrada, sem efeito sem o `retryOnFail`;
-    - `a1865f1`: o `globals` 17.13.0, pelo roteiro do README, só para o GitHub reler o lockfile (veja o Lote 5). O `npm audit` achou 4 alertas novos, de pacotes que não mudaram (Pendências novas);
+    - `a1865f1`: o `globals` 17.13.0, pelo roteiro do README, só para o GitHub reler o lockfile (veja o Lote 5). O `npm audit` achou 4 alertas novos, de pacotes que não mudaram (Lote 5B);
   - o teste do 401 foi pulado, por decisão minha: ele cai no mesmo ramo do 404, testado no site e no reenvio com um `urlCrm` errado;
   - conferido pelo Claude no n8n local, pelos efeitos, sem ler nenhuma execução:
     - o site sem nome: 400 e a recusada, com os 390 bytes; um de 21.913 bytes ficou com 8.192, sem caractere quebrado; o de 70 KB foi recusado antes do CRM;
@@ -384,7 +383,31 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - nenhuma credencial de teste no n8n;
     - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 572, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 8,4 s depois;
   - decisão pendente, para quando o plano do n8n Cloud for escolhido: o horário do Reenvio. Hoje ele roda de hora em hora, das 8h às 20h, de segunda a sexta (`0 8-20 * * 1-5`), e cada rodada agendada conta como execução. Sem as repetições, uma queda curta do CRM no fim de semana espera a rodada de segunda às 8h;
-  - o meu e-mail da demonstração, a cópia apagada e o fechamento dos alertas entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 5B:
+    - validado por mim em 26/10/2026: o e-mail do lead 572 chegou às 09:00, no endereço da Adriana, com UF RS, origem Site e o link da ficha;
+    - depois do e-mail, o Claude conferiu o n8n e apagou a cópia `crm-dados-n8n-copia`;
+    - no push de `57791e5..fb3849f`, o `Testes` #8 ficou verde em 7 min 20 s, e o `Imagem de produção` #7, em 2 min 17 s, no `fb3849f`;
+    - o GitHub releu o lockfile às 09:19, com o `globals`. Os 7 alertas antigos fecharam sozinhos, e abriram 6, os mesmos do `npm audit`: os do Lote 5B.
+- Lote 5B (os alertas do npm de 26/10/2026), feito em 26/10/2026, logo depois do push do 2A:
+  - os alertas, com as gravidades do GitHub:
+    - altos: o #16, do `zod` 4.6.5, direto, que vai para o navegador, e o #19, do `undici` 8.11.2, que vem pelo `jsdom`;
+    - moderados: o #14 e o #15, do `@vitest/mocker` 5.0.2, que vem pelo `vitest`, e o #17 e o #18, do `undici`;
+    - o risco era baixo: a API é .NET e não usa o zod, e os outros só rodam nos testes;
+  - os commits:
+    - `487ba92`: o `zod` 4.6.6, de 11/10/2026, a corrigida mais antiga;
+    - `e611fad`: o `vitest` 5.0.3, de 30/09/2026, a mais antiga com o `@vitest/mocker` 5.0.3. Junto, vieram o `@vitest/spy` 5.0.3 e o `why-is-node-running` de volta à 3.2.1, que o `vitest` 5.0.3 fixa. O `undici` foi para a 8.12.3, de 19/10/2026, a mais nova da faixa do `jsdom` (`^8.10.2`), pelo `update` do roteiro. A corrigida mais antiga era a 8.12.2, e fixá-la pediria um `overrides`;
+  - o caso do `magic-string`:
+    - o `install -D vitest@5.0.3` puxava o `magic-string` da 1.4.2 para a 1.4.4, publicada no mesmo dia, 26/10/2026, e a regra dos 3 dias a barra. O npm resolve de novo as dependências do pacote instalado e pega a mais nova da faixa (`^1.2.3`);
+    - o `--prefer-dedupe` não segurou;
+    - num ensaio numa cópia do lockfile, o `magic-string@1.4.2` instalado junto e tirado do `package.json` logo depois segurou a 1.4.2. No repositório, o resultado saiu igual ao do ensaio, byte a byte;
+    - o README ganhou esse jeito, no roteiro "Um pacote do npm com alerta";
+  - conferido pelo Claude, pelo roteiro, nos dois commits:
+    - o `nativos-do-lock.mjs` só com as entradas esperadas, e as 50 nativas IGUAIS;
+    - o `front.sh completo` com 260 de 260. O `zod.test.ts` confere que os esquemas não usam o `new Function`. No commit do `vitest`, a suíte levou 202 s, com o Chrome ocupando a máquina;
+    - o dry-run no Windows só com as trocas esperadas, o install sem mudar o lockfile e, no fim, o `npm audit` em 0;
+  - a suíte .NET, no contêiner, com 793 de 793;
+  - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 633, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 7,8 s depois;
+  - o meu e-mail, o "Novo lead" em branco no navegador com o zod novo, o push e o fechamento dos 6 alertas entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -621,6 +644,7 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Um pacote do npm muda pelo roteiro do README (Versões fixadas › Um pacote do npm com alerta), e não por um `npm.cmd install <pacote>` direto no Windows, que baixaria um binário nativo novo antes de qualquer conferência. O Controle Inteligente de Aplicativos bloqueia um binário sem assinatura.
   - O lockfile é escrito num contêiner, pelo npm da mesma versão do Windows (o 11.17.0, em 21/10/2026), com o `--package-lock-only`. O resultado é o mesmo, byte a byte, mas no Windows o `--package-lock-only` também regrava o `node_modules/.package-lock.json`.
   - O roteiro termina com um `install` sem pacote: o `uninstall --package-lock-only` deixa marcas `devOptional` velhas, e o `install` sem pacote as recalcula.
+  - O `install` de um pacote resolve de novo as dependências dele e pode trazer a versão nova de uma que não precisava mudar, mesmo com o `--prefer-dedupe`. Segure a versão do lockfile: instale-a junto e tire-a do `package.json` logo em seguida, como o `magic-string` no Lote 5B (README).
   - O `npm.cmd install --ignore-scripts` só vem depois de o `node .github/scripts/nativos-do-lock.mjs` dizer IGUAIS.
   - O npm 11 avisa que o `msw` tem um script de instalação fora do `allowScripts`. Nada roda: no contêiner, o `--package-lock-only` não instala nada, e, no Windows, o `--ignore-scripts` não roda nenhum script.
   - O lockfile tem as 6 `bundleDependencies` do `@tailwindcss/oxide-wasm32-wasi` (opcionais, `inBundle`, sem `os` nem `cpu`). O npm 11.17.0 as escreve com o `--package-lock-only`, e o `install` completo as mantém; o lockfile de antes, de 06/10/2026, não as tinha. Um lockfile que muda sem nenhum pacote mexido pede a conferência da versão do npm que o escreveu.
@@ -662,6 +686,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 1B: CI no GitHub Actions, fechado em 21/10/2026;
   - 5: dependências, antecipado para antes do 2A por causa de 3 alertas do vite e feito em 21/10/2026;
   - 2A: n8n (avisos agrupados e execuções sem chave nem dado pessoal), feito em 26/10/2026;
+  - 5B: os alertas do npm de 26/10/2026 (o `zod`, o `undici` e o `@vitest/mocker`), logo depois do push do 2A, feito em 26/10/2026;
   - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy;
   - 2B: n8n (o limite do site);
   - 3: troca de chaves sem parar;
