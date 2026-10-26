@@ -201,7 +201,7 @@ Todo lead entra pelo mesmo serviço, `ReceberEntrada`, usado pela integração, 
   - exclusão de lead de teste;
   - mudanças em usuários e configurações.
 - No n8n, os fluxos `CRM - ` não salvam nenhuma execução: nem as que deram certo, nem as com erro, nem as manuais, nem o progresso (`saveDataSuccessExecution` e `saveDataErrorExecution` em `none`, `saveManualExecutions` e `saveExecutionProgress` em `false`). O gatilho guardaria o que recebeu, com o payload do lead e, no Alertas e no Google, a chave. Os JSONs de `n8n/` levam o ajuste, e um teste confere cada fluxo guardado.
-  - Fica um resto: uma execução interrompida por uma queda do n8n fica como "crashed", com o que o gatilho recebeu.
+  - Ficam dois restos, com o que o gatilho recebeu. Uma execução interrompida por uma queda do n8n fica como "crashed". E a que não fica salva continua no banco do n8n, apagada e fora da tela, até a limpeza das execuções apagadas, que roda a cada 15 minutos: a de produção sai na primeira, e a manual, só depois de 1 hora.
   - No n8n local, a mensagem do erro de uma execução que falha sai no log do contêiner.
   - No n8n de produção, falta conferir o ajuste depois de importar os fluxos e ver por quanto tempo o plano guarda uma execução "crashed".
 

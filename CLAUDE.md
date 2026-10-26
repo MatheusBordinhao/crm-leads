@@ -28,7 +28,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - dentro da rede do Compose, a API chama `http://n8n:5678`, e os fluxos chamam `http://api:5080`;
   - o `.env` tem `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`: com a API no ar, cada evento vira um e-mail de verdade;
   - as credenciais são `CRM - Chave de integração` (`X-Api-Key`), `CRM - Chave dos eventos` (`X-Crm-Chave`) e `CRM - E-mail` (SMTP do `testecrmfs@gmail.com`, uma conta só para os testes, com senha de app);
-  - a Data Table é a `crm_entradas_pendentes`;
+  - as Data Tables são a `crm_entradas_pendentes`, a fila do reenvio, e a `crm_entradas_recusadas`, com as entradas recusadas, por 7 dias;
   - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo.
 - Fluxos no n8n local:
 
@@ -40,6 +40,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   | `CRM - Entrada Google` | `3dm8urmanT4Fg0iP` | publicado |
   | `CRM - Reenvio de pendentes` | `yDU0FZa2tXN851ru` | não publicado: roda à mão |
   | `CRM - Relatório semanal Gama` | `ln7BS60hTE8HQ3Pp` | não publicado: roda à mão |
+  | `CRM - Resumo diário` | `hdga8JN0W5kRMNrt` | não publicado: roda à mão |
   | `CRM - Entrada Meta` | `GqSyYXbHtcv6vvsh` | não publicado: depende do app da Meta em modo Live |
 
   Os JSONs de `n8n/` são os exportados deles.
@@ -57,7 +58,8 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - uma varredura sem mostrar o conteúdo confirmou que nenhum outro fluxo guarda a chave.
 - Também em 14/10/2026, entrou a tela de campanhas (Configurações › Campanhas, `PUT /api/campanhas/{id}`), e o cliente do SignalR dos testes subiu para a 10.0.13, por causa da CVE-2026-70159. Nesse dia, sem a correção, a auditoria do NuGet derrubava o build dos testes.
 - Falta, do n8n:
-  - levar os 7 fluxos para o n8n Cloud (README › n8n Cloud: importar os fluxos);
+  - levar os 8 fluxos e as 2 Data Tables para o n8n Cloud (README › n8n Cloud: importar os fluxos);
+  - decidir o horário do Reenvio quando o plano do n8n Cloud for escolhido, porque cada rodada agendada conta como execução (Lote 2A);
   - o app da Meta em modo Live e o "Enviar dados de teste" de verdade do Google Ads;
   - o e-mail da Gama, no lugar do meu, no Relatório;
   - apontar o `.mcp.json` para o n8n Cloud e remover o MCP local.
@@ -184,10 +186,10 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - logada como Adriana: sem Auditoria no menu, sem Exportar CSV e sem o cartão Privacidade. O `/auditoria` volta para o funil, e o `/api/leads/exportacao` responde 403;
   - o `preparar-demonstracao` pelo contêiner gravou 60 leads, 11 ganhos e 8 perdidos. A sessão continuou valendo, e as telas se atualizaram sozinhas: com o `start api`, o tempo real reconecta, e o front recarrega tudo.
 - Em 12/10/2026, a consulta da auditoria ganhou um teste próprio do 403 da atendente, mesmo filtrando pelos registros dela (`AuditoriaTests`). As outras quatro rotas do Passo 10 já tinham o dele, com um lead da própria atendente: a exportação CSV (`ExportacaoLeadsTests`), os dados do titular e a exclusão (`LgpdTests`) e a anonimização (`AnonimizacaoTests`). O `AutorizacaoTests` cobre todas as rotas de admin, mas só as que têm a política: uma rota nova sem o atributo sairia da lista sem o teste falhar.
-- Do Passo 10, fica pendente a revisão das configurações de execução dos fluxos no n8n de produção:
-  - conferir que as execuções de produção que deram certo não são salvas (os JSONs já levam `saveDataSuccessExecution: none`);
-  - apontar o fluxo de erro do Alertas para o id novo do `CRM - Erros`;
-  - ver por quanto tempo ficam as execuções com erro.
+- Do Passo 10, fica pendente a conferência das configurações de execução no n8n de produção. Desde o Lote 2A, nenhum fluxo salva execução, e os JSONs levam as quatro configurações. Lá:
+  - conferir que elas valem depois de importar os fluxos;
+  - apontar o fluxo de erro de cada fluxo para o id novo do `CRM - Erros`;
+  - ver por quanto tempo o plano guarda uma execução "crashed".
 - A mudança que decidi em 12/10/2026 para depois da reunião entrou em 13/10/2026, antes do congelamento do código: o lead anonimizado vai para Perdido só com o motivo.
   - O detalhe é texto livre e poderia trazer um dado pessoal de volta. Preenchido, responde 400 no campo `motivoPerdaDetalhe` (`RegrasFunil.Conferir`); o motivo continua obrigatório.
   - O cartão do funil traz `anonimizado`, e o `MotivoPerdaDialog`, aberto pela ficha (`EtapaDoLead`) e pelo quadro e pela lista do celular (`useMovimento`), esconde o campo do detalhe.
@@ -236,8 +238,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
       - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
       - a conferência pegou um byte e um arquivo a mais;
       - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada;
-  - no Lote 2A, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
-  - no Lote 2A, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. A redação dos dados de execução do n8n é só do Enterprise; o caminho no Starter é não salvar as execuções.
+  - os 4 alertas do npm achados em 26/10/2026, de pacotes que não mudaram: o `zod` 4.6.5, que vai para o navegador, e o `undici` 8.11.2 (pelo `jsdom`), o `vitest` 5.0.2 e o `@vitest/mocker` 5.0.2, só dos testes. Eles sobem pelo roteiro do README (Versões fixadas › Um pacote do npm com alerta), no lote que eu escolher.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -350,6 +351,40 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - às 14:01, o Dependabot continuava com os 5 abertos e o "checked yesterday", e o Dependency graph, com o vite 8.3.1, o source-map-js 1.2.1 e o hono 4.13.10;
     - o GitHub estava com um incidente desde as 11:52, com atraso na fila de eventos, e o push das 12:50 caiu dentro dele;
     - o fechamento entra no registro do próximo lote.
+  - no push dos 3 últimos commits (`ea9883c..57791e5`), em 21/10/2026, o `Testes` #7 ficou verde em 6 min 56 s, e o lote fechou. Em 22/10/2026, o GitHub mostrava 7 alertas, todos de versões que não estão mais na `master`, e os 2 novos eram do `@modelcontextprotocol/sdk`, que saiu com o `shadcn`. O Dependency graph continuava no lockfile de antes: a releitura do push das 12:50 se perdeu no incidente, e o GitHub só relê o lockfile quando um push o muda. O `globals` do Lote 2A faz essa mudança.
+- Lote 2A (n8n: avisos agrupados e execuções sem chave nem dado pessoal), feito de 22 a 26/10/2026:
+  - antes de mexer no n8n, o volume `crm-leads_dados-n8n` foi copiado para o `crm-dados-n8n-copia`, pelo roteiro do README, e a conferência deu "OK";
+  - os commits:
+    - `bd0c58f`: o corpo acima de 64 KB na integração respondia 500, e não 413 (Armadilhas conhecidas). Agora responde 413, "Requisição grande demais";
+    - `b8738da`: as quatro configurações em todos os fluxos, e o `CRM - Erros` sem o link, que não abriria nada. Um fluxo temporário (`rXzmedNmwLqAqu7A`, arquivado) provou que o `CRM - Erros` dispara sem a execução salva;
+    - `0a17be7`: a `destinoDaFalha`, com o mesmo texto nos 4 fluxos que enviam ao CRM. O 400 e o 413 vão para a `crm_entradas_recusadas`, sem e-mail; o 408, o 429, o 5xx, o tempo esgotado e a falha de conexão, para a fila, sem e-mail; o 401, o 403, o 404 e qualquer outro código, para a fila, com um e-mail na hora. A chave errada do Google e a Meta sem campanha contam nas recusadas. Os Stop and Error saíram;
+    - `87cec05`: o reenvio, com no máximo 20 linhas por rodada, para caber nos 5 minutos do Starter, as recusas fora da fila e um e-mail só por rodada na falha de configuração;
+    - `280b6a3`: o `CRM - Resumo diário`, às 8h, só com números, que também apaga as recusadas com mais de 7 dias;
+    - `27fde39`, pedido por mim: a entrada acima de 64 KB nem vai ao CRM nem entra na fila, e fica nas recusadas sem o corpo. As outras recusadas guardam no máximo os primeiros 8 KB, e a do 413, nada. O limite de 64 KB existe agora no CRM e no n8n;
+    - `253f516`, pedido por mim: o envio ao CRM sem o Retry On Fail, que repetia o 400 (a recusa foi de 10,30 s para 0,15 s), e o reenvio com as linhas de menos tentativas primeiro. O `maxTries` e o `waitBetweenTries` ficaram no "Enviar ao CRM" dos três fluxos de entrada, sem efeito sem o `retryOnFail`;
+    - `a1865f1`: o `globals` 17.13.0, pelo roteiro do README, só para o GitHub reler o lockfile (veja o Lote 5). O `npm audit` achou 4 alertas novos, de pacotes que não mudaram (Pendências novas);
+  - o teste do 401 foi pulado, por decisão minha: ele cai no mesmo ramo do 404, testado no site e no reenvio com um `urlCrm` errado;
+  - conferido pelo Claude no n8n local, pelos efeitos, sem ler nenhuma execução:
+    - o site sem nome: 400 e a recusada, com os 390 bytes; um de 21.913 bytes ficou com 8.192, sem caractere quebrado; o de 70 KB foi recusado antes do CRM;
+    - o Google sem a chave: 403, a contagem e nenhum e-mail;
+    - o `urlCrm` errado (404): a fila e o e-mail na hora; no reenvio, um e-mail só para 2 linhas;
+    - a API parada: a fila, sem e-mail, e o reenvio criou o lead depois;
+    - 21 linhas sem nome na fila: 20 foram para as recusadas, e 1 ficou para a rodada seguinte; com 2 linhas por rodada, as sem tentativas saíram antes da que tinha 5;
+    - a Meta, pelo `test_workflow`, com a Graph API falhando: a linha `meta_sem_campanha`, só com o número do lead;
+    - o Resumo, à mão: o e-mail com as contagens e a linha de mais de 7 dias apagada;
+  - validado por mim:
+    - em 22/10/2026: os e-mails do `CRM - Erros`, sem o link, o da configuração, do site e do reenvio, o do resumo e nenhum pelo 400, pelo de 70 KB e pelo 403;
+    - em 26/10/2026, o Google sem nome com a chave certa, pelo meu comando: a linha `google_ads_recusada`, sem o `google_key` no payload, 1 s depois do envio, e nenhum e-mail;
+  - em 26/10/2026, o Resumo aparecia como alterado em 22/10, às 13:31: o editor do n8n, aberto por mim, salvou sozinho uma versão normalizada (Armadilhas conhecidas). O JSON do repositório foi reimportado pelo CLI, sem publicar, e os 8 fluxos bateram com os JSONs;
+  - o fim do lote, conferido pelo Claude em 26/10/2026:
+    - as 45 linhas de teste das recusadas saíram pelo Resumo, com o `diasRecusadas` em 0 só para isso; a fila já estava vazia;
+    - a varredura, só contando: nenhuma marca (`X-Crm-Chave`, `google_key`, `X-Api-Key` e os e-mails dos exemplos) nos logs de eventos do n8n nem no log do contêiner. No banco, só as definições dos fluxos têm o `google_key` e o `X-Api-Key`: o "Conferir a chave" e uma nota;
+    - o achado da varredura: as execuções da demonstração, do site e do Alertas, ficaram no banco, apagadas, com o e-mail do lead e o `X-Crm-Chave`, até a limpeza das apagadas, que as tirou 6 minutos depois. A manual do Resumo espera 1 hora (Armadilhas conhecidas). A especificação (3.8) e o README passaram a dizer isso;
+    - a suíte .NET, no contêiner, com 793 de 793, e a formatação; a do front, no `front.sh completo` depois do `globals`, com 260 de 260;
+    - nenhuma credencial de teste no n8n;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 572, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 8,4 s depois;
+  - decisão pendente, para quando o plano do n8n Cloud for escolhido: o horário do Reenvio. Hoje ele roda de hora em hora, das 8h às 20h, de segunda a sexta (`0 8-20 * * 1-5`), e cada rodada agendada conta como execução. Sem as repetições, uma queda curta do CRM no fim de semana espera a rodada de segunda às 8h;
+  - o meu e-mail da demonstração, a cópia apagada e o fechamento dos alertas entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -387,7 +422,7 @@ src/Crm.Api/Infra/           DbContext, migrations, auditoria, despachante de ev
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
-n8n/                         JSON dos 7 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
+n8n/                         JSON dos 8 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
 docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo da importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
@@ -482,6 +517,8 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Uma rota que aceita qualquer método (`MapFallback`, `MapFallbackToFile`) faz um método errado numa rota da API responder 404 em vez de 405. Por isso o `index.html` é servido fora do roteamento, como último recurso de um GET (`FrontExtensions.UsarFront`).
 - O `UseForwardedHeaders` com as listas de proxies vazias confia em qualquer um. Sem `Proxy__Ip`, o `ProxyReverso` desliga os cabeçalhos encaminhados (`ForwardedHeaders.None`).
 - O `TestServer` não tem IP de conexão. Para testar o IP de quem acessa, use `Server.SendAsync` e defina o `Connection.RemoteIpAddress` (`ProxyTests`).
+- O `TestServer` também não aplica o `[RequestSizeLimit]`: o corpo acima do limite passa. O teste do 413 (`IntegracaoLeadsTests`) sobe o Kestrel de verdade, com `UseKestrel(opcoes => opcoes.Listen(IPAddress.Loopback, 0))`. Sem o `Listen`, ele escuta no `[::]:8080` do `ASPNETCORE_HTTP_PORTS`, e o cliente não conecta.
+- O `UseExceptionHandler()` responde 500 a toda exceção que escapa, inclusive à `BadHttpRequestException` do corpo grande demais. O `StatusCodeSelector` (`Program.cs`) passa o código dela. O título do 413 em português vem do `ProblemDetailsPtBr`; o padrão é "Content Too Large", da RFC 9110.
 - A CSP do Caddy (`deploy/Caddyfile`) só aceita a própria origem, mais os estilos inline do sonner e do Radix, e não tem `'unsafe-eval'`. Um recurso externo novo (fonte, imagem, script) precisa entrar nela. O `connect-src` repete o domínio com `wss://`, para o WebSocket do tempo real no Safari antigo; com `DOMINIO=localhost` numa porta que não é a 443, quem cobre o WebSocket é o `'self'`, o que basta no Chrome.
 - O filtro do log do Caddy (`format filter`, no bloco global do `deploy/Caddyfile`) vale para o log padrão, onde caem o log de erro e o de todos os módulos. Um log de acesso (a diretiva `log` no site) teria o próprio formato, sem o filtro: se for ligado, ele precisa do mesmo filtro. O `LogDoCaddyTests` pega um vazamento no stderr, mas não num arquivo de log.
 - Com a API parada no Docker Desktop, o Caddy leva 3 s para responder 502, porque o nome `api` não resolve (`lookup api: i/o timeout`). No `LogDoCaddyTests`, o próprio Caddy responde pelo nome `api` na rede do teste, sem nada na 8080, e o 502 sai na hora (`connection refused`).
@@ -547,8 +584,12 @@ docker compose up -d n8n                                 # n8n local em http://l
 - No PowerShell 5.1, as aspas duplas dentro de um argumento para um programa nativo se perdem ou partem o argumento em vários. Por isso, use `git commit -F` com a mensagem num arquivo do scratchpad e, para o contêiner, um script em arquivo copiado com `docker compose cp`.
   - Um `git commit -m` com aspas na mensagem sai sem elas ou falha com "pathspec did not match".
   - Se o commit falhar depois do `git add`, os arquivos ficam no índice e entram no commit seguinte: confira com `git show --stat`.
-- O gatilho Webhook do n8n guarda nos dados da execução tudo o que recebe, com os cabeçalhos e o corpo. Nas execuções com erro, que ficam salvas, ficam o `X-Crm-Chave` do Alertas e o `google_key` do Google.
+- O gatilho Webhook do n8n guarda nos dados da execução tudo o que recebe, com os cabeçalhos e o corpo: o lead, o `X-Crm-Chave` do Alertas e o `google_key` do Google. Por isso nenhum fluxo salva execução, desde o Lote 2A. Mesmo assim, a que não fica salva passa pelo banco: ela fica nele, apagada (`deletedAt`) e fora da API e da tela, até a limpeza das apagadas, a cada 15 minutos (`EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL`). A de produção sai na primeira, porque o `deletedAt` dela vem 1 hora antes; a manual, só depois de 1 hora (`EXECUTIONS_DATA_HARD_DELETE_BUFFER`). Numa varredura, conte as marcas também nas apagadas e, se houver, conte de novo depois da limpeza.
 - Um HTTP Request do n8n com credencial nunca baixa a resposta como arquivo (formato "File"). Nesse modo, o n8n guarda no `contextData` da execução a requisição inteira, com o cabeçalho da credencial. Foi assim que o `X-Api-Key` vazou em 14/10/2026. Baixe como texto e refaça o binário no Code, como no relatório semanal.
+- As configurações de execução de um fluxo valem na hora, sem publicar de novo.
+- No n8n local, o filtro de data da Data Table compara texto: um "maior que" no mesmo dia não acha nada. Compare as datas num Code e apague pelo id, como no Resumo.
+- O Retry On Fail do n8n repete qualquer erro, sem escolher pelo código: no envio ao CRM, ele repetia o 400. Deixe a falha temporária para a fila. O MCP não apaga um campo do nó: o `maxTries` e o `waitBetweenTries` ficaram no "Enviar ao CRM" dos três fluxos de entrada, sem efeito sem o `retryOnFail`.
+- Abrir um fluxo no editor do n8n pode salvar sozinho uma versão normalizada, que faz o mesmo: sem os valores padrão dos parâmetros, com posições ajustadas e com o `binaryMode: separate`, que só muda algo no modo `combined`. O JSON exportado deixa de bater com o do repositório. Depois de abrir um fluxo no editor, compare a exportação; num fluxo sem publicar, o `n8n import:workflow` do JSON do repositório o volta.
 - No MCP do n8n:
   - o `create_workflow_from_code` não põe credencial nos HTTP Request: passe no nó o `{ id, name }` da credencial, que o `list_credentials` dá;
   - as notas ganham nomes aleatórios: renomeie para "Sobre o fluxo" com o `renameNode` do `update_workflow`;
@@ -601,7 +642,8 @@ docker compose up -d n8n                                 # n8n local em http://l
   - o nome começa por `CRM - `;
   - um nó Set "Configuração", logo depois do gatilho, guarda os endereços e os e-mails. Segredos ficam só nas credenciais `CRM - …`;
   - nada de `$env`, `$vars`, Execute Command, arquivos em disco ou nó da comunidade: o n8n Cloud não tem;
-  - nas configurações: `saveDataSuccessExecution: none`, o fuso America/Sao_Paulo e o `CRM - Erros` como fluxo de erro (menos nele mesmo);
+  - nas configurações, nenhuma execução salva (`saveDataSuccessExecution` e `saveDataErrorExecution` em `none`, `saveManualExecutions` e `saveExecutionProgress` em `false`), o fuso America/Sao_Paulo e o `CRM - Erros` como fluxo de erro (menos nele mesmo);
+  - nenhum Stop and Error, e o envio ao CRM sem o Retry On Fail. As falhas dele vão pela `destinoDaFalha`, com o mesmo texto nos quatro fluxos que enviam ao CRM;
   - a Data Table vai pelo nome (modo `name`), e não pelo id.
 - Depois de criar ou alterar um fluxo, exporte-o pelo CLI e salve o JSON em `n8n/<nome-do-fluxo>.json`. Deixe só `id`, `name`, `nodes`, `connections` e `settings` e formate com o Prettier do `web/` (README › n8n local).
 - Depois dos testes, apague as execuções de teste. Não leia pelo MCP o conteúdo de uma execução que possa ter uma chave, porque isso traria a chave para a conversa. Para saber se uma execução guarda um cabeçalho ou campo, rode no contêiner um script que leia o SQLite do n8n e só diga se a marca aparece. O módulo `sqlite3` está dentro do próprio n8n, em `/usr/local/lib/node_modules/n8n/node_modules/.pnpm/sqlite3@*/node_modules/sqlite3`, e o banco fica em `/home/node/.n8n/database.sqlite`.
@@ -619,7 +661,9 @@ docker compose up -d n8n                                 # n8n local em http://l
   - a causa do teste instável do front, trazida do 4A em 19/10/2026 e fechada em 20/10/2026;
   - 1B: CI no GitHub Actions, fechado em 21/10/2026;
   - 5: dependências, antecipado para antes do 2A por causa de 3 alertas do vite e feito em 21/10/2026;
-  - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
+  - 2A: n8n (avisos agrupados e execuções sem chave nem dado pessoal), feito em 26/10/2026;
+  - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy;
+  - 2B: n8n (o limite do site);
   - 3: troca de chaves sem parar;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
   - 6: documentação.

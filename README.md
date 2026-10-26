@@ -381,7 +381,7 @@ Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para
 **Cuidados.**
 
 - Nunca publique nem execute um fluxo sem querer: publicado, o `CRM - Alertas` manda um e-mail de verdade a cada evento do CRM.
-- Nenhuma execução fica salva, nem as com erro: o gatilho guardaria o que recebeu, com o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Para ver o motivo de uma falha, siga "Investigar uma falha no n8n", abaixo.
+- Nenhuma execução fica salva, nem as com erro: o gatilho guardaria o que recebeu, com o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Para ver o motivo de uma falha, siga "Investigar uma falha no n8n", abaixo. A execução que não fica salva ainda passa pelo banco do n8n: ela fica nele, apagada e fora da tela, até a limpeza das apagadas, a cada 15 minutos (a manual, só depois de 1 hora).
 - Não baixe um arquivo (formato de resposta "File") num HTTP Request com credencial. Nesse modo, o n8n guarda nos dados da execução a requisição inteira, com o cabeçalho da credencial. Por isso, o relatório semanal baixa o CSV como texto e refaz o anexo.
 - Depois de mudar um fluxo, exporte o JSON pelo CLI e deixe só `id`, `name`, `nodes`, `connections` e `settings` (sem `pinData`, `active`, `versionId`, `meta` e as datas). Depois, formate com o Prettier do `web/`, rodando no `web/`: `npx.cmd prettier --config .prettierrc.json --write "../n8n/*.json"`. O `FluxosN8nTests` confere as regras dos JSONs.
 
@@ -830,7 +830,7 @@ O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lu
    4. Apague o branch local: `git branch -D <branch do PR>`. Com o squash, o commit do PR não entra no histórico da `master`, e o `git branch -d` recusa. O Dependabot apaga o branch dele no GitHub, e o `git fetch --prune` tira a referência.
    5. Se o PR subiu o n8n, confira o n8n com a `master` (ele entra, os fluxos e as credenciais estão lá, e os publicados continuam publicados) e só então apague a cópia do volume: `docker volume rm crm-dados-n8n-copia`.
 
-**O n8n numa versão nova.** O volume `crm-leads_dados-n8n` guarda o banco do n8n local, com os fluxos, as Data Tables e as credenciais, e o arquivo `config`, com a chave que as criptografa. Uma versão nova pode mudar esse banco de um jeito que a anterior não abre mais. Por isso, antes de o n8n subir na versão nova, copie o volume para o `crm-dados-n8n-copia`.
+**O n8n numa versão nova.** O volume `crm-leads_dados-n8n` guarda o banco do n8n local, com os fluxos, as Data Tables e as credenciais, e o arquivo `config`, com a chave que as criptografa. Uma versão nova pode mudar esse banco de um jeito que a anterior não abre mais. Por isso, antes de o n8n subir na versão nova, copie o volume para o `crm-dados-n8n-copia`. A mesma cópia serve antes de uma mudança grande nos fluxos ou nas Data Tables: ela volta tudo de uma vez, e um fluxo sozinho volta pelo histórico de versões.
 
 - Neste roteiro, "a cópia" é sempre esse volume. A pasta do projeto, quando volta para a `master`, é só o `git switch master`.
 - Nenhum passo apaga nada sem conferir a cópia.
@@ -1050,7 +1050,7 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 
 | Onde | O que fica | O que fazer |
 | --- | --- | --- |
-| Execuções do n8n | Nenhuma é salva. Ficam só uma execução interrompida por uma queda do n8n, como "crashed", e uma salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"), com o que chegou | Em Executions, apague as do dia em que o lead entrou, se houver |
+| Execuções do n8n | Nenhuma é salva. Ficam, com o que chegou: a interrompida por uma queda do n8n, como "crashed"; a salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"); e, até a limpeza das apagadas, a cada 15 minutos, a que acabou de rodar, apagada e fora da tela (a manual, por 1 hora) | Em Executions, apague as do dia em que o lead entrou, se houver |
 | Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
 | Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400), com até 8 KB dos dados da pessoa, por 7 dias. A entrada acima de 64 KB e o 413 ficam sem o corpo | Apague a linha da pessoa, se houver |
 | Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
