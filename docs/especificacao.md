@@ -564,6 +564,7 @@ DOMINIO=                                     # só em produção, usado pelo Cad
 # CADDY_IP=172.30.0.10                       # IP do Caddy nessa faixa: só dele a API aceita o IP de quem acessa
 # PORTA_HTTP=80                              # portas do Caddy no servidor
 # PORTA_HTTPS=443
+# PORTAS_IP=127.0.0.1                        # IP das portas do Caddy no próprio computador; vazio no servidor (IPv4 e IPv6)
 ```
 
 Em desenvolvimento, o Docker Compose e a API leem o mesmo `.env` da raiz, e uma variável que já exista no ambiente tem prioridade sobre o arquivo. Em produção, as variáveis vêm do ambiente: o `docker-compose.prod.yml` lê o `.env` do servidor e passa para a API só as que ela usa, com a connection string e o `Crm__UrlPublica` (`https://` + `DOMINIO`) montados por ele.

@@ -67,9 +67,12 @@ services:
     image: caddy:2.11.4
     restart: unless-stopped
     ports:
-      - "${PORTA_HTTP:-80}:80"
-      - "${PORTA_HTTPS:-443}:443"
-      - "${PORTA_HTTPS:-443}:443/udp"
+      # Com o PORTAS_IP vazio, como no servidor, o Docker publica as portas em todas as interfaces, no IPv4 e no IPv6 (um
+      # 0.0.0.0 deixaria o IPv6 de fora). No próprio computador (o plano B e os testes), PORTAS_IP=127.0.0.1: sem ele, a
+      # rede chega no Caddy, pela regra que o Docker Desktop cria no firewall do Windows.
+      - "${PORTAS_IP:+${PORTAS_IP}:}${PORTA_HTTP:-80}:80"
+      - "${PORTAS_IP:+${PORTAS_IP}:}${PORTA_HTTPS:-443}:443"
+      - "${PORTAS_IP:+${PORTAS_IP}:}${PORTA_HTTPS:-443}:443/udp"
     environment:
       DOMINIO: ${DOMINIO}
     volumes:

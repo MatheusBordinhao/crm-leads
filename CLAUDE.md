@@ -482,7 +482,7 @@ dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 docker compose run --rm --service-ports api --N8n:WebhookUrl=   # API sem mandar eventos ao n8n, com o api parado (no Windows: dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=)
 docker compose run --rm -e Demo__Permitir=true api preparar-demonstracao   # APAGA os leads e grava a massa da demonstração, com o api parado (README › Demonstração)
 docker compose -f docker-compose.prod.yml up -d --build  # produção, no servidor (README › Publicação)
-docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC
+docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC, com PORTAS_IP=127.0.0.1 no arquivo
 docker compose up -d n8n                                 # n8n local em http://localhost:5679 (README › n8n local)
 ```
 
@@ -632,6 +632,11 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Para encurtar nos testes do front um intervalo que espera o relógio de verdade, como o da consulta de andamento da importação, ponha a constante num módulo próprio e troque o valor por `vi.mock`, sem relógio falso (`importacao/andamento.ts`).
 - Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot.
 - Um `docker compose -p <descartável> -f docker-compose.prod.yml up --build` troca a imagem `crm-api`, a mesma do plano B. Para não mexer nela, dê outro nome à imagem por um override (`image:` dos serviços `api` e `migracoes`).
+- O Docker Desktop cria no firewall do Windows a regra de entrada "Docker Desktop Backend", em TCP e UDP, que libera o `com.docker.backend` no perfil Público, em qualquer porta e de qualquer origem. As duas redes desta máquina, o Wi-Fi e a Radmin VPN, estão nesse perfil. Uma porta publicada sem IP fica aberta para elas enquanto o contêiner está no ar: o `com.docker.backend` escuta no `::`, que aceita também o IPv4.
+  - Toda porta do `docker-compose.yml` fica no `127.0.0.1`, e o `PublicacaoTests` cobra isso.
+  - O Compose de produção no próprio computador sobe com o `PORTAS_IP=127.0.0.1`: o plano B, pelo `../crm-teste.env`, e todo Compose descartável. No servidor, ele fica vazio, e o Docker publica a 80 e a 443 no IPv4 e no IPv6; um `0.0.0.0` deixaria o IPv6 de fora.
+  - Com o `127.0.0.1`, o `localhost` chega pelo IPv4: o `::1` recusa, e o navegador e o `curl` passam para o `127.0.0.1`. Pelo IP (`https://127.0.0.1:8443`), o TLS falha, porque o certificado do Caddy é do nome `localhost`.
+  - O Testcontainers publica sem IP. Enquanto a suíte .NET roda, a rede chega na porta do PostgreSQL dos testes, com a senha padrão `postgres`, na do Ryuk, que apaga os contêineres dos rótulos que recebe por ela, e na do Caddy do `LogDoCaddyTests`. Os dados são fictícios. Prender essas portas no `127.0.0.1` pelo código não serve: no CI, os testes chegam ao PostgreSQL pelo `host.docker.internal`, que no Linux é o gateway da rede.
 - Os workflows do CI só leem o repositório, e o `WorkflowsTests` cobra isso em todo arquivo de `.github/workflows`:
   - a permissão `contents: read`;
   - toda ação de terceiros fixada pelo SHA, com a versão num comentário, que o Dependabot atualiza;

@@ -131,6 +131,19 @@ public class PublicacaoTests
             $"A porta {porta} do serviço {servico.Nome} não está no 127.0.0.1, e a rede chegaria nela.")));
     }
 
+    /// <summary>
+    /// Em produção, só o Caddy publica portas, todas pelo <c>PORTAS_IP</c>: vazio no servidor, em todas as interfaces, no
+    /// IPv4 e no IPv6; <c>127.0.0.1</c> no plano B e nos Compose descartáveis, para a rede não chegar neles.
+    /// </summary>
+    [Fact]
+    public void So_o_Caddy_publica_portas_e_pelo_PORTAS_IP()
+    {
+        var portas = Servicos("docker-compose.prod.yml").Select(s => (Nome: s.Key, Portas: Portas(s.Value))).Where(s => s.Portas.Count > 0).ToList();
+
+        Assert.Equal(["caddy"], portas.Select(s => s.Nome));
+        Assert.All(portas.Single().Portas, porta => Assert.StartsWith("${PORTAS_IP:+${PORTAS_IP}:}", porta, StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("Strict-Transport-Security \"max-age=31536000\"")]
     [InlineData("X-Content-Type-Options \"nosniff\"")]

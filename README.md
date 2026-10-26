@@ -520,7 +520,7 @@ Se o ambiente de desenvolvimento falhar no dia, a demonstração roda no Compose
 
 No dia da reunião, depois do congelamento:
 
-1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088` e `PORTA_HTTPS=8443`, sem o `N8n__WebhookUrl`, para não mandar e-mail:
+1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088`, `PORTA_HTTPS=8443` e `PORTAS_IP=127.0.0.1`, sem o `N8n__WebhookUrl`, para não mandar e-mail. O `PORTAS_IP` deixa o Caddy só no próprio computador. Sem ele, o Docker publica as portas em todas as interfaces, e a regra que o Docker Desktop cria no firewall do Windows deixa o Wi-Fi chegar nelas:
 
    ```powershell
    docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build
@@ -1023,11 +1023,11 @@ Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
 
 ### Testar a publicação no próprio computador
 
-É o mesmo Compose do plano B da demonstração (veja "Plano B" em Demonstração). Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento:
+É o mesmo Compose do plano B da demonstração (veja "Plano B" em Demonstração). Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento, e o `PORTAS_IP=127.0.0.1`, para a rede não chegar no Caddy. No servidor, o `PORTAS_IP` fica vazio:
 
 ```bash
-# ../crm-teste.env: POSTGRES_PASSWORD, Admin__Email, Admin__SenhaInicial, DOMINIO=localhost, PORTA_HTTP=8088 e
-# PORTA_HTTPS=8443, sem N8n__WebhookUrl (para não mandar e-mail)
+# ../crm-teste.env: POSTGRES_PASSWORD, Admin__Email, Admin__SenhaInicial, DOMINIO=localhost, PORTA_HTTP=8088,
+# PORTA_HTTPS=8443 e PORTAS_IP=127.0.0.1, sem N8n__WebhookUrl (para não mandar e-mail)
 docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build
 # abra https://localhost:8443
 docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env down -v   # aqui o -v apaga só o teste
