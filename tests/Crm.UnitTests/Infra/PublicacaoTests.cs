@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace Crm.UnitTests.Infra;
 
-/// <summary>Os arquivos da publicação (Passo 5): segredos fora da imagem e do Compose, o proxy certo e o Caddy.</summary>
+/// <summary>Os arquivos da publicação (Passo 5): segredos fora da imagem e do Compose, o proxy certo, o Caddy e as portas.</summary>
 public class PublicacaoTests
 {
     private static string Ler(string arquivo) => File.ReadAllText(Path.Combine(Repositorio.Raiz, arquivo));
@@ -38,6 +38,23 @@ public class PublicacaoTests
 
         return servicos;
     }
+
+    /// <summary>Os itens do <c>ports</c> de um serviço, sem as aspas: as linhas com mais recuo que ele, menos os comentários.</summary>
+    private static List<string> Portas(List<string> servico)
+    {
+        var inicio = servico.FindIndex(l => l.Trim() == "ports:");
+        if (inicio < 0)
+        {
+            return [];
+        }
+
+        var recuo = Recuo(servico[inicio]);
+        var itens = servico.Skip(inicio + 1).TakeWhile(l => l.Trim().Length == 0 || Recuo(l) > recuo).Select(l => l.Trim());
+
+        return [.. itens.Where(l => l.StartsWith("- ", StringComparison.Ordinal)).Select(l => l[2..].Trim().Trim('"'))];
+    }
+
+    private static int Recuo(string linha) => linha.Length - linha.TrimStart().Length;
 
     [Fact]
     public void O_env_nunca_vai_para_a_imagem_de_producao()
@@ -96,6 +113,22 @@ public class PublicacaoTests
         Assert.All(servicos, servico => Assert.True(
             servico.Value.Any(l => l.Trim() == "logging: *logs"),
             $"O serviço {servico.Key} não tem o logging: *logs, e o log dele não gira."));
+    }
+
+    /// <summary>
+    /// O banco, a API e o n8n de desenvolvimento ficam só no próprio computador. Sem o IP, o Docker publica a porta em todas
+    /// as interfaces, e a regra que o Docker Desktop cria no firewall do Windows deixa a rede chegar nela. A sintaxe longa
+    /// (<c>target:</c>) também derruba o teste.
+    /// </summary>
+    [Fact]
+    public void Toda_porta_do_compose_de_desenvolvimento_fica_no_proprio_computador()
+    {
+        var servicos = Servicos("docker-compose.yml").Select(s => (Nome: s.Key, Portas: Portas(s.Value))).ToList();
+
+        Assert.Superset(new HashSet<string> { "db", "api", "n8n" }, servicos.Where(s => s.Portas.Count > 0).Select(s => s.Nome).ToHashSet());
+        Assert.All(servicos, servico => Assert.All(servico.Portas, porta => Assert.True(
+            porta.StartsWith("127.0.0.1:", StringComparison.Ordinal),
+            $"A porta {porta} do serviço {servico.Nome} não está no 127.0.0.1, e a rede chegaria nela.")));
     }
 
     [Theory]
