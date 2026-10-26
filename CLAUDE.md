@@ -238,6 +238,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
       - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
       - a conferência pegou um byte e um arquivo a mais;
       - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada.
+  - fechar as portas na máquina, e não só no Compose, pela regra "Docker Desktop Backend" do firewall ou pelo `ip` padrão do Docker. A proposta do Lote 1C espera a minha decisão, depois do push.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -407,7 +408,24 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - o dry-run no Windows só com as trocas esperadas, o install sem mudar o lockfile e, no fim, o `npm audit` em 0;
   - a suíte .NET, no contêiner, com 793 de 793;
   - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 633, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 7,8 s depois;
-  - o meu e-mail, o "Novo lead" em branco no navegador com o zod novo, o push e o fechamento dos 6 alertas entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 1C:
+    - validado por mim: o e-mail do lead 633 chegou às 10:13, no endereço da Adriana. No navegador, a ficha 633 abriu certa, e o "Novo lead" em branco mostrou "Informe o nome." e "Informe o e-mail ou o telefone.";
+    - no push de `fb3849f..783c002`, o `Testes` #9 ficou verde em 5 min 38 s, e o `Imagem de produção` #8, em 2 min 20 s, no `783c002`;
+    - os 6 alertas fecharam com a releitura do lockfile: 0 abertos e 18 fechados.
+- Lote 1C (as portas só no próprio computador), feito em 26/10/2026:
+  - o motivo: o Caddy do `docker-compose.prod.yml` publicava as portas sem IP. Com o plano B ou um Compose descartável no ar, o Wi-Fi e a Radmin VPN chegavam nele, pela regra "Docker Desktop Backend" do firewall (Armadilhas conhecidas), e o 4A e o 4B sobem Compose descartáveis com o Caddy;
+  - os commits:
+    - `66e60db`: o teste das portas do `docker-compose.yml`, todas no `127.0.0.1`, com o `db`, a `api` e o `n8n` obrigados a ter portas, para o teste não passar vazio;
+    - `24761e6`: o `PORTAS_IP` nas três portas do Caddy, vazio no servidor e `127.0.0.1` no plano B e nos Compose descartáveis. Junto, o teste de que, em produção, só o Caddy publica portas, todas pelo `PORTAS_IP`, o `.env.example`, a seção 9, o README e a armadilha;
+  - conferido pelo Claude:
+    - o jeito de escrever, no Compose v5.6.1, com o Engine 29.9.2: o `${PORTAS_IP:-}:` também funcionava, mas, vazio, ele vira `:80:80`, que só passa porque o parser tolera. O `${PORTAS_IP:+${PORTAS_IP}:}` dá a sintaxe documentada nos dois casos;
+    - o `docker compose config`, com um `.env` fictício: sem a variável e com ela vazia, igual ao de antes, byte a byte; com o `127.0.0.1`, só os três `host_ip` a mais;
+    - num Compose descartável só com o Caddy (`-p crm-portas`, portas 8098 e 8469, rede `172.31.98.0/24`), sem a variável, o `com.docker.backend` escutou no `::`, e o Caddy respondeu pelo IP do Wi-Fi e pelo da Radmin. Com o `127.0.0.1`, ele escutou só no `127.0.0.1`, em TCP e UDP: o `https://localhost:8469` chegou, e os dois IPs da rede e o `::1` recusaram. No fim, o `down -v` não deixou nada;
+    - os dois testes, cada um com a porta errada de propósito (a do n8n sem o IP e a UDP do Caddy sem o prefixo), falharam só nela;
+    - a suíte .NET, no contêiner, com 795 de 795, e a formatação; a do front, no `front.sh completo`, com 260 de 260;
+    - durante a suíte .NET, o PostgreSQL dos testes, o Ryuk e o Caddy do `LogDoCaddyTests` ficaram publicados em `0.0.0.0` e `[::]`, e o `com.docker.backend` escutou no `::` (Armadilhas conhecidas);
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 694, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 8,5 s depois;
+  - o meu `PORTAS_IP` no `../crm-teste.env`, o plano B com a variável, o e-mail do lead 694, o push e o CI entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -692,7 +710,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 5: dependências, antecipado para antes do 2A por causa de 3 alertas do vite e feito em 21/10/2026;
   - 2A: n8n (avisos agrupados e execuções sem chave nem dado pessoal), feito em 26/10/2026;
   - 5B: os alertas do npm de 26/10/2026 (o `zod`, o `undici` e o `@vitest/mocker`), logo depois do push do 2A, feito em 26/10/2026;
-  - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy;
+  - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy, feito em 26/10/2026;
   - 2B: n8n (o limite do site);
   - 3: troca de chaves sem parar;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
