@@ -52,11 +52,7 @@
         "resource": "row",
         "operation": "get",
         "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
-        "returnAll": false,
-        "orderBy": true,
-        "orderByColumn": "createdAt",
-        "orderByDirection": "ASC",
-        "limit": "={{ $('Configuração').first().json.linhasPorRodada }}"
+        "returnAll": true
       }
     },
     {
@@ -64,7 +60,7 @@
       "name": "Reenviar ao CRM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [672, 80],
+      "position": [896, 80],
       "parameters": {
         "method": "POST",
         "url": "={{ $(\"Configuração\").first().json.urlCrm }}/api/integracoes/leads",
@@ -89,7 +85,7 @@
       "name": "Classificar a falha",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [896, 240],
+      "position": [1120, 240],
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
@@ -101,7 +97,7 @@
       "name": "Atualizar a tentativa",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1344, 320],
+      "position": [1568, 320],
       "parameters": {
         "resource": "row",
         "operation": "update",
@@ -145,7 +141,7 @@
       "name": "Apagar da fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [896, 0],
+      "position": [1120, 0],
       "parameters": {
         "resource": "row",
         "operation": "deleteRows",
@@ -170,7 +166,7 @@
       "typeVersion": 1,
       "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Reenvio de pendentes\nDe hora em hora, das 8h às 20h, de segunda a sexta, reenvia ao CRM as entradas da Data Table `crm_entradas_pendentes`, uma por segundo e no máximo 20 por rodada (`linhasPorRodada`), as mais antigas primeiro: com o CRM lento, 20 linhas levam no máximo 220 s, dentro dos 5 minutos do Starter. Deu certo (inclusive \"já recebido\"): apaga a linha. Recusa da entrada (400 ou 413): tira a linha da fila e a guarda na `crm_entradas_recusadas`. Falha temporária ou de configuração: soma a tentativa e grava o erro, sem o corpo da resposta; na configuração, manda um e-mail só por rodada. Os endereços e os e-mails ficam no nó \"Configuração\".",
+        "content": "## CRM - Reenvio de pendentes\nDe hora em hora, das 8h às 20h, de segunda a sexta, reenvia ao CRM as entradas da Data Table `crm_entradas_pendentes`, uma por segundo e no máximo 20 por rodada (`linhasPorRodada`): as com menos tentativas primeiro e, entre elas, as mais antigas, para uma linha que sempre falha não ocupar as vagas das novas. Com o CRM lento, 20 linhas levam no máximo 220 s, dentro dos 5 minutos do Starter. Deu certo (inclusive \"já recebido\"): apaga a linha. Recusa da entrada (400 ou 413): tira a linha da fila e a guarda na `crm_entradas_recusadas`, com no máximo 8 KB do corpo. Falha temporária ou de configuração: soma a tentativa e grava o erro, sem o corpo da resposta; na configuração, manda um e-mail só por rodada. Os endereços e os e-mails ficam no nó \"Configuração\".",
         "color": 7,
         "width": 832,
         "height": 224
@@ -181,7 +177,7 @@
       "name": "Recusada pelo CRM?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1120, 240],
+      "position": [1344, 240],
       "parameters": {
         "conditions": {
           "options": {
@@ -207,7 +203,7 @@
       "name": "Guardar nas recusadas",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1344, 160],
+      "position": [1568, 160],
       "parameters": {
         "resource": "row",
         "operation": "insert",
@@ -267,7 +263,7 @@
       "name": "Tirar da fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1568, 160],
+      "position": [1792, 160],
       "parameters": {
         "resource": "row",
         "operation": "deleteRows",
@@ -290,7 +286,7 @@
       "name": "Falha de configuração?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1568, 320],
+      "position": [1792, 320],
       "parameters": {
         "conditions": {
           "options": {
@@ -316,7 +312,7 @@
       "name": "Avisar da configuração",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1792, 320],
+      "position": [2016, 320],
       "parameters": {
         "operation": "send",
         "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
@@ -329,6 +325,18 @@
       "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
       "executeOnce": true,
       "webhookId": "f43ca2d0-5d83-4047-8fde-040a64eff336"
+    },
+    {
+      "id": "78e559bb-3d6c-4818-8bfe-14dba6cc0d94",
+      "name": "Escolher as da rodada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 80],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Escolhe as linhas da rodada (seção 4.5): as com menos tentativas primeiro e, entre elas, as mais antigas, até o linhasPorRodada\n// do \"Configuração\". Uma linha que sempre falha vai para o fim e não ocupa as vagas das novas; numa queda longa do CRM, nada é\n// descartado. A Data Table só ordena por uma coluna, e por isso a ordem fica aqui.\nconst limite = Number($('Configuração').first().json.linhasPorRodada);\nconst linhas = $input\n  .all()\n  .map((item, indice) => ({ linha: item.json, indice: indice }))\n  .filter(({ linha }) => linha.id !== undefined);\nlinhas.sort(\n  (a, b) =>\n    (Number(a.linha.tentativas) || 0) - (Number(b.linha.tentativas) || 0) ||\n    new Date(a.linha.criado_em).getTime() - new Date(b.linha.criado_em).getTime() ||\n    a.linha.id - b.linha.id,\n);\nreturn linhas.slice(0, limite).map(({ linha, indice }) => ({ json: linha, pairedItem: { item: indice } }));"
+      }
     }
   ],
   "connections": {
@@ -336,9 +344,6 @@
       "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
     },
     "Configuração": { "main": [[{ "node": "Buscar os pendentes", "type": "main", "index": 0 }]] },
-    "Buscar os pendentes": {
-      "main": [[{ "node": "Reenviar ao CRM", "type": "main", "index": 0 }]]
-    },
     "Reenviar ao CRM": {
       "main": [
         [{ "node": "Apagar da fila", "type": "main", "index": 0 }],
@@ -362,6 +367,12 @@
     },
     "Falha de configuração?": {
       "main": [[{ "node": "Avisar da configuração", "type": "main", "index": 0 }]]
+    },
+    "Buscar os pendentes": {
+      "main": [[{ "node": "Escolher as da rodada", "type": "main", "index": 0 }]]
+    },
+    "Escolher as da rodada": {
+      "main": [[{ "node": "Reenviar ao CRM", "type": "main", "index": 0 }]]
     }
   },
   "settings": {

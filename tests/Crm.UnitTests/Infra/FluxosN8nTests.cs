@@ -168,9 +168,11 @@ public class FluxosN8nTests
     }
 
     /// <summary>
-    /// O reenvio leva no máximo as linhas do "Configuração" por rodada, as mais antigas primeiro. Com o CRM lento, cada linha leva
-    /// até 11 s (10 s de tempo limite e 1 s de intervalo), e a rodada precisa caber nos 5 minutos por execução do Starter
-    /// (seção 4.5). A falha de configuração manda um e-mail só por rodada, e não um por linha.
+    /// O reenvio leva no máximo as linhas do "Configuração" por rodada: as com menos tentativas primeiro e, entre elas, as mais
+    /// antigas, para uma linha que sempre falha não ocupar as vagas das novas. A Data Table ordena por uma coluna só, e a ordem
+    /// fica no Code. Com o CRM lento, cada linha leva até 11 s (10 s de tempo limite e 1 s de intervalo), e a rodada precisa
+    /// caber nos 5 minutos por execução do Starter (seção 4.5). A falha de configuração manda um e-mail só por rodada, e não um
+    /// por linha.
     /// </summary>
     [Fact]
     public void O_reenvio_leva_no_maximo_20_linhas_por_rodada_e_manda_um_email_so()
@@ -178,13 +180,37 @@ public class FluxosN8nTests
         using var fluxo = Ler("crm-reenvio-de-pendentes.json");
         var configuracao = No(fluxo, "Configuração").GetProperty("parameters").GetProperty("assignments").GetProperty("assignments")
             .EnumerateArray().Single(campo => campo.GetProperty("name").GetString() == "linhasPorRodada");
-        var busca = No(fluxo, "Buscar os pendentes").GetProperty("parameters");
+        var escolha = No(fluxo, "Escolher as da rodada").GetProperty("parameters").GetProperty("jsCode").GetString()!;
 
         Assert.Equal(20, configuracao.GetProperty("value").GetInt32());
-        Assert.False(busca.GetProperty("returnAll").GetBoolean());
-        Assert.Contains("linhasPorRodada", busca.GetProperty("limit").GetString(), StringComparison.Ordinal);
-        Assert.Equal("ASC", busca.GetProperty("orderByDirection").GetString());
+        Assert.True(No(fluxo, "Buscar os pendentes").GetProperty("parameters").GetProperty("returnAll").GetBoolean());
+        Assert.Equal(new[] { ("Buscar os pendentes", 0) }, Entradas(fluxo, "Escolher as da rodada"));
+        Assert.Equal(new[] { ("Escolher as da rodada", 0) }, Entradas(fluxo, "Reenviar ao CRM"));
+        Assert.Contains("Number($('Configuração').first().json.linhasPorRodada)", escolha, StringComparison.Ordinal);
+        Assert.Contains(
+            "(Number(a.linha.tentativas) || 0) - (Number(b.linha.tentativas) || 0) ||\n"
+            + "    new Date(a.linha.criado_em).getTime() - new Date(b.linha.criado_em).getTime() ||",
+            escolha,
+            StringComparison.Ordinal);
+        Assert.Contains("linhas.slice(0, limite)", escolha, StringComparison.Ordinal);
         Assert.True(No(fluxo, "Avisar da configuração").GetProperty("executeOnce").GetBoolean());
+    }
+
+    /// <summary>
+    /// O envio ao CRM tenta uma vez só. O Retry On Fail do n8n repete qualquer erro, sem escolher pelo código: um 400 era repetido à
+    /// toa, e a recusa levava 10 s. O erro temporário espera o reenvio (seção 4.5). O <c>maxTries</c> e o <c>waitBetweenTries</c>
+    /// que ficaram no nó não valem sem o <c>retryOnFail</c>.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(FluxosQueEnviamAoCrm))]
+    public void O_envio_ao_CRM_nao_repete_a_chamada(string arquivo)
+    {
+        using var fluxo = Ler(arquivo);
+        var envio = Assert.Single(Nos(fluxo), no =>
+            no.GetProperty("type").GetString() == "n8n-nodes-base.httpRequest"
+            && no.GetProperty("parameters").GetProperty("url").GetString()!.EndsWith("/api/integracoes/leads", StringComparison.Ordinal));
+
+        Assert.False(envio.TryGetProperty("retryOnFail", out var repete) && repete.GetBoolean());
     }
 
     /// <summary>

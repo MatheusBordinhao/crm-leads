@@ -121,7 +121,7 @@
       "credentials": {
         "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
       },
-      "retryOnFail": true,
+      "retryOnFail": false,
       "maxTries": 3,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput"
