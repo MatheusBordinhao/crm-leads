@@ -118,6 +118,16 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
    cd web && npm ci
    ```
 
+6. Num Windows com o Docker Desktop, feche para a rede as portas que ele publica. O Docker Desktop cria no firewall a regra "Docker Desktop Backend", que libera a entrada no perfil Público em qualquer porta. Assim, uma porta publicada sem IP, como as do Testcontainers durante a suíte .NET, fica aberta para o Wi-Fi enquanto o contêiner está no ar. A regra abaixo bloqueia a entrada pela rede em todas essas portas, em qualquer perfil, e vence a do Docker; o próprio computador continua chegando nelas. Num PowerShell de administrador:
+
+   ```powershell
+   New-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede' -Description 'CRM, Lote 1C (26/10/2026): bloqueia a entrada pela rede em todas as portas que o Docker Desktop publica, em qualquer perfil. Só o próprio computador chega nelas. Vence a regra Docker Desktop Backend, que libera a entrada no perfil Público.' -Direction Inbound -Action Block -Profile Any -Program 'C:\Program Files\Docker\Docker\resources\com.docker.backend.exe'
+   ```
+
+   - Depois de cada atualização do Docker Desktop, confira que ela continua ativa: `Get-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede'`.
+   - Para desfazer: `Remove-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede'`.
+   - Só outro aparelho, como um celular no mesmo Wi-Fi, prova que ela funciona: o Windows não filtra o que o computador manda para ele mesmo.
+
 ## Dia a dia
 
 Num Windows com o Controle Inteligente de Aplicativos ligado, como o deste projeto, a API e o `dotnet ef` rodam num contêiner Linux, e o front continua no Windows (veja "API e dotnet ef num contêiner Linux", logo abaixo). No PowerShell 5.1, use `npm.cmd` e rode os comandos em linhas separadas:

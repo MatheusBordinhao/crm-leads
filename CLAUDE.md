@@ -238,7 +238,6 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
       - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
       - a conferência pegou um byte e um arquivo a mais;
       - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada.
-  - fechar as portas na máquina, e não só no Compose, pela regra "Docker Desktop Backend" do firewall ou pelo `ip` padrão do Docker. A proposta do Lote 1C espera a minha decisão, depois do push.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -425,7 +424,45 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a suíte .NET, no contêiner, com 795 de 795, e a formatação; a do front, no `front.sh completo`, com 260 de 260;
     - durante a suíte .NET, o PostgreSQL dos testes, o Ryuk e o Caddy do `LogDoCaddyTests` ficaram publicados em `0.0.0.0` e `[::]`, e o `com.docker.backend` escutou no `::` (Armadilhas conhecidas);
     - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 694, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 8,5 s depois;
-  - o meu `PORTAS_IP` no `../crm-teste.env`, o plano B com a variável, o e-mail do lead 694, o push e o CI entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 2B:
+    - validado por mim: o plano B com o `PORTAS_IP=127.0.0.1` no `../crm-teste.env`, com o `ps` em `127.0.0.1:8088` e `127.0.0.1:8443`, em TCP e UDP, o `https://localhost:8443` abrindo no computador e o celular, no Wi-Fi, sem conectar; e o e-mail do lead 694 no celular;
+    - no push de `783c002..5221aa4`, o `Testes` #10 ficou verde em 5 min 58 s, e o `Imagem de produção` #9, em 2 min 34 s.
+- Lote 2B (n8n: o limite de envios do site), feito em 27/10/2026:
+  - antes do lote, em 26/10/2026, a pendência das portas na máquina fechou pelo caminho 1, por decisão minha: uma regra de bloqueio própria no firewall, com o `-Profile Any` e a `-Description` (README › Primeira vez). Eu a criei num PowerShell de administrador, e o `Get-NetFirewallRule` a confirmou: ativa, de entrada, Bloquear, perfil Any, com o programa e a descrição. Conferido:
+    - num Compose descartável só com o Caddy (`-p crm-portas`, portas 8098 e 8469), sem o `PORTAS_IP` e com `DOMINIO="localhost, 192.168.0.71, 172.31.98.10"`, para o pedido do celular entrar no log. Pelo IP, o navegador não manda o nome do servidor (SNI), e o Caddy escolhe o certificado pelo IP em que recebeu a conexão, que dentro do Docker é o do contêiner;
+    - o controle, sem a regra: o celular, no Wi-Fi, abriu o `https://192.168.0.71:8469/celular-controle` depois do aviso de certificado, com o 502. O log teve 4 pedidos com esse caminho, em HTTP/2, com o navegador do iPhone. O IP no log é o gateway da rede do descartável, também nos pedidos do computador: quem separa o do celular é o endereço, o caminho e o navegador;
+    - com a regra: "Website can't be reached" no celular, sem aviso de certificado, nenhum pedido novo no log e o `https://localhost:8469` com 502 no computador. O descartável saiu com o `down -v`;
+    - a suíte .NET inteira, no contêiner, com a regra: 795 de 795, em 1 min 58 s;
+    - a demonstração, com a regra: o lead 755, na Adriana, com o `lead.criado` entregue na primeira tentativa, 5,5 s depois;
+  - antes de mexer no n8n, a cópia do volume no `crm-dados-n8n-copia`, pelo roteiro do README, com "OK";
+  - os commits:
+    - `57ea848`: o campo isca no "Only Run If" do Webhook do site e o limite de envios, com a Data Table `crm_envios_site` (só o `criado_em`), o aviso na hora e o envio que segue para o CRM sem o limite quando a contagem falha;
+    - `b0f469f`: os envios do site no resumo diário, com o e-mail de toda segunda (`diaDoResumoSemanal`) e as linhas de mais de 31 dias apagadas;
+  - o que mudou em relação ao plano de 16/10, com o meu ok:
+    - o "É um robô?" fica, para o multipart (Armadilhas conhecidas);
+    - a posição de cada envio vem do id da linha dele, e o primeiro barrado de cada janela avisa o admin, sem repetir o aviso com o tráfego oscilando em volta do limite;
+    - o limite nunca perde um lead: com a gravação, a busca, a conta ou a recusa em falha, o envio vai ao CRM sem o limite, com a marca `site_sem_limite` e no máximo um aviso por dia;
+    - o Google fica sem o "Only Run If": a chave errada receberia 200, e o lead se perderia sem aviso;
+  - os achados, nas Armadilhas conhecidas: o "Only Run If" com o multipart; a saída de erro do nó de Data Table, que só recebe parte das falhas; o "Always Output Data" com a saída de erro, que roda os dois caminhos; o `$()` sem o índice da saída; e o MCP, que não volta sozinho quando o n8n reinicia;
+  - conferido pelo Claude no n8n local, pelos efeitos, com o `seq` da `execution_entity` e as Data Tables:
+    - o limite, no rascunho, com 8 linhas fictícias: a hora (3 na hora, com o limite de 2), o envio seguinte, sem aviso, a oscilação (o limite de 4 cruzado depois de bloqueios na janela, sem aviso), o dia (7 nas 24 horas, com o limite de 6) e a janela (sem as linhas de 25 horas na conta, o envio passou, e o CRM respondeu 400). Nenhum lead nem evento;
+    - a falha, no rascunho, com uma coluna que não existe ou uma data inválida no filtro: na gravação, na busca e na recusa do envio barrado, o envio chegou ao CRM (400), a marca `site_sem_limite` diz o passo, e só a primeira avisou;
+    - esses testes mostraram três defeitos, corrigidos antes do commit: o nó de Data Table engolia a falha da gravação; com a busca em erro, o envio ia duas vezes ao CRM; e o aviso do limite não saía, pelo `$()` sem o índice. Para ver os nós, o salvamento das execuções manuais ficou ligado só no site, com dados fictícios, durante esses testes;
+    - como a hora, o envio seguinte e a oscilação rodaram com o aviso quebrado, os testes do aviso foram refeitos com o código corrigido, no rascunho, a partir da linha da demonstração:
+      - a hora (2 na hora, com o limite de 1), com o e-mail;
+      - o envio seguinte (3), sem e-mail;
+      - a oscilação (4, com o limite de 3, depois de dois bloqueios pela hora), sem e-mail;
+      - o dia (5 nas 24 horas, com o limite de 4), com o e-mail;
+      - o dia cruzado de novo (6, com o limite de 5, depois do bloqueio pelo dia), sem e-mail;
+      - no fim, os valores voltaram, e a exportação bate com o JSON;
+    - o campo isca, publicado, pelo webhook: em JSON e como formulário, 200 com `{"message":"Webhook call received"}`, sem execução e sem linha; em multipart, `{"recebido":true}`, com uma execução, sem linha e sem lead; e o `site-sem-nome.json`, com uma linha e a `site_recusada`;
+    - o Resumo, à mão: a limpeza sem e-mail; o e-mail com os envios (3 ontem e 5 nos 30 dias), 1 barrado e 1 sem limite, com só a linha de 40 dias apagada; e o e-mail do dia semanal com as tabelas vazias;
+    - os 8 fluxos batem com os JSONs. A varredura, só contando, não achou nenhuma marca dos exemplos nas Data Tables, nas definições, nos logs de eventos nem no log do contêiner: elas só estão nas 9 execuções salvas na investigação (79 a 84 e 86 a 88) e nas apagadas, que a limpeza do n8n tira;
+    - a suíte .NET, no contêiner, com 801 de 801, e a formatação; a do front, no `front.sh completo`;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 816, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 6,1 s depois;
+  - validado por mim: os 5 e-mails de teste (o da falha do limite, o do limite pelo dia, no primeiro reteste, e os três do Resumo), nenhum outro, e o do lead 816 no celular. Apaguei as 9 execuções salvas na investigação;
+  - depois, o Claude conferiu o n8n (os 8 fluxos iguais aos JSONs, os 4 publicados e as 3 credenciais), contou as marcas de novo (nenhuma fora das execuções apagadas, que a limpeza do n8n tira) e apagou a cópia `crm-dados-n8n-copia`;
+  - os 2 e-mails dos retestes (o da hora e o do dia), a recontagem depois da limpeza, o push e o CI entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -641,7 +678,8 @@ docker compose up -d n8n                                 # n8n local em http://l
   - as notas ganham nomes aleatórios: renomeie para "Sobre o fluxo" com o `renameNode` do `update_workflow`;
   - as configurações do fluxo entram pelo `setWorkflowSettings` do `update_workflow`, e o fluxo de erro só aceita um fluxo publicado;
   - o `execute_workflow` não roda o gatilho de Lead Ads. Use o `test_workflow` com pin data, que fixa também os HTTP Request e os nós com credencial. Para levar o lead montado ao CRM, ponha-o na `crm_entradas_pendentes` (`add_data_table_rows`) e rode o Reenvio;
-  - chamadas na mesma mensagem rodam juntas: insira a linha na Data Table e só depois, em outra mensagem, execute o fluxo que a lê.
+  - chamadas na mesma mensagem rodam juntas: insira a linha na Data Table e só depois, em outra mensagem, execute o fluxo que a lê;
+  - quando o n8n reinicia, como na cópia do volume ou numa versão nova, o MCP cai e não volta sozinho, nem depois de o `/healthz` responder. O `/mcp` do Claude Code, que é com o usuário, o reconecta. Vale para o Lote 4A, que sobe o n8n na 2.43.7.
 - O `N8n__WebhookUrl` não aparece no `printenv` do contêiner da API, porque a própria API lê o `.env` (`ArquivoEnv`). Para saber se ela leu, procure no log da subida a linha "N8n__WebhookUrl não está configurada", que só aparece com a URL vazia.
 - Um e-mail mandado de uma conta do Gmail para um alias dela mesma, como o `+adriana`, chega como enviado, sem notificar o celular. Por isso, o remetente dos alertas é outra conta.
 - A auditoria do NuGet, com os avisos tratados como erro, derruba o build quando sai um alerta novo para um pacote. Foi o caso da CVE-2026-70159 do SignalR.Common, em 13/10/2026. Suba o pacote para a versão corrigida, no `Directory.Packages.props`.
@@ -659,7 +697,9 @@ docker compose up -d n8n                                 # n8n local em http://l
   - Toda porta do `docker-compose.yml` fica no `127.0.0.1`, e o `PublicacaoTests` cobra isso.
   - O Compose de produção no próprio computador sobe com o `PORTAS_IP=127.0.0.1`: o plano B, pelo `../crm-teste.env`, e todo Compose descartável. No servidor, ele fica vazio, e o Docker publica a 80 e a 443 no IPv4 e no IPv6; um `0.0.0.0` deixaria o IPv6 de fora.
   - Com o `127.0.0.1`, o `localhost` chega pelo IPv4: o `::1` recusa, e o navegador e o `curl` passam para o `127.0.0.1`. Pelo IP (`https://127.0.0.1:8443`), o TLS falha, porque o certificado do Caddy é do nome `localhost`.
-  - O Testcontainers publica sem IP. Enquanto a suíte .NET roda, a rede chega na porta do PostgreSQL dos testes, com a senha padrão `postgres`, na do Ryuk, que apaga os contêineres dos rótulos que recebe por ela, e na do Caddy do `LogDoCaddyTests`. Os dados são fictícios. Prender essas portas no `127.0.0.1` pelo código não serve: no CI, os testes chegam ao PostgreSQL pelo `host.docker.internal`, que no Linux é o gateway da rede.
+  - O Testcontainers publica sem IP: o PostgreSQL dos testes, com a senha padrão `postgres`, o Ryuk, que apaga os contêineres dos rótulos que recebe pela porta dele, e o Caddy do `LogDoCaddyTests`. A regra própria, abaixo, fecha essas portas para a rede, e a suíte no contêiner continua passando com ela: o contêiner chega ao PostgreSQL pelo `host.docker.internal`, sem passar pelo firewall. Prender essas portas no `127.0.0.1` pelo código não serve: no CI, os testes chegam ao PostgreSQL pelo `host.docker.internal`, que no Linux é o gateway da rede.
+  - Desde 26/10/2026, a regra própria "Docker Desktop: sem acesso pela rede" (entrada, Bloquear, perfil Any, para o `com.docker.backend.exe`) fecha para a rede todas as portas que o Docker Desktop publica, inclusive as do Testcontainers e a do n8n do WSL. O bloqueio vence a permissão da regra do Docker. Confira-a depois de cada atualização do Docker Desktop (`Get-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede'`, README › Primeira vez). O `PORTAS_IP` e o `127.0.0.1` do Compose ficam como segunda camada.
+  - Só outro aparelho prova a regra: o Windows não filtra o tráfego para ele mesmo, e um pedido do próprio computador pelo IP do Wi-Fi passa. No Docker Desktop, o log do Caddy mostra o gateway da rede como o IP de todo pedido: quem separa o do celular é o endereço, o caminho e o navegador. O Caddyfile só grava os erros do proxy, e o redirecionamento da porta HTTP não entra no log: para o pedido do celular aparecer, abra o HTTPS direto, num descartável com o IP no `DOMINIO`, com a API parada (o 502).
 - Os workflows do CI só leem o repositório, e o `WorkflowsTests` cobra isso em todo arquivo de `.github/workflows`:
   - a permissão `contents: read`;
   - toda ação de terceiros fixada pelo SHA, com a versão num comentário, que o Dependabot atualiza;
@@ -716,7 +756,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 2A: n8n (avisos agrupados e execuções sem chave nem dado pessoal), feito em 26/10/2026;
   - 5B: os alertas do npm de 26/10/2026 (o `zod`, o `undici` e o `@vitest/mocker`), logo depois do push do 2A, feito em 26/10/2026;
   - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy, feito em 26/10/2026;
-  - 2B: n8n (o limite do site);
+  - 2B: n8n (o limite do site), feito em 27/10/2026;
   - 3: troca de chaves sem parar;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
   - 6: documentação.
