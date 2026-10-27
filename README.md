@@ -322,7 +322,8 @@ docker compose stop n8n
    ```
 3. Crie as Data Tables (Overview › Data tables), que os fluxos acham pelo nome:
    - `crm_entradas_pendentes`, com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data);
-   - `crm_entradas_recusadas`, com as colunas `tipo`, `payload` e `detalhe` (texto) e `criado_em` (data).
+   - `crm_entradas_recusadas`, com as colunas `tipo`, `payload` e `detalhe` (texto) e `criado_em` (data);
+   - `crm_envios_site`, só com a coluna `criado_em` (data).
 4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e as quatro opções de salvar em "Do not save": "Save failed production executions", "Save successful production executions", "Save manual executions" e "Save execution progress". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
 5. Gere a chave do Google de desenvolvimento. Ela é aleatória e fica num arquivo fora do repositório; o SHA-256 dela vai para o `googleKeySha256` do nó "Configuração" do `CRM - Entrada Google`:
 
@@ -356,7 +357,7 @@ docker compose stop n8n
 | --- | --- | --- | --- |
 | `CRM - Erros` | Error Trigger | Sim | Qualquer falha dos outros fluxos manda o e-mail ao admin |
 | `CRM - Alertas` | `POST /webhook/crm-alertas`, com o `X-Crm-Chave` | Sim | Um lead pelo rodízio: o e-mail chega no alias da atendente |
-| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` não cria nada; `site-sem-nome.json` vai para as recusadas |
+| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` recebe `{"message":"Webhook call received"}`, sem criar execução; `site-sem-nome.json` vai para as recusadas |
 | `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste; `google-sem-nome.json`, com a chave: vai para as recusadas |
 | `CRM - Reenvio de pendentes` | De hora em hora, das 8h às 20h, de segunda a sexta | Não | Execução manual, depois de um envio com a API parada |
 | `CRM - Relatório semanal Gama` | Segunda às 8h | Não | Execução manual: o CSV da semana anterior vai para o `emailGama` |
@@ -377,6 +378,21 @@ Remove-Variable chave, corpo, resposta
 ```
 
 Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para a `crm_entradas_pendentes`; depois `docker compose start api` e uma execução manual do `CRM - Reenvio de pendentes`, que manda o lead e apaga a linha.
+
+O campo isca fica no "Only Run If" do Webhook. Ele barra, sem criar execução, o envio em JSON e o como formulário; no multipart, que o n8n só lê depois, quem barra é o "É um robô?", e a execução é gasta:
+
+```powershell
+curl.exe -s --data-urlencode "website=http://spam.example.com" http://localhost:5679/webhook/crm-entrada-site   # {"message":"Webhook call received"}, sem execução
+curl.exe -s -F "website=http://spam.example.com" http://localhost:5679/webhook/crm-entrada-site                 # multipart: {"recebido":true}, com execução
+```
+
+**O limite do site.** Cada envio que passa pelo campo isca vira uma linha na `crm_envios_site`, só com a hora. Acima de 20 envios na última hora ou de 60 nas últimas 24 horas (`limiteSitePorHora` e `limiteSitePorDia`, no "Configuração"), o site recebe a resposta de sempre, e o envio não vai ao CRM:
+
+- ele fica 7 dias na `crm_entradas_recusadas`, com o tipo `site_acima_do_limite`, no máximo os primeiros 8 KB do lead e, no detalhe, as contagens;
+- o primeiro barrado de cada janela manda um e-mail ao admin. Se algum envio barrado for de uma pessoa de verdade, cadastre o lead à mão no CRM (Leads › Novo lead) e apague a linha. Se o tráfego for de verdade, suba o limite no "Configuração" e publique o fluxo de novo;
+- o lado ruim: um robô que preenche tudo certo pode esgotar o limite, e os leads de verdade que chegarem com a janela cheia ficam nas recusadas até o cadastro à mão. O aviso na hora e os 7 dias nas recusadas cobrem isso até o CAPTCHA no formulário (seção 11 da especificação).
+
+Se falhar a gravação ou a busca na `crm_envios_site`, como com a tabela sem a coluna `criado_em`, o envio vai ao CRM sem o limite. A falha fica nas recusadas como `site_sem_limite`, sem o corpo, e o admin recebe no máximo um aviso por dia.
 
 **Cuidados.**
 
@@ -689,7 +705,8 @@ Falta:
 - **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
 - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
 - **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
-- **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos").
+- **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos");
+- **com o site:** o CAPTCHA no formulário, de quem fizer o site (seção 11 da especificação). O campo isca e o limite de envios protegem o CRM e as atendentes, mas um robô que preencha tudo certo gasta uma execução do n8n por envio, e, com a cota esgotada, todos os fluxos param.
 
 ### O que o servidor precisa
 
@@ -735,14 +752,14 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    - `CRM - Chave de integração` e `CRM - Chave dos eventos`: o `Integracao__Chave` e o `N8n__WebhookChave` do `.env` do servidor;
    - `CRM - E-mail`: o SMTP do e-mail da empresa;
    - `CRM - Meta Lead Ads`: com o app da Meta em modo Live (seção 4.5 da especificação).
-2. **[n8n Cloud]** Crie as Data Tables `crm_entradas_pendentes` e `crm_entradas_recusadas`, com as mesmas colunas, no projeto dos fluxos.
+2. **[n8n Cloud]** Crie as Data Tables `crm_entradas_pendentes`, `crm_entradas_recusadas` e `crm_envios_site`, com as mesmas colunas, no projeto dos fluxos.
 3. **[n8n Cloud]** Importe pela tela (Workflows › Import from File), primeiro o `crm-erros.json`, depois os outros. A importação dá ids novos aos fluxos.
 4. Em cada fluxo, troque os valores do nó "Configuração":
 
    | Fluxo | Campos |
    | --- | --- |
    | `CRM - Erros`, `CRM - Alertas` | `emailAdmin` e `remetente` (o e-mail da credencial SMTP) |
-   | `CRM - Entrada Site` | `urlCrm` (`https://` e o `DOMINIO`), `emailAdmin` e `remetente` |
+   | `CRM - Entrada Site` | `urlCrm` (`https://` e o `DOMINIO`), `emailAdmin` e `remetente` (o `limiteSitePorHora` e o `limiteSitePorDia` ficam) |
    | `CRM - Reenvio de pendentes` | `urlCrm`, `emailAdmin` e `remetente` (o `linhasPorRodada` fica) |
    | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` |
    | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
@@ -766,9 +783,10 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    ```
 6. **[n8n Cloud]** Publique o `CRM - Erros`, depois os outros. A Meta só pode ser publicada com o app Live.
 7. **[servidor]** No `.env` do servidor, ponha `N8n__WebhookUrl=https://<instância>.app.n8n.cloud/webhook/crm-alertas` e rode `docker compose -f docker-compose.prod.yml up -d api`.
-8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`.
+8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`, em JSON ou como formulário, e não como multipart: no multipart, o envio do robô gasta uma execução.
 9. Confira:
    - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório e do resumo diário;
+   - um envio do site com o campo isca, que não pode aparecer no contador de execuções do plano;
    - no fim, confira em Executions que nenhuma execução ficou salva e veja por quanto tempo o plano guarda uma execução "crashed", a interrompida por uma queda do n8n.
 10. No Claude Code, aponte o `.mcp.json` para o MCP do n8n Cloud e remova o local: `claude mcp remove --scope user n8n-local`.
 
@@ -1058,7 +1076,7 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 | --- | --- | --- |
 | Execuções do n8n | Nenhuma é salva. Ficam, com o que chegou: a interrompida por uma queda do n8n, como "crashed"; a salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"); e, até a limpeza das apagadas, a cada 15 minutos, a que acabou de rodar, apagada e fora da tela (a manual, por 1 hora) | Em Executions, apague as do dia em que o lead entrou, se houver |
 | Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
-| Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400), com até 8 KB dos dados da pessoa, por 7 dias. A entrada acima de 64 KB e o 413 ficam sem o corpo | Apague a linha da pessoa, se houver |
+| Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400) e o envio do site barrado pelo limite, com até 8 KB dos dados da pessoa, por 7 dias. A entrada acima de 64 KB e o 413 ficam sem o corpo | Apague a linha da pessoa, se houver |
 | Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
 | E-mails de alerta | O nome, a empresa, a origem e a campanha, na caixa da responsável e nos enviados da conta que manda os alertas | Peça à responsável para apagar os e-mails do lead e apague-os dos enviados |
 | Backups | O `pg_dump` diário guarda a pessoa até ser apagado, em 14 dias, no servidor e na cópia de fora | Eles somem sozinhos em 14 dias. Não restaure um backup de antes da anonimização sem anonimizar de novo (veja "Restaurar de verdade") |

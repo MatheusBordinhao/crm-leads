@@ -28,7 +28,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - dentro da rede do Compose, a API chama `http://n8n:5678`, e os fluxos chamam `http://api:5080`;
   - o `.env` tem `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`: com a API no ar, cada evento vira um e-mail de verdade;
   - as credenciais são `CRM - Chave de integração` (`X-Api-Key`), `CRM - Chave dos eventos` (`X-Crm-Chave`) e `CRM - E-mail` (SMTP do `testecrmfs@gmail.com`, uma conta só para os testes, com senha de app);
-  - as Data Tables são a `crm_entradas_pendentes`, a fila do reenvio, e a `crm_entradas_recusadas`, com as entradas recusadas, por 7 dias;
+  - as Data Tables são a `crm_entradas_pendentes`, a fila do reenvio, a `crm_entradas_recusadas`, com as entradas recusadas, por 7 dias, e a `crm_envios_site`, com a hora de cada envio do site, por 31 dias;
   - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo.
 - Fluxos no n8n local:
 
@@ -58,7 +58,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - uma varredura sem mostrar o conteúdo confirmou que nenhum outro fluxo guarda a chave.
 - Também em 14/10/2026, entrou a tela de campanhas (Configurações › Campanhas, `PUT /api/campanhas/{id}`), e o cliente do SignalR dos testes subiu para a 10.0.13, por causa da CVE-2026-70159. Nesse dia, sem a correção, a auditoria do NuGet derrubava o build dos testes.
 - Falta, do n8n:
-  - levar os 8 fluxos e as 2 Data Tables para o n8n Cloud (README › n8n Cloud: importar os fluxos);
+  - levar os 8 fluxos e as 3 Data Tables para o n8n Cloud (README › n8n Cloud: importar os fluxos);
   - decidir o horário do Reenvio quando o plano do n8n Cloud for escolhido, porque cada rodada agendada conta como execução (Lote 2A);
   - o app da Meta em modo Live e o "Enviar dados de teste" de verdade do Google Ads;
   - o e-mail da Gama, no lugar do meu, no Relatório;
@@ -631,6 +631,11 @@ docker compose up -d n8n                                 # n8n local em http://l
 - No n8n local, o filtro de data da Data Table compara texto: um "maior que" no mesmo dia não acha nada. Compare as datas num Code e apague pelo id, como no Resumo.
 - O Retry On Fail do n8n repete qualquer erro, sem escolher pelo código: no envio ao CRM, ele repetia o 400. Deixe a falha temporária para a fila. O MCP não apaga um campo do nó: o `maxTries` e o `waitBetweenTries` ficaram no "Enviar ao CRM" dos três fluxos de entrada, sem efeito sem o `retryOnFail`.
 - Abrir um fluxo no editor do n8n pode salvar sozinho uma versão normalizada, que faz o mesmo: sem os valores padrão dos parâmetros, com posições ajustadas e com o `binaryMode: separate`, que só muda algo no modo `combined`. O JSON exportado deixa de bater com o do repositório. Depois de abrir um fluxo no editor, compare a exportação; num fluxo sem publicar, o `n8n import:workflow` do JSON do repositório o volta.
+- O "Only Run If" do Webhook é avaliado antes de o nó ler um corpo `multipart/form-data`: nele, o `$json.body` chega vazio, e a condição passa (`Webhook.node.js` e `body-parser.js`, na 2.43.5). Por isso o campo isca do site fica no "Only Run If", para JSON e formulário, e também no "É um robô?", para o multipart. O envio barrado pelo "Only Run If" recebe 200 com `{"message":"Webhook call received"}`, sem execução.
+- No nó de Data Table, a saída de erro (`continueErrorOutput`) só recebe as falhas do tipo `NodeOperationError` ou `NodeApiError`, como a tabela que não existe. As outras, como uma coluna que não existe ou a validação de um valor, saem na saída normal, com o item de entrada e sem erro, como se a gravação tivesse dado certo (`DataTable/actions/router.js`, na 2.43.5). Depois de gravar, confira o `id` da linha devolvida, como o "Conferir o limite" e o "Gravou a recusa?" do site.
+  - Para testar a falha, use uma coluna que não existe. O MCP recusa no nó o nome de uma tabela que não existe, e renomear a tabela não derruba o fluxo na hora: o n8n guarda o id dela em memória.
+- Num nó com a saída de erro e o "Always Output Data", uma falha manda o erro para a saída de erro e um item vazio para a saída normal, e os dois caminhos rodam. No site, o envio iria duas vezes ao CRM. O "Conferir o limite" para o caminho normal quando a busca tem erro (`$('Buscar os envios recentes').all(1)`).
+- Num Code, o `$('Nó')` sem o índice da saída lê a que liga aquele nó ao atual. Se ele chega ao atual pela saída normal e pela de erro, ou só pela de erro, o `.first()` e o `.all()` podem ler a saída vazia: passe o índice (`.first(0)`, `.all(1)`).
 - No MCP do n8n:
   - o `create_workflow_from_code` não põe credencial nos HTTP Request: passe no nó o `{ id, name }` da credencial, que o `list_credentials` dá;
   - as notas ganham nomes aleatórios: renomeie para "Sobre o fluxo" com o `renameNode` do `update_workflow`;

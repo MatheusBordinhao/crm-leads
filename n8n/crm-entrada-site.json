@@ -12,7 +12,10 @@
         "httpMethod": "POST",
         "path": "crm-entrada-site",
         "responseMode": "responseNode",
-        "options": { "allowedOrigins": "https://www.site-da-empresa.example" }
+        "options": {
+          "allowedOrigins": "https://www.site-da-empresa.example",
+          "onlyRunIf": "={{ String($json.body?.website ?? \"\").trim() === \"\" }}"
+        }
       },
       "webhookId": "b5da17ff-c19d-458f-9dd8-3f457dada714"
     },
@@ -27,7 +30,12 @@
         "includeOtherFields": true,
         "assignments": {
           "assignments": [
-            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" },
+            {
+              "id": "url-crm",
+              "name": "urlCrm",
+              "value": "http://api:5080",
+              "type": "string"
+            },
             {
               "id": "email-admin",
               "name": "emailAdmin",
@@ -39,6 +47,18 @@
               "name": "remetente",
               "value": "testecrmfs@gmail.com",
               "type": "string"
+            },
+            {
+              "id": "limite-site-por-hora",
+              "name": "limiteSitePorHora",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "limite-site-por-dia",
+              "name": "limiteSitePorDia",
+              "value": 60,
+              "type": "number"
             }
           ]
         },
@@ -63,7 +83,11 @@
             {
               "leftValue": "={{ String($json.body?.website ?? \"\").trim() }}",
               "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -80,7 +104,9 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "{ \"recebido\": true }",
-        "options": { "responseCode": 200 }
+        "options": {
+          "responseCode": 200
+        }
       }
     },
     {
@@ -116,7 +142,9 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "{ \"recebido\": true }",
-        "options": { "responseCode": 200 }
+        "options": {
+          "responseCode": 200
+        }
       }
     },
     {
@@ -124,7 +152,7 @@
       "name": "Enviar ao CRM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [1792, 160],
+      "position": [2688, 160],
       "parameters": {
         "method": "POST",
         "url": "={{ $(\"Configuração\").item.json.urlCrm }}/api/integracoes/leads",
@@ -134,10 +162,15 @@
         "contentType": "json",
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.lead) }}",
-        "options": { "timeout": 10000 }
+        "options": {
+          "timeout": 10000
+        }
       },
       "credentials": {
-        "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
+        "httpHeaderAuth": {
+          "id": "eMi2FrHkWd3bhcKD",
+          "name": "CRM - Chave de integração"
+        }
       },
       "retryOnFail": false,
       "maxTries": 3,
@@ -149,7 +182,7 @@
       "name": "Classificar a falha",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2016, 320],
+      "position": [2912, 320],
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
@@ -161,11 +194,15 @@
       "name": "Guardar na fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [2464, 400],
+      "position": [3360, 400],
       "parameters": {
         "resource": "row",
         "operation": "insert",
-        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_pendentes"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -223,10 +260,10 @@
       "typeVersion": 1,
       "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Entrada Site\nRecebe o formulário do site, descarta o envio com o campo isca (`website`) preenchido, gera o id externo (UUID), responde ao site e manda o lead ao CRM (seção 4.2). Acima de 64 KB, o limite do CRM, a entrada nem vai ao CRM: fica na Data Table `crm_entradas_recusadas`, sem o corpo. Se o CRM recusar a entrada (400 ou 413), ela vai para as recusadas, com no máximo 8 KB do corpo, por 7 dias. Se o CRM estiver fora do ar ou recusar a configuração (401, 403, 404), ela vai para a `crm_entradas_pendentes`, e o CRM - Reenvio de pendentes a manda depois; na configuração, o admin recebe um e-mail na hora. O endereço do CRM e os e-mails ficam no nó \"Configuração\"; o domínio do site, no CORS do Webhook.",
+        "content": "## CRM - Entrada Site\nRecebe o formulário do site. O envio com o campo isca (`website`) preenchido para no \"Only Run If\" do Webhook, sem criar execução; no multipart, que o n8n só lê depois, o \"É um robô?\" o descarta. Gera o id externo (UUID), responde ao site e conta o envio na `crm_envios_site`, só com a hora. Acima do limite (`limiteSitePorHora` ou `limiteSitePorDia`), o envio não vai ao CRM: fica 7 dias na `crm_entradas_recusadas`, e o primeiro barrado de cada janela manda um e-mail ao admin. Se a contagem falhar, o envio segue para o CRM sem o limite, com no máximo um aviso por dia. Acima de 64 KB, o limite do CRM, a entrada fica nas recusadas, sem o corpo. Se o CRM recusar a entrada (400 ou 413), ela vai para as recusadas, com no máximo 8 KB do corpo; com o CRM fora do ar ou a configuração recusada (401, 403, 404), para a `crm_entradas_pendentes`, e o CRM - Reenvio de pendentes a manda depois; na configuração, o admin recebe um e-mail na hora. O endereço do CRM, os e-mails e os limites ficam no nó \"Configuração\"; o domínio do site e o campo isca, no Webhook.",
         "color": 7,
         "width": 1056,
-        "height": 304
+        "height": 400
       }
     },
     {
@@ -234,7 +271,7 @@
       "name": "Recusada pelo CRM?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2240, 320],
+      "position": [3136, 320],
       "parameters": {
         "conditions": {
           "options": {
@@ -247,7 +284,10 @@
             {
               "leftValue": "={{ $json.destino }}",
               "rightValue": "recusada",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -260,11 +300,15 @@
       "name": "Guardar nas recusadas",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [2464, 240],
+      "position": [3360, 240],
       "parameters": {
         "resource": "row",
         "operation": "insert",
-        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -320,7 +364,7 @@
       "name": "Falha de configuração?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2688, 400],
+      "position": [3584, 400],
       "parameters": {
         "conditions": {
           "options": {
@@ -333,7 +377,10 @@
             {
               "leftValue": "={{ $('Classificar a falha').item.json.destino }}",
               "rightValue": "configuracao",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -346,7 +393,7 @@
       "name": "Avisar da configuração",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [2912, 400],
+      "position": [3808, 400],
       "parameters": {
         "operation": "send",
         "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
@@ -354,9 +401,16 @@
         "subject": "=[CRM] O CRM recusou o envio do fluxo {{ $workflow.name }}",
         "emailFormat": "text",
         "text": "=O fluxo {{ $workflow.name }} recebeu {{ $('Classificar a falha').item.json.ultimoErro }} do CRM ao enviar uma entrada.\n\nA entrada está na Data Table crm_entradas_pendentes e vai pelo CRM - Reenvio de pendentes quando a configuração estiver certa: a credencial CRM - Chave de integração, num 401, ou o urlCrm do nó \"Configuração\", num 404.\n\nEste e-mail não traz os dados da entrada.",
-        "options": { "appendAttribution": false }
+        "options": {
+          "appendAttribution": false
+        }
       },
-      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "credentials": {
+        "smtp": {
+          "id": "WyzbDQAO6auoyGl4",
+          "name": "CRM - E-mail"
+        }
+      },
       "webhookId": "56391b0f-fee6-4c5e-b3d3-3bc08d0aa401"
     },
     {
@@ -364,7 +418,7 @@
       "name": "Conferir o tamanho",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1344, 160],
+      "position": [2240, 160],
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
@@ -376,7 +430,7 @@
       "name": "Cabe no CRM?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1568, 160],
+      "position": [2464, 160],
       "parameters": {
         "conditions": {
           "options": {
@@ -389,7 +443,11 @@
             {
               "leftValue": "={{ $json.cabeNoCrm }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -402,11 +460,15 @@
       "name": "Recusar pelo tamanho",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1792, 0],
+      "position": [2688, 0],
       "parameters": {
         "resource": "row",
         "operation": "insert",
-        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
@@ -456,45 +518,767 @@
         },
         "options": {}
       }
+    },
+    {
+      "id": "f580bcd5-2f14-4c50-a8c9-f22f5f783c35",
+      "name": "Registrar o envio",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1344, 160],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_envios_site"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "4ce90a9d-dfc7-42f7-841e-b8eec58832a6",
+      "name": "Buscar os envios recentes",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1568, 160],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_envios_site"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "lte",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": "={{ Number($('Configuração').first().json.limiteSitePorDia) + 2 }}",
+        "orderBy": true,
+        "orderByColumn": "id",
+        "orderByDirection": "DESC"
+      },
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "6a42d3e6-4fd4-43da-9b15-f2265e31748c",
+      "name": "Conferir o limite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1792, 160],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Conta a posição deste envio na última hora e nas últimas 24 horas (seção 4.5): os envios com o id até o da linha dele, que o\n// \"Registrar o envio\" acabou de gravar. Com envios ao mesmo tempo, cada um tem a sua posição, e só um é o primeiro acima do\n// limite. As datas são comparadas aqui, e não no filtro da Data Table, que no n8n local compara texto.\nconst saida = (no, indice) => {\n  try {\n    return $(no).all(indice);\n  } catch (erro) {\n    return [];\n  }\n};\n// Com a busca em erro, o n8n manda o erro para a saída de erro e, pelo \"Always Output Data\", um item vazio para cá. Quem leva o\n// envio ao CRM é então o \"Seguir sem o limite\", e este caminho para, para o envio não ir duas vezes.\nif (saida('Buscar os envios recentes', 1).length > 0) return [];\nconst meu = $('Registrar o envio').first().json;\nif (typeof meu.id !== 'number') {\n  // Em algumas falhas, como uma coluna que não existe, o nó de Data Table devolve o item de entrada, sem erro e sem o id. O erro\n  // daqui leva o envio ao \"Seguir sem o limite\".\n  throw new Error('A gravação na crm_envios_site não devolveu a linha');\n}\nconst configuracao = $('Configuração').first().json;\nconst porHora = Number(configuracao.limiteSitePorHora);\nconst porDia = Number(configuracao.limiteSitePorDia);\nconst momento = DateTime.fromJSDate(new Date(meu.criado_em));\nconst datas = $input\n  .all()\n  .map((item) => item.json)\n  .filter((linha) => linha.id !== undefined && linha.id <= meu.id)\n  .map((linha) => DateTime.fromJSDate(new Date(linha.criado_em)));\nconst naHora = datas.filter((data) => data > momento.minus({ hours: 1 })).length;\nconst noDia = datas.filter((data) => data > momento.minus({ days: 1 })).length;\nconst acimaDaHora = naHora > porHora;\nconst acimaDoDia = noDia > porDia;\n\n// O envio barrado fica nas recusadas com no máximo os primeiros 8 KB do lead e, acima dos 64 KB do CRM, sem o corpo, como as\n// outras recusadas. O detalhe começa pelo limite que barrou: o \"Decidir o aviso\" lê esse começo.\nconst LIMITE_GUARDADO = 8 * 1024;\nconst LIMITE_DO_CRM = 64 * 1024;\nconst lead = $('Montar o lead').first().json.lead;\nconst corpo = JSON.stringify(lead);\nconst tamanho = Buffer.byteLength(corpo, 'utf8');\nlet guardado = corpo;\nif (tamanho > LIMITE_DO_CRM) {\n  guardado = '';\n} else if (tamanho > LIMITE_GUARDADO) {\n  guardado = Buffer.from(corpo, 'utf8').subarray(0, LIMITE_GUARDADO).toString('utf8').replace(/�$/, '');\n}\nconst cortado = guardado !== '' && guardado.length < corpo.length;\nconst qual = acimaDaHora && acimaDoDia ? 'Acima dos limites da hora e do dia' : acimaDaHora ? 'Acima do limite da hora' : 'Acima do limite do dia';\nconst contagens = naHora + ' envios na última hora (limite ' + porHora + ') e ' + noDia + ' nas últimas 24 horas (limite ' + porDia + ')';\n\nreturn [\n  {\n    json: {\n      lead: lead,\n      dentroDoLimite: !acimaDaHora && !acimaDoDia,\n      cruzouHora: naHora === porHora + 1,\n      cruzouDia: noDia === porDia + 1,\n      momento: momento.toISO(),\n      contagens: contagens,\n      payloadRecusada: guardado,\n      detalheRecusada:\n        qual + ': ' + contagens + ', entrada de ' + tamanho + ' bytes' + (tamanho > LIMITE_DO_CRM ? ', sem o corpo' : cortado ? ', guardados os primeiros 8 KB' : ''),\n    },\n    pairedItem: { item: 0 },\n  },\n];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "4b067e94-7a64-44dc-9976-47038e301584",
+      "name": "Dentro do limite?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2016, 160],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.dentroDoLimite }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "bfa73059-c0ca-4920-8776-1c787d9516ef",
+      "name": "Recusar pelo limite",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [2240, -160],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "site_acima_do_limite",
+            "payload": "={{ $json.payloadRecusada }}",
+            "detalhe": "={{ $json.detalheRecusada }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "3b7c24e8-7562-482b-a2e5-afcc46579e47",
+      "name": "Cruzou o limite?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2688, -160],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Conferir o limite').first().json.cruzouHora || $('Conferir o limite').first().json.cruzouDia }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "181f572a-cb74-4bda-b348-28ca3f316167",
+      "name": "Seguir sem o limite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2016, 560],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// O limite nunca perde um lead (seção 4.5): se falhar a gravação ou a busca na crm_envios_site, a conta do limite ou a recusa do\n// envio barrado, o envio segue para o CRM sem o limite. O \"Marcar a falha do limite\" grava a falha nas recusadas, para o aviso, no\n// máximo um por dia, e para o resumo diário. Uma gravação que falhou não devolve a linha com o id. Sem o índice, o $() leria a\n// saída que liga o nó a este, que é a de erro.\nconst saida = (no, indice) => {\n  try {\n    return $(no).all(indice);\n  } catch (erro) {\n    return [];\n  }\n};\nconst gravou = saida('Registrar o envio', 0).some((item) => typeof item.json.id === 'number');\nconst passo = $('Recusar pelo limite').isExecuted\n  ? 'a gravação do envio barrado nas recusadas'\n  : !gravou\n    ? 'a gravação na crm_envios_site'\n    : saida('Buscar os envios recentes', 1).length > 0\n      ? 'a busca na crm_envios_site'\n      : 'a conta do limite';\nreturn [\n  {\n    json: { lead: $('Montar o lead').first().json.lead, dentroDoLimite: true, momento: DateTime.now().toISO(), passoQueFalhou: passo },\n    pairedItem: { item: 0 },\n  },\n];"
+      }
+    },
+    {
+      "id": "83e9a7ba-341b-4e07-904a-b2fcc196c265",
+      "name": "Marcar a falha do limite",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [2240, 560],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "site_sem_limite",
+            "payload": "",
+            "detalhe": "=Falhou {{ $json.passoQueFalhou }}; o envio foi ao CRM sem o limite",
+            "criado_em": "={{ $json.momento }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "3b4e8ecc-0b46-40f2-b1ee-b9fc5452fa52",
+      "name": "Buscar os avisos",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [2912, -240],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
+        "matchType": "anyCondition",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "tipo",
+              "condition": "eq",
+              "keyValue": "site_acima_do_limite"
+            },
+            {
+              "keyName": "tipo",
+              "condition": "eq",
+              "keyValue": "site_sem_limite"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a07f23d9-fdf8-4402-baa8-da50a25cffaf",
+      "name": "Decidir o aviso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3136, -240],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Decide o aviso ao admin, sem nenhum dado das entradas (seção 4.5). O do limite sai para o envio que cruzou o limite, se nenhum\n// outro foi barrado pelo mesmo limite antes dele: na última hora, o da hora; nas últimas 24 horas, o do dia. O da falha sai no\n// máximo uma vez por dia. Só contam as linhas de antes deste envio: as de um envio ao mesmo tempo, gravadas depois, ficam de fora.\n// O \"Conferir o limite\" chega aqui pelas duas saídas, e o $() vai com o índice: sem ele, leria a de erro.\nconst saida = (no, indice) => {\n  try {\n    return $(no).all(indice);\n  } catch (erro) {\n    return [];\n  }\n};\n// Com a busca das recusadas em erro, não dá para saber se o aviso já saiu: ele não sai, para nunca mandar um e-mail por envio.\nif (saida('Buscar os avisos', 1).length > 0) return [];\nconst falha = $('Seguir sem o limite').isExecuted;\nconst origem = falha ? $('Seguir sem o limite').first(0).json : $('Conferir o limite').first(0).json;\nconst momento = DateTime.fromISO(origem.momento);\nconst linhas = $input\n  .all()\n  .map((item) => item.json)\n  .filter((linha) => linha.id !== undefined);\nconst houveAntes = (horas, condicao) =>\n  linhas.some((linha) => {\n    const data = DateTime.fromJSDate(new Date(linha.criado_em));\n    return condicao(linha) && data < momento && data > momento.minus({ hours: horas });\n  });\n\nlet avisar;\nlet assunto;\nlet texto;\nif (falha) {\n  // Sem a marca gravada, o aviso não sai: assim, nem uma falha das recusadas manda um e-mail por envio.\n  const marcou = saida('Marcar a falha do limite', 0).some((item) => typeof item.json.id === 'number' && item.json.tipo === 'site_sem_limite');\n  avisar = marcou && !houveAntes(24, (linha) => linha.tipo === 'site_sem_limite');\n  assunto = '[CRM] O limite de envios do site falhou';\n  texto = [\n    'O fluxo ' + $workflow.name + ' não conseguiu aplicar o limite de envios do site: falhou ' + origem.passoQueFalhou + '.',\n    '',\n    'O envio foi ao CRM sem o limite, e os próximos também vão enquanto a falha continuar. Confira se a Data Table crm_envios_site existe, com a coluna criado_em, e se a crm_entradas_recusadas está como no README (n8n local).',\n    '',\n    'Este aviso sai no máximo uma vez por dia, e o resumo diário conta as falhas. Ele não traz os dados das entradas.',\n  ].join('\\n');\n} else {\n  // O detalhe da recusa começa pelo limite que barrou: \"Acima do limite da hora\", \"Acima do limite do dia\" ou os dois.\n  const barradoPor = (trecho) => (linha) =>\n    linha.tipo === 'site_acima_do_limite' && String(linha.detalhe || '').split(':')[0].includes(trecho);\n  const daHora = origem.cruzouHora && !houveAntes(1, barradoPor('da hora'));\n  const doDia = origem.cruzouDia && !houveAntes(24, barradoPor('do dia'));\n  avisar = daHora || doDia;\n  assunto = '[CRM] O limite de envios do site barrou um envio';\n  texto = [\n    'O fluxo ' + $workflow.name + ' barrou um envio do site às ' + momento.setZone('America/Sao_Paulo').toFormat('HH:mm') + ': ' + origem.contagens + '. O site recebeu a resposta de sempre, e a entrada não foi ao CRM.',\n    '',\n    'Os envios barrados ficam 7 dias na Data Table crm_entradas_recusadas, com o tipo site_acima_do_limite e no máximo os primeiros 8 KB da entrada. Se algum for de uma pessoa de verdade, cadastre o lead à mão no CRM. Se o tráfego for de verdade, suba o limiteSitePorHora ou o limiteSitePorDia no nó \"Configuração\" e publique o fluxo de novo.',\n    '',\n    'Os próximos envios barrados nesta janela não mandam e-mail, e o resumo diário conta todos. Este e-mail não traz os dados das entradas.',\n  ].join('\\n');\n}\nreturn [{ json: { avisar: avisar, assunto: assunto, texto: texto } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "1dc0b604-10d4-4eda-8e16-d5a78094de7c",
+      "name": "Avisar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [3360, -240],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.avisar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "17eb9e5e-cfe3-4495-af1b-f8539873d9a4",
+      "name": "Avisar do limite",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [3584, -240],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
+        "toEmail": "={{ $('Configuração').first().json.emailAdmin }}",
+        "subject": "={{ $json.assunto }}",
+        "emailFormat": "text",
+        "text": "={{ $json.texto }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "WyzbDQAO6auoyGl4",
+          "name": "CRM - E-mail"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "webhookId": "ee968f88-5c55-48a7-b306-b0393a8d8882"
+    },
+    {
+      "id": "06d0ee87-a671-446a-8822-05bb964af72f",
+      "name": "Gravou a recusa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2464, -160],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ typeof $json.id === 'number' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
     }
   ],
   "connections": {
-    "Envio do site": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
-    "Configuração": { "main": [[{ "node": "É um robô?", "type": "main", "index": 0 }]] },
-    "É um robô?": {
+    "Envio do site": {
       "main": [
-        [{ "node": "Responder ao robô", "type": "main", "index": 0 }],
-        [{ "node": "Gerar o id", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Gerar o id": { "main": [[{ "node": "Montar o lead", "type": "main", "index": 0 }]] },
-    "Montar o lead": { "main": [[{ "node": "Responder ao site", "type": "main", "index": 0 }]] },
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "É um robô?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É um robô?": {
+      "main": [
+        [
+          {
+            "node": "Responder ao robô",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gerar o id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar o id": {
+      "main": [
+        [
+          {
+            "node": "Montar o lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar o lead": {
+      "main": [
+        [
+          {
+            "node": "Responder ao site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Enviar ao CRM": {
-      "main": [[], [{ "node": "Classificar a falha", "type": "main", "index": 0 }]]
+      "main": [
+        [],
+        [
+          {
+            "node": "Classificar a falha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Classificar a falha": {
-      "main": [[{ "node": "Recusada pelo CRM?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Recusada pelo CRM?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Recusada pelo CRM?": {
       "main": [
-        [{ "node": "Guardar nas recusadas", "type": "main", "index": 0 }],
-        [{ "node": "Guardar na fila", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Guardar nas recusadas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar na fila",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Guardar na fila": {
-      "main": [[{ "node": "Falha de configuração?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Falha de configuração?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Falha de configuração?": {
-      "main": [[{ "node": "Avisar da configuração", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Avisar da configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Responder ao site": {
-      "main": [[{ "node": "Conferir o tamanho", "type": "main", "index": 0 }]]
+    "Conferir o tamanho": {
+      "main": [
+        [
+          {
+            "node": "Cabe no CRM?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Conferir o tamanho": { "main": [[{ "node": "Cabe no CRM?", "type": "main", "index": 0 }]] },
     "Cabe no CRM?": {
       "main": [
-        [{ "node": "Enviar ao CRM", "type": "main", "index": 0 }],
-        [{ "node": "Recusar pelo tamanho", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Enviar ao CRM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recusar pelo tamanho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder ao site": {
+      "main": [
+        [
+          {
+            "node": "Registrar o envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar o envio": {
+      "main": [
+        [
+          {
+            "node": "Buscar os envios recentes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Seguir sem o limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar os envios recentes": {
+      "main": [
+        [
+          {
+            "node": "Conferir o limite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Seguir sem o limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir o limite": {
+      "main": [
+        [
+          {
+            "node": "Dentro do limite?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Seguir sem o limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dentro do limite?": {
+      "main": [
+        [
+          {
+            "node": "Conferir o tamanho",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recusar pelo limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recusar pelo limite": {
+      "main": [
+        [
+          {
+            "node": "Gravou a recusa?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Seguir sem o limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cruzou o limite?": {
+      "main": [
+        [
+          {
+            "node": "Buscar os avisos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seguir sem o limite": {
+      "main": [
+        [
+          {
+            "node": "Conferir o tamanho",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Marcar a falha do limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar a falha do limite": {
+      "main": [
+        [
+          {
+            "node": "Buscar os avisos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar os avisos": {
+      "main": [
+        [
+          {
+            "node": "Decidir o aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decidir o aviso": {
+      "main": [
+        [
+          {
+            "node": "Avisar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar?": {
+      "main": [
+        [
+          {
+            "node": "Avisar do limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravou a recusa?": {
+      "main": [
+        [
+          {
+            "node": "Cruzou o limite?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Seguir sem o limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

@@ -294,6 +294,131 @@ public class FluxosN8nTests
     }
 
     /// <summary>
+    /// O campo isca fica no "Only Run If" do Webhook: o envio com o <c>website</c> preenchido recebe 200 sem criar execução e não gasta
+    /// a cota do n8n. O n8n avalia a condição antes de ler um corpo multipart, e nele o campo isca só aparece no fluxo: o "É um robô?"
+    /// continua, para esse caso (seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_campo_isca_do_site_barra_o_envio_antes_de_criar_a_execucao()
+    {
+        using var fluxo = Ler("crm-entrada-site.json");
+        var opcoes = No(fluxo, "Envio do site").GetProperty("parameters").GetProperty("options");
+
+        Assert.Equal("={{ String($json.body?.website ?? \"\").trim() === \"\" }}", opcoes.GetProperty("onlyRunIf").GetString());
+        Assert.Equal(new[] { ("É um robô?", 0) }, Entradas(fluxo, "Responder ao robô"));
+        Assert.Equal(new[] { ("É um robô?", 1) }, Entradas(fluxo, "Gerar o id"));
+    }
+
+    /// <summary>
+    /// Cada envio do site que passa pelo campo isca vira uma linha na <c>crm_envios_site</c>, só com a hora, sem nenhum dado da pessoa.
+    /// A linha é gravada depois da resposta ao site, que não espera pela contagem (seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_site_conta_cada_envio_so_com_a_hora()
+    {
+        using var fluxo = Ler("crm-entrada-site.json");
+        var registro = No(fluxo, "Registrar o envio").GetProperty("parameters");
+
+        Assert.Equal("crm_envios_site", registro.GetProperty("dataTableId").GetProperty("value").GetString());
+        Assert.Equal(["criado_em"], registro.GetProperty("columns").GetProperty("value").EnumerateObject().Select(coluna => coluna.Name));
+        Assert.Equal(new[] { ("Responder ao site", 0) }, Entradas(fluxo, "Registrar o envio"));
+    }
+
+    /// <summary>
+    /// Acima de 20 envios na última hora ou de 60 nas últimas 24 horas, o envio não vai ao CRM: fica nas recusadas, com no máximo 8 KB
+    /// do lead. A posição de cada envio vem do id da linha dele: a busca pega só as linhas até ele, as mais novas primeiro, e, com
+    /// envios ao mesmo tempo, cada um tem a sua. O limite vem antes da conferência do tamanho, e o "Enviar ao CRM" continua ligado só
+    /// ao "Cabe no CRM?" (seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_site_barra_os_envios_acima_do_limite()
+    {
+        using var fluxo = Ler("crm-entrada-site.json");
+        var busca = No(fluxo, "Buscar os envios recentes").GetProperty("parameters");
+        var condicao = Assert.Single(busca.GetProperty("filters").GetProperty("conditions").EnumerateArray());
+        var conta = Codigo(fluxo, "Conferir o limite");
+        var recusa = No(fluxo, "Recusar pelo limite").GetProperty("parameters").GetProperty("columns").GetProperty("value");
+
+        Assert.Equal(20, Campo(fluxo, "limiteSitePorHora").GetInt32());
+        Assert.Equal(60, Campo(fluxo, "limiteSitePorDia").GetInt32());
+        Assert.Equal("id", condicao.GetProperty("keyName").GetString());
+        Assert.Equal("lte", condicao.GetProperty("condition").GetString());
+        Assert.Equal("={{ $json.id }}", condicao.GetProperty("keyValue").GetString());
+        Assert.True(busca.GetProperty("orderBy").GetBoolean());
+        Assert.Equal("id", busca.GetProperty("orderByColumn").GetString());
+        Assert.Equal("DESC", busca.GetProperty("orderByDirection").GetString());
+        Assert.Equal("={{ Number($('Configuração').first().json.limiteSitePorDia) + 2 }}", busca.GetProperty("limit").GetString());
+        Assert.Contains("Number(configuracao.limiteSitePorHora)", conta, StringComparison.Ordinal);
+        Assert.Contains("Number(configuracao.limiteSitePorDia)", conta, StringComparison.Ordinal);
+        Assert.Contains("const LIMITE_GUARDADO = 8 * 1024;", conta, StringComparison.Ordinal);
+        Assert.Contains("const LIMITE_DO_CRM = 64 * 1024;", conta, StringComparison.Ordinal);
+        Assert.Equal(new[] { ("Conferir o limite", 0) }, Entradas(fluxo, "Dentro do limite?"));
+        Assert.Equal(new[] { ("Dentro do limite?", 1) }, Entradas(fluxo, "Recusar pelo limite"));
+        Assert.Equal("site_acima_do_limite", recusa.GetProperty("tipo").GetString());
+        Assert.Equal("={{ $json.payloadRecusada }}", recusa.GetProperty("payload").GetString());
+    }
+
+    /// <summary>
+    /// O envio barrado avisa o admin por e-mail só quando é o primeiro da janela: o que cruzou o limite, sem outro barrado pelo mesmo
+    /// limite antes dele. Um robô não lota a caixa, e um lead de verdade barrado não espera o resumo do dia seguinte (seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_primeiro_envio_barrado_da_janela_avisa_o_admin()
+    {
+        using var fluxo = Ler("crm-entrada-site.json");
+        var decisao = Codigo(fluxo, "Decidir o aviso");
+
+        Assert.Equal(new[] { ("Recusar pelo limite", 0) }, Entradas(fluxo, "Gravou a recusa?"));
+        Assert.Equal(new[] { ("Gravou a recusa?", 0) }, Entradas(fluxo, "Cruzou o limite?"));
+        Assert.Equal(
+            new HashSet<(string, int)> { ("Cruzou o limite?", 0), ("Marcar a falha do limite", 0) },
+            Entradas(fluxo, "Buscar os avisos").ToHashSet());
+        Assert.Equal(new[] { ("Buscar os avisos", 0) }, Entradas(fluxo, "Decidir o aviso"));
+        Assert.Equal(new[] { ("Decidir o aviso", 0) }, Entradas(fluxo, "Avisar?"));
+        Assert.Equal(new[] { ("Avisar?", 0) }, Entradas(fluxo, "Avisar do limite"));
+        Assert.Contains("origem.cruzouHora && !houveAntes(1, barradoPor('da hora'))", decisao, StringComparison.Ordinal);
+        Assert.Contains("origem.cruzouDia && !houveAntes(24, barradoPor('do dia'))", decisao, StringComparison.Ordinal);
+        Assert.Equal(
+            "CRM - E-mail",
+            No(fluxo, "Avisar do limite").GetProperty("credentials").GetProperty("smtp").GetProperty("name").GetString());
+    }
+
+    /// <summary>
+    /// O limite nunca perde um lead: se falhar a gravação ou a busca na <c>crm_envios_site</c>, a conta do limite ou a recusa do envio
+    /// barrado, o envio segue para o CRM sem o limite, pelo "Seguir sem o limite". O nó de Data Table do n8n só manda para a saída de
+    /// erro parte das falhas e, nas outras, devolve o item de entrada, sem o id: a conta e o "Gravou a recusa?" conferem o id. A falha
+    /// grava a marca <c>site_sem_limite</c>, e os nós do aviso têm a saída de erro sem ligação: uma falha neles só tira o aviso, que sai
+    /// no máximo uma vez por dia (seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_limite_nao_perde_o_lead()
+    {
+        using var fluxo = Ler("crm-entrada-site.json");
+        var marca = No(fluxo, "Marcar a falha do limite").GetProperty("parameters").GetProperty("columns").GetProperty("value");
+        string[] noCaminhoDoEnvio = ["Registrar o envio", "Buscar os envios recentes", "Conferir o limite", "Recusar pelo limite"];
+        string[] doAviso = ["Marcar a falha do limite", "Buscar os avisos", "Decidir o aviso", "Avisar do limite"];
+
+        Assert.Equal(
+            new HashSet<(string, int)>([.. noCaminhoDoEnvio.Select(nome => (nome, 1)), ("Gravou a recusa?", 1)]),
+            Entradas(fluxo, "Seguir sem o limite").ToHashSet());
+        Assert.Equal(
+            new HashSet<(string, int)> { ("Dentro do limite?", 0), ("Seguir sem o limite", 0) },
+            Entradas(fluxo, "Conferir o tamanho").ToHashSet());
+        Assert.Equal(new[] { ("Seguir sem o limite", 0) }, Entradas(fluxo, "Marcar a falha do limite"));
+        Assert.All(
+            noCaminhoDoEnvio.Concat(doAviso),
+            nome => Assert.Equal("continueErrorOutput", No(fluxo, nome).GetProperty("onError").GetString()));
+        Assert.All(doAviso, nome => Assert.Empty(Saidas(fluxo, nome, 1)));
+        Assert.Contains("if (typeof meu.id !== 'number')", Codigo(fluxo, "Conferir o limite"), StringComparison.Ordinal);
+        Assert.Equal(
+            "={{ typeof $json.id === 'number' }}",
+            No(fluxo, "Gravou a recusa?").GetProperty("parameters").GetProperty("conditions").GetProperty("conditions")[0]
+                .GetProperty("leftValue").GetString());
+        Assert.Equal("site_sem_limite", marca.GetProperty("tipo").GetString());
+        Assert.Equal("", marca.GetProperty("payload").GetString());
+    }
+
+    /// <summary>
     /// O resumo diário roda uma vez por dia, às 8h: no n8n Cloud, cada execução conta no limite do plano, inclusive as agendadas
     /// (cerca de 30 por mês, seção 4.5).
     /// </summary>
@@ -312,6 +437,21 @@ public class FluxosN8nTests
     private static JsonDocument Ler(string arquivo) => JsonDocument.Parse(File.ReadAllText(Path.Combine(Pasta, arquivo)));
 
     private static JsonElement No(JsonDocument fluxo, string nome) => Nos(fluxo).Single(no => no.GetProperty("name").GetString() == nome);
+
+    private static string Codigo(JsonDocument fluxo, string nome) => No(fluxo, nome).GetProperty("parameters").GetProperty("jsCode").GetString()!;
+
+    /// <summary>O valor de um campo do nó "Configuração".</summary>
+    private static JsonElement Campo(JsonDocument fluxo, string nome) =>
+        No(fluxo, "Configuração").GetProperty("parameters").GetProperty("assignments").GetProperty("assignments").EnumerateArray()
+            .Single(campo => campo.GetProperty("name").GetString() == nome).GetProperty("value");
+
+    /// <summary>Os nós ligados a uma saída de um nó (a 1, num nó com saída de erro, é a de erro).</summary>
+    private static List<string> Saidas(JsonDocument fluxo, string nome, int saida) =>
+        fluxo.RootElement.GetProperty("connections").TryGetProperty(nome, out var ligacoes)
+        && ligacoes.GetProperty("main").GetArrayLength() > saida
+        && ligacoes.GetProperty("main")[saida].ValueKind == JsonValueKind.Array
+            ? [.. ligacoes.GetProperty("main")[saida].EnumerateArray().Select(ligacao => ligacao.GetProperty("node").GetString()!)]
+            : [];
 
     /// <summary>De onde chegam as ligações a um nó: o nó de origem e a saída dele.</summary>
     private static List<(string Origem, int Saida)> Entradas(JsonDocument fluxo, string nome) =>
