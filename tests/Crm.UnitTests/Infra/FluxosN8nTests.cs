@@ -434,6 +434,38 @@ public class FluxosN8nTests
         Assert.Equal("0 8 * * *", regra.GetProperty("expression").GetString());
     }
 
+    /// <summary>
+    /// O resumo diário conta os envios do site (de ontem e dos 30 dias até ontem), os barrados pelo limite e os que foram ao CRM sem
+    /// ele. Ele sai toda segunda, mesmo sem nada a contar: é o sinal de que o n8n está rodando e o acompanhamento da cota. As linhas
+    /// da <c>crm_envios_site</c> com mais de 31 dias saem pelo id (seção 4.5).
+    /// </summary>
+    [Fact]
+    public void O_resumo_diario_conta_os_envios_do_site_e_sai_toda_segunda()
+    {
+        using var fluxo = Ler("crm-resumo-diario.json");
+        var resumo = Codigo(fluxo, "Montar o resumo");
+        var apagamento = No(fluxo, "Apagar os envios antigos").GetProperty("parameters");
+        var condicao = Assert.Single(apagamento.GetProperty("filters").GetProperty("conditions").EnumerateArray());
+
+        Assert.Equal(31, Campo(fluxo, "diasEnviosSite").GetInt32());
+        Assert.Equal(1, Campo(fluxo, "diaDoResumoSemanal").GetInt32());
+        Assert.Equal(
+            "crm_envios_site",
+            No(fluxo, "Buscar os envios do site").GetProperty("parameters").GetProperty("dataTableId").GetProperty("value").GetString());
+        Assert.Contains("hoje.weekday === Number(configuracao.diaDoResumoSemanal)", resumo, StringComparison.Ordinal);
+        Assert.Contains("temAlgo: partes.length > 0 || semanal", resumo, StringComparison.Ordinal);
+        Assert.Contains("linha.tipo === 'site_acima_do_limite'", resumo, StringComparison.Ordinal);
+        Assert.Contains("linha.tipo === 'site_sem_limite'", resumo, StringComparison.Ordinal);
+        Assert.Contains(
+            "Number($('Configuração').first().json.diasEnviosSite)",
+            Codigo(fluxo, "Separar os envios antigos"),
+            StringComparison.Ordinal);
+        Assert.Equal("deleteRows", apagamento.GetProperty("operation").GetString());
+        Assert.Equal("crm_envios_site", apagamento.GetProperty("dataTableId").GetProperty("value").GetString());
+        Assert.Equal("id", condicao.GetProperty("keyName").GetString());
+        Assert.Equal(new[] { ("Separar os envios antigos", 0) }, Entradas(fluxo, "Apagar os envios antigos"));
+    }
+
     private static JsonDocument Ler(string arquivo) => JsonDocument.Parse(File.ReadAllText(Path.Combine(Pasta, arquivo)));
 
     private static JsonElement No(JsonDocument fluxo, string nome) => Nos(fluxo).Single(no => no.GetProperty("name").GetString() == nome);

@@ -361,7 +361,7 @@ docker compose stop n8n
 | `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste; `google-sem-nome.json`, com a chave: vai para as recusadas |
 | `CRM - Reenvio de pendentes` | De hora em hora, das 8h às 20h, de segunda a sexta | Não | Execução manual, depois de um envio com a API parada |
 | `CRM - Relatório semanal Gama` | Segunda às 8h | Não | Execução manual: o CSV da semana anterior vai para o `emailGama` |
-| `CRM - Resumo diário` | Todo dia às 8h | Não | Execução manual: o e-mail com as contagens do dia anterior vai para o `emailAdmin`, se houver algo a contar, e as recusadas com mais de 7 dias saem |
+| `CRM - Resumo diário` | Todo dia às 8h | Não | Execução manual: o e-mail com as contagens do dia anterior vai para o `emailAdmin` se houver algo a contar e, no dia do `diaDoResumoSemanal` (1 é segunda), sempre; as recusadas com mais de 7 dias e os envios do site com mais de 31 saem |
 | `CRM - Entrada Meta` | Gatilho de Lead Ads | Não, sem o app Live | `test_workflow` do MCP, com `meta-gatilho.json` e `meta-graph.json` |
 
 ```powershell
@@ -764,7 +764,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` |
    | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
    | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |
-   | `CRM - Resumo diário` | `emailAdmin` e `remetente` (o `diasRecusadas` fica) |
+   | `CRM - Resumo diário` | `emailAdmin` e `remetente` (o `diasRecusadas`, o `diasEnviosSite` e o `diaDoResumoSemanal` ficam) |
 
    E também:
    - escolha a credencial nos nós que a pedem;

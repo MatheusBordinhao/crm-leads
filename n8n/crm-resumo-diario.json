@@ -9,7 +9,14 @@
       "typeVersion": 1.4,
       "position": [0, 80],
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }] }
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
       }
     },
     {
@@ -35,7 +42,24 @@
               "value": "testecrmfs@gmail.com",
               "type": "string"
             },
-            { "id": "dias-recusadas", "name": "diasRecusadas", "value": 7, "type": "number" }
+            {
+              "id": "dias-recusadas",
+              "name": "diasRecusadas",
+              "value": 7,
+              "type": "number"
+            },
+            {
+              "id": "dias-envios-site",
+              "name": "diasEnviosSite",
+              "value": 31,
+              "type": "number"
+            },
+            {
+              "id": "dia-do-resumo-semanal",
+              "name": "diaDoResumoSemanal",
+              "value": 1,
+              "type": "number"
+            }
           ]
         },
         "options": {}
@@ -50,7 +74,11 @@
       "parameters": {
         "resource": "row",
         "operation": "get",
-        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
         "returnAll": true
       },
       "alwaysOutputData": true
@@ -64,7 +92,11 @@
       "parameters": {
         "resource": "row",
         "operation": "get",
-        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_pendentes"
+        },
         "returnAll": true
       },
       "executeOnce": true,
@@ -75,11 +107,11 @@
       "name": "Montar o resumo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [896, 80],
+      "position": [1120, 80],
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// Monta o resumo do dia anterior, no horário de Brasília (seção 4.5): só números, sem dados pessoais. Da Meta sem campanha, vão só\n// os números dos leads no CRM. As datas são comparadas aqui, e não no filtro da Data Table: no n8n local, ele compara texto, e um\n// \"maior que\" no mesmo dia não acha nada.\nconst configuracao = $('Configuração').first().json;\nconst linhas = (no) => $(no).all().map((item) => item.json).filter((linha) => linha.id !== undefined);\nconst recusadas = linhas('Buscar as recusadas');\nconst pendentes = linhas('Buscar as pendentes');\n\nconst fuso = 'America/Sao_Paulo';\nconst quando = (valor) => DateTime.fromJSDate(new Date(valor)).setZone(fuso);\nconst hoje = DateTime.now().setZone(fuso).startOf('day');\nconst ontem = hoje.minus({ days: 1 });\nconst deOntem = recusadas.filter((linha) => {\n  const data = quando(linha.criado_em);\n  return data >= ontem && data < hoje;\n});\n\nconst recusadasPeloCrm = deOntem.filter((linha) => String(linha.tipo).endsWith('_recusada'));\nconst porOrigem = {};\nfor (const linha of recusadasPeloCrm) {\n  const origem = String(linha.tipo).replace(/_recusada$/, '');\n  porOrigem[origem] = (porOrigem[origem] || 0) + 1;\n}\nconst chaveErrada = deOntem.filter((linha) => linha.tipo === 'google_chave_errada').length;\nconst semCampanha = deOntem.filter((linha) => linha.tipo === 'meta_sem_campanha').map((linha) => linha.detalhe);\nconst maisAntiga = pendentes.reduce((antiga, linha) => {\n  const data = quando(linha.criado_em);\n  return antiga === null || data < antiga ? data : antiga;\n}, null);\n\nconst partes = [];\nif (recusadasPeloCrm.length > 0) {\n  partes.push('Entradas recusadas pelo CRM (400 ou 413): ' + recusadasPeloCrm.length);\n  for (const origem of Object.keys(porOrigem).sort()) partes.push('  - ' + origem + ': ' + porOrigem[origem]);\n}\nif (chaveErrada > 0) partes.push('Envios ao Google com a chave errada (403): ' + chaveErrada);\nif (semCampanha.length > 0) {\n  partes.push('Leads da Meta que entraram sem a campanha: ' + semCampanha.length + ' (' + semCampanha.join(', ') + ')');\n}\nif (pendentes.length > 0) {\n  partes.push('Entradas esperando o reenvio: ' + pendentes.length + ', a mais antiga de ' + maisAntiga.toFormat('dd/MM HH:mm'));\n}\n\nconst dia = ontem.toFormat('dd/MM/yyyy');\nconst texto = [\n  'Resumo do n8n de ' + dia + ', no horário de Brasília.',\n  '',\n  ...partes,\n  '',\n  'As recusadas ficam ' + configuracao.diasRecusadas + ' dias na Data Table crm_entradas_recusadas, com os dados da entrada, e as pendentes, na crm_entradas_pendentes, até o reenvio. Este e-mail não traz nenhum dado das entradas.',\n].join('\\n');\n\nreturn [{ json: { temAlgo: partes.length > 0, assunto: '[CRM] Resumo do n8n de ' + dia, texto: texto } }];"
+        "jsCode": "// Monta o resumo do dia anterior, no horário de Brasília (seção 4.5): só números, sem dados pessoais. Da Meta sem campanha, vão só\n// os números dos leads no CRM. As datas são comparadas aqui, e não no filtro da Data Table: no n8n local, ele compara texto, e um\n// \"maior que\" no mesmo dia não acha nada. O e-mail sai quando há algo a contar e, no dia do diaDoResumoSemanal, sempre, com os\n// envios do site: é o sinal de que o n8n está rodando e o acompanhamento da cota de execuções.\nconst configuracao = $('Configuração').first().json;\nconst linhas = (no) => $(no).all().map((item) => item.json).filter((linha) => linha.id !== undefined);\nconst recusadas = linhas('Buscar as recusadas');\nconst pendentes = linhas('Buscar as pendentes');\nconst envios = linhas('Buscar os envios do site');\n\nconst fuso = 'America/Sao_Paulo';\nconst quando = (valor) => DateTime.fromJSDate(new Date(valor)).setZone(fuso);\nconst hoje = DateTime.now().setZone(fuso).startOf('day');\nconst ontem = hoje.minus({ days: 1 });\nconst desde = (inicio) => (linha) => {\n  const data = quando(linha.criado_em);\n  return data >= inicio && data < hoje;\n};\nconst deOntem = recusadas.filter(desde(ontem));\nconst enviosDeOntem = envios.filter(desde(ontem)).length;\nconst enviosDe30Dias = envios.filter(desde(hoje.minus({ days: 30 }))).length;\n\nconst recusadasPeloCrm = deOntem.filter((linha) => String(linha.tipo).endsWith('_recusada'));\nconst porOrigem = {};\nfor (const linha of recusadasPeloCrm) {\n  const origem = String(linha.tipo).replace(/_recusada$/, '');\n  porOrigem[origem] = (porOrigem[origem] || 0) + 1;\n}\nconst chaveErrada = deOntem.filter((linha) => linha.tipo === 'google_chave_errada').length;\nconst semCampanha = deOntem.filter((linha) => linha.tipo === 'meta_sem_campanha').map((linha) => linha.detalhe);\nconst barrados = deOntem.filter((linha) => linha.tipo === 'site_acima_do_limite').length;\nconst semLimite = deOntem.filter((linha) => linha.tipo === 'site_sem_limite').length;\nconst maisAntiga = pendentes.reduce((antiga, linha) => {\n  const data = quando(linha.criado_em);\n  return antiga === null || data < antiga ? data : antiga;\n}, null);\n\nconst partes = [];\nif (recusadasPeloCrm.length > 0) {\n  partes.push('Entradas recusadas pelo CRM (400 ou 413): ' + recusadasPeloCrm.length);\n  for (const origem of Object.keys(porOrigem).sort()) partes.push('  - ' + origem + ': ' + porOrigem[origem]);\n}\nif (chaveErrada > 0) partes.push('Envios ao Google com a chave errada (403): ' + chaveErrada);\nif (semCampanha.length > 0) {\n  partes.push('Leads da Meta que entraram sem a campanha: ' + semCampanha.length + ' (' + semCampanha.join(', ') + ')');\n}\nif (barrados > 0) partes.push('Envios do site barrados pelo limite: ' + barrados);\nif (semLimite > 0) partes.push('Envios do site que foram ao CRM sem o limite, por falha na crm_envios_site: ' + semLimite);\nif (pendentes.length > 0) {\n  partes.push('Entradas esperando o reenvio: ' + pendentes.length + ', a mais antiga de ' + maisAntiga.toFormat('dd/MM HH:mm'));\n}\n\nconst semanal = hoje.weekday === Number(configuracao.diaDoResumoSemanal);\nconst dia = ontem.toFormat('dd/MM/yyyy');\nconst texto = [\n  'Resumo do n8n de ' + dia + ', no horário de Brasília.',\n  '',\n  'Envios do site: ' + enviosDeOntem + ' ontem e ' + enviosDe30Dias + ' nos 30 dias até ontem. Cada envio gasta uma execução do n8n.',\n  ...(partes.length > 0 ? partes : ['Nada mais a contar.']),\n  '',\n  'As recusadas ficam ' + configuracao.diasRecusadas + ' dias na Data Table crm_entradas_recusadas, com os dados da entrada, e as pendentes, na crm_entradas_pendentes, até o reenvio. Este e-mail não traz nenhum dado das entradas.',\n].join('\\n');\n\nreturn [{ json: { temAlgo: partes.length > 0 || semanal, assunto: '[CRM] Resumo do n8n de ' + dia, texto: texto } }];"
       }
     },
     {
@@ -87,7 +119,7 @@
       "name": "Há algo a contar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1120, 0],
+      "position": [1344, 0],
       "parameters": {
         "conditions": {
           "options": {
@@ -100,7 +132,11 @@
             {
               "leftValue": "={{ $json.temAlgo }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -113,7 +149,7 @@
       "name": "Mandar o resumo",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1344, 0],
+      "position": [1568, 0],
       "parameters": {
         "operation": "send",
         "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
@@ -121,9 +157,16 @@
         "subject": "={{ $json.assunto }}",
         "emailFormat": "text",
         "text": "={{ $json.texto }}",
-        "options": { "appendAttribution": false }
+        "options": {
+          "appendAttribution": false
+        }
       },
-      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "credentials": {
+        "smtp": {
+          "id": "WyzbDQAO6auoyGl4",
+          "name": "CRM - E-mail"
+        }
+      },
       "webhookId": "b63c757a-3193-4a89-9a4d-d1957c4ccf7d"
     },
     {
@@ -131,7 +174,7 @@
       "name": "Separar as antigas",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 240],
+      "position": [1344, 240],
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
@@ -143,14 +186,24 @@
       "name": "Apagar as recusadas antigas",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1344, 240],
+      "position": [1568, 240],
       "parameters": {
         "resource": "row",
         "operation": "deleteRows",
-        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_entradas_recusadas"
+        },
         "matchType": "allConditions",
         "filters": {
-          "conditions": [{ "keyName": "id", "condition": "eq", "keyValue": "={{ $json.id }}" }]
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
         },
         "options": {}
       }
@@ -162,33 +215,180 @@
       "typeVersion": 1,
       "position": [-32, -96],
       "parameters": {
-        "content": "## CRM - Resumo diário\nTodo dia às 8h, manda ao admin, só com números, as entradas que o CRM recusou no dia anterior (por origem), os envios ao Google com a chave errada, os leads da Meta que entraram sem a campanha e as entradas esperando o reenvio, com a mais antiga. Sem nada a contar, não manda e-mail. Também apaga as linhas da `crm_entradas_recusadas` com mais de `diasRecusadas` dias. As datas são comparadas num Code, e não no filtro da Data Table. Quem recebe, quem envia e os dias ficam no nó \"Configuração\".",
+        "content": "## CRM - Resumo diário\nTodo dia às 8h, manda ao admin, só com números, os envios do site (de ontem e dos 30 dias até ontem), as entradas que o CRM recusou no dia anterior (por origem), os envios do site barrados pelo limite ou que foram ao CRM sem ele, os envios ao Google com a chave errada, os leads da Meta que entraram sem a campanha e as entradas esperando o reenvio, com a mais antiga. Sem nada a contar, só manda o e-mail no dia do `diaDoResumoSemanal` (1 é segunda), como sinal de que o n8n está rodando. Também apaga as linhas da `crm_entradas_recusadas` com mais de `diasRecusadas` dias e as da `crm_envios_site` com mais de `diasEnviosSite`. As datas são comparadas num Code, e não no filtro da Data Table. Quem recebe, quem envia, os dias e o dia da semana ficam no nó \"Configuração\".",
         "color": 7,
-        "width": 1600,
+        "width": 1824,
         "height": 224
+      }
+    },
+    {
+      "id": "17567d29-983f-4ca3-acce-5568ee9a83c5",
+      "name": "Buscar os envios do site",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [896, 80],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_envios_site"
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "618482d1-5a77-4b3a-8564-34f10fd4cce1",
+      "name": "Separar os envios antigos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1344, 400],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Os envios do site com mais dias que o diasEnviosSite do \"Configuração\" saem da tabela, pelo id (seção 4.5). A data é comparada\n// aqui, e não no filtro da Data Table, que no n8n local compara texto.\nconst dias = Number($('Configuração').first().json.diasEnviosSite);\nconst limite = DateTime.now().minus({ days: dias });\nreturn $('Buscar os envios do site')\n  .all()\n  .map((item) => item.json)\n  .filter((linha) => linha.id !== undefined && DateTime.fromJSDate(new Date(linha.criado_em)) < limite)\n  .map((linha) => ({ json: { id: linha.id } }));"
+      }
+    },
+    {
+      "id": "464be0dd-f43a-4cf7-94d0-9fa881b9c7de",
+      "name": "Apagar os envios antigos",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1568, 400],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "crm_envios_site"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
       }
     }
   ],
   "connections": {
-    "Todo dia às 8h": { "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]] },
-    "Configuração": { "main": [[{ "node": "Buscar as recusadas", "type": "main", "index": 0 }]] },
-    "Buscar as recusadas": {
-      "main": [[{ "node": "Buscar as pendentes", "type": "main", "index": 0 }]]
+    "Todo dia às 8h": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Buscar as pendentes": {
-      "main": [[{ "node": "Montar o resumo", "type": "main", "index": 0 }]]
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "Buscar as recusadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar as recusadas": {
+      "main": [
+        [
+          {
+            "node": "Buscar as pendentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Montar o resumo": {
       "main": [
         [
-          { "node": "Há algo a contar?", "type": "main", "index": 0 },
-          { "node": "Separar as antigas", "type": "main", "index": 0 }
+          {
+            "node": "Há algo a contar?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Separar as antigas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Separar os envios antigos",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
-    "Há algo a contar?": { "main": [[{ "node": "Mandar o resumo", "type": "main", "index": 0 }]] },
+    "Há algo a contar?": {
+      "main": [
+        [
+          {
+            "node": "Mandar o resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Separar as antigas": {
-      "main": [[{ "node": "Apagar as recusadas antigas", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Apagar as recusadas antigas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar as pendentes": {
+      "main": [
+        [
+          {
+            "node": "Buscar os envios do site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar os envios do site": {
+      "main": [
+        [
+          {
+            "node": "Montar o resumo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar os envios antigos": {
+      "main": [
+        [
+          {
+            "node": "Apagar os envios antigos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
