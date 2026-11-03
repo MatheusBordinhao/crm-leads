@@ -232,6 +232,65 @@ public class FluxosN8nTests
     }
 
     /// <summary>
+    /// Os seis HTTP Request que chamam o CRM, com a mesma credencial: a troca da chave na credencial vale para todos, inclusive o
+    /// reenvio e o relatório (README › Trocar chaves e senhas). A lista impede o teste de cima de passar vazio, se um nó deixar de
+    /// chamar o CRM pelo <c>urlCrm</c>.
+    /// </summary>
+    [Fact]
+    public void Os_seis_HTTP_Request_ao_CRM_usam_a_mesma_credencial()
+    {
+        (string Arquivo, string No)[] esperadas =
+        [
+            ("crm-entrada-google.json", "Enviar ao CRM"),
+            ("crm-entrada-meta.json", "Enviar ao CRM"),
+            ("crm-entrada-site.json", "Enviar ao CRM"),
+            ("crm-reenvio-de-pendentes.json", "Reenviar ao CRM"),
+            ("crm-relatorio-semanal-gama.json", "Buscar o CSV"),
+            ("crm-relatorio-semanal-gama.json", "Buscar o resumo"),
+        ];
+
+        var chamadas = Fluxos().Select(f => f.Data).SelectMany(arquivo =>
+        {
+            using var fluxo = Ler(arquivo);
+            return Nos(fluxo)
+                .Where(no => no.GetProperty("type").GetString() == "n8n-nodes-base.httpRequest"
+                    && no.GetProperty("parameters").GetProperty("url").GetString()!.Contains("urlCrm", StringComparison.Ordinal))
+                .Select(no => (Arquivo: arquivo, No: no.GetProperty("name").GetString()!, Credencial: no.GetProperty("credentials")
+                    .GetProperty("httpHeaderAuth").GetProperty("name").GetString()))
+                .ToList();
+        }).OrderBy(c => c.Arquivo, StringComparer.Ordinal).ThenBy(c => c.No, StringComparer.Ordinal).ToList();
+
+        Assert.Equal(esperadas, chamadas.Select(c => (c.Arquivo, c.No)));
+        Assert.All(chamadas, c => Assert.Equal("CRM - Chave de integração", c.Credencial));
+    }
+
+    /// <summary>
+    /// A chave do Google entra só como SHA-256 (seção 4.5). Durante a troca, a anterior vale junto; fora dela, o campo fica vazio, e
+    /// a segunda condição repete a atual, sem depender de o hash nunca sair vazio. O JSON nunca vai para o repositório no meio de
+    /// uma troca (README › Trocar chaves e senhas).
+    /// </summary>
+    [Fact]
+    public void A_chave_do_Google_vale_contra_a_atual_e_a_anterior_so_durante_a_troca()
+    {
+        using var fluxo = Ler("crm-entrada-google.json");
+        var conferencia = No(fluxo, "A chave confere?").GetProperty("parameters").GetProperty("conditions");
+        var condicoes = conferencia.GetProperty("conditions").EnumerateArray().ToList();
+        var hashRecebido = "={{ String($json.body?.google_key ?? \"\").hash(\"sha256\") }}";
+
+        Assert.Matches("^[0-9a-f]{64}$", Campo(fluxo, "googleKeySha256").GetString());
+        Assert.Empty(Campo(fluxo, "googleKeySha256Anterior").GetString()!);
+        Assert.Equal("or", conferencia.GetProperty("combinator").GetString());
+        Assert.Equal(
+            ["={{ $json.googleKeySha256 }}", "={{ $json.googleKeySha256Anterior || $json.googleKeySha256 }}"],
+            condicoes.Select(c => c.GetProperty("rightValue").GetString()));
+        Assert.All(condicoes, c =>
+        {
+            Assert.Equal(hashRecebido, c.GetProperty("leftValue").GetString());
+            Assert.Equal("equals", c.GetProperty("operator").GetProperty("operation").GetString());
+        });
+    }
+
+    /// <summary>
     /// A Data Table vai pelo nome, que a importação no n8n Cloud mantém, e não pelo id. Nenhum nó de Data Table lê os cabeçalhos
     /// nem o corpo bruto do gatilho: eles trazem o <c>X-Crm-Chave</c> e o <c>google_key</c>, e as linhas ficam dias nas tabelas.
     /// </summary>

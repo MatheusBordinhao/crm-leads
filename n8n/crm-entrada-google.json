@@ -31,7 +31,13 @@
             {
               "id": "google-key-sha256",
               "name": "googleKeySha256",
-              "value": "9fc39ea72ccc891a5341a5229bc5760d328e33f82471b41e1d3a52436ed2385c",
+              "value": "587b94e522eef410805e0627c4bbc4265a4c09efcdc1548fa29bc373c4fcb677",
+              "type": "string"
+            },
+            {
+              "id": "google-key-sha256-anterior",
+              "name": "googleKeySha256Anterior",
+              "value": "",
               "type": "string"
             },
             {
@@ -70,9 +76,14 @@
               "leftValue": "={{ String($json.body?.google_key ?? \"\").hash(\"sha256\") }}",
               "rightValue": "={{ $json.googleKeySha256 }}",
               "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "leftValue": "={{ String($json.body?.google_key ?? \"\").hash(\"sha256\") }}",
+              "rightValue": "={{ $json.googleKeySha256Anterior || $json.googleKeySha256 }}",
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
-          "combinator": "and"
+          "combinator": "or"
         },
         "options": {}
       }
@@ -213,7 +224,7 @@
       "typeVersion": 1,
       "position": [-32, -96],
       "parameters": {
-        "content": "## CRM - Entrada Google\nRecebe o webhook do formulário de lead do Google Ads. Confere a chave pelo SHA-256 (a chave em si não fica no fluxo): errada, responde 403 e só conta a tentativa na Data Table `crm_entradas_recusadas`, sem nada do envio. Certa, responde 200 com {} ao Google e manda o lead ao CRM (seção 4.2), com o lead_id como id externo, a campanha pelo id e o is_test como teste; o google_key não entra no lead. Acima de 64 KB, o limite do CRM, a entrada nem vai ao CRM: fica nas recusadas, sem o corpo. A recusa do CRM (400 ou 413) vai para as recusadas, com no máximo 8 KB do corpo; o CRM fora do ar e a falha de configuração (401, 403, 404), para a `crm_entradas_pendentes`, e a configuração manda um e-mail na hora. O endereço do CRM, o hash da chave e os e-mails ficam no nó \"Configuração\".",
+        "content": "## CRM - Entrada Google\nRecebe o webhook do formulário de lead do Google Ads. Confere a chave pelo SHA-256 (a chave em si não fica no fluxo), contra o `googleKeySha256` e, só durante a troca da chave, também contra o `googleKeySha256Anterior`, vazio fora dela: errada, responde 403 e só conta a tentativa na Data Table `crm_entradas_recusadas`, sem nada do envio. Certa, responde 200 com {} ao Google e manda o lead ao CRM (seção 4.2), com o lead_id como id externo, a campanha pelo id e o is_test como teste; o google_key não entra no lead. Acima de 64 KB, o limite do CRM, a entrada nem vai ao CRM: fica nas recusadas, sem o corpo. A recusa do CRM (400 ou 413) vai para as recusadas, com no máximo 8 KB do corpo; o CRM fora do ar e a falha de configuração (401, 403, 404), para a `crm_entradas_pendentes`, e a configuração manda um e-mail na hora. O endereço do CRM, os hashes da chave e os e-mails ficam no nó \"Configuração\".",
         "color": 7,
         "width": 1056,
         "height": 304
