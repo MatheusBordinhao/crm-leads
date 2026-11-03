@@ -49,6 +49,8 @@ services:
       Admin__Email: ${Admin__Email:-}
       Admin__SenhaInicial: ${Admin__SenhaInicial:-}
       Integracao__Chave: ${Integracao__Chave:-}
+      # Só durante a troca da chave: vazia, só a atual vale (README › Trocar chaves e senhas).
+      Integracao__ChaveAnterior: ${Integracao__ChaveAnterior:-}
       N8n__WebhookUrl: ${N8n__WebhookUrl:-}
       N8n__WebhookChave: ${N8n__WebhookChave:-}
       N8n__Eventos: ${N8n__Eventos:-}

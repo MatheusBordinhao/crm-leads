@@ -74,6 +74,7 @@ if (ComandoDemonstracao.Pedido(args))
 }
 
 await app.InicializarAcessoAsync();
+app.AvisarDaTrocaDaChave();
 
 // O build do React, antes da autenticação: a página e os arquivos dela são públicos.
 app.UsarFront();

@@ -234,7 +234,10 @@ O formulário do site passa pelo n8n porque o navegador não pode guardar a chav
 
 ### 4.2 Entrada: `POST /api/integracoes/leads`
 
-- Autenticação pelo cabeçalho `X-Api-Key`, comparado em tempo constante (`CryptographicOperations.FixedTimeEquals`).
+- Autenticação pelo cabeçalho `X-Api-Key`, comparado em tempo constante (`CryptographicOperations.FixedTimeEquals`). Sem o cabeçalho, com ele vazio ou repetido, ou com uma chave errada, a resposta é 401.
+- Durante a troca da chave, vale também a anterior (`Integracao__ChaveAnterior`), para nenhuma entrada receber 401 entre a troca no CRM e a troca no n8n (README › Trocar chaves e senhas):
+  - a chave recebida é comparada sempre com as duas, e o tempo de resposta não diz qual valeu. Sem a anterior, a segunda comparação repete a atual e não conta: nenhuma comparação é feita com uma chave vazia, que tem o mesmo SHA-256 de um cabeçalho vazio;
+  - cada uso da anterior grava no log um aviso que começa por "Uso da Integracao__ChaveAnterior", sem a chave. Enquanto ela estiver preenchida, a subida da API grava um que começa por "Troca da chave em andamento".
 - Limite de 120 requisições por minuto.
 - Corpo de até 64 KB. Acima disso, a resposta é 413, sem criar o lead. Os fluxos do n8n conferem o mesmo limite antes de mandar (4.5).
 
@@ -561,6 +564,7 @@ Crm__UrlPublica=http://localhost:5173        # base dos links nos eventos
 Admin__Email=                                # primeiro admin, criado na inicialização se não houver nenhum
 Admin__SenhaInicial=                         # 10+ caracteres; o sistema pede a troca no primeiro acesso
 Integracao__Chave=                           # n8n → CRM, 32+ caracteres aleatórios
+Integracao__ChaveAnterior=                   # só durante a troca da chave (README › Trocar chaves e senhas)
 N8n__WebhookUrl=                             # URL de produção do Webhook do fluxo CRM - Alertas
 N8n__WebhookChave=                           # CRM → n8n (Header Auth), 32+ caracteres aleatórios
 N8n__Eventos=lead.criado,lead.reatribuido,lead.entrada_repetida
@@ -581,7 +585,7 @@ O `docker-compose.prod.yml` define também estas:
 - `Proxy__Ip`: o IP do Caddy na rede do Docker (`CADDY_IP`). Só dele a API aceita os cabeçalhos `X-Forwarded-For` e `X-Forwarded-Proto`, e assim o limite de logins por IP e a auditoria veem o IP de quem acessa. Vazio, nenhum cabeçalho encaminhado vale.
 - `DataProtection__Pasta`: a pasta das chaves do Data Protection, que protegem o cookie da sessão, num volume do Docker. Assim, recriar o contêiner da API não encerra as sessões. Vazia, valem as chaves padrão do ASP.NET Core, como em desenvolvimento.
 
-A API confere na subida o que é obrigatório e para com uma mensagem clara. `Crm__UrlPublica` é obrigatória (em desenvolvimento, o padrão é `http://localhost:5173`); `N8n__WebhookChave`, com 32+ caracteres, é obrigatória quando há `N8n__WebhookUrl`.
+A API confere na subida o que é obrigatório e para com uma mensagem clara, sem o valor das chaves. `Crm__UrlPublica` é obrigatória (em desenvolvimento, o padrão é `http://localhost:5173`); `N8n__WebhookChave`, com 32+ caracteres, é obrigatória quando há `N8n__WebhookUrl`. A `Integracao__ChaveAnterior`, quando preenchida, precisa ter 32+ caracteres, vir com a `Integracao__Chave` e ser diferente dela.
 
 ## 10. Passos de entrega
 

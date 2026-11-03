@@ -70,6 +70,7 @@ public class PublicacaoTests
     [InlineData("PGPASSWORD")]
     [InlineData("Admin__SenhaInicial")]
     [InlineData("Integracao__Chave")]
+    [InlineData("Integracao__ChaveAnterior")]
     [InlineData("N8n__WebhookChave")]
     public void Os_segredos_do_compose_de_producao_vem_do_env(string segredo)
     {
