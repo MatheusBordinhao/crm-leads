@@ -18,12 +18,18 @@ internal sealed class IntegracaoOptions
     /// <summary>Chave que o n8n manda em <c>X-Api-Key</c>. Vazia, a integração fica desligada e responde 401.</summary>
     public string? Chave { get; set; }
 
+    /// <summary>
+    /// A chave de antes, que vale junto com a atual só durante a troca (README › Trocar chaves e senhas). Vazia ou
+    /// ausente, só a atual vale.
+    /// </summary>
+    public string? ChaveAnterior { get; set; }
+
     public int RequisicoesPorMinuto { get; set; } = 120;
 }
 
 /// <summary>
-/// Autentica o n8n pelo cabeçalho <c>X-Api-Key</c>. A comparação é feita sobre o SHA-256 das duas chaves, que
-/// têm sempre o mesmo tamanho, em tempo constante.
+/// Autentica o n8n pelo cabeçalho <c>X-Api-Key</c>. A chave recebida é comparada com a atual e com a anterior, sempre
+/// as duas, pelo SHA-256, que tem sempre o mesmo tamanho, e em tempo constante: o tempo de resposta não diz qual valeu.
 /// </summary>
 internal sealed class ChaveIntegracaoHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> opcoes,
@@ -36,10 +42,16 @@ internal sealed class ChaveIntegracaoHandler(
 
     public const string Cabecalho = "X-Api-Key";
 
+    /// <summary>O começo do aviso de cada uso da anterior, sem acento, para a busca no log em JSON da produção.</summary>
+    public const string AvisoUso = "Uso da Integracao__ChaveAnterior";
+
+    /// <summary>O começo do aviso da subida enquanto a anterior está preenchida, também sem acento.</summary>
+    public const string AvisoTroca = "Troca da chave em andamento";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var esperada = integracao.Value.Chave;
-        if (string.IsNullOrEmpty(esperada))
+        var chaves = integracao.Value;
+        if (string.IsNullOrEmpty(chaves.Chave))
         {
             return Task.FromResult(AuthenticateResult.Fail("A chave de integração não está configurada."));
         }
@@ -49,19 +61,29 @@ internal sealed class ChaveIntegracaoHandler(
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
-        if (!Iguais(recebidas[0] ?? string.Empty, esperada))
+        // Sem a anterior, a segunda comparação repete a atual e não conta: nenhuma comparação é feita com uma chave vazia,
+        // que tem o mesmo SHA-256 de um cabeçalho vazio.
+        var anterior = string.IsNullOrEmpty(chaves.ChaveAnterior) ? null : chaves.ChaveAnterior;
+        var recebida = Hash(recebidas[0] ?? string.Empty);
+        var valeAtual = CryptographicOperations.FixedTimeEquals(recebida, Hash(chaves.Chave));
+        var valeAnterior = CryptographicOperations.FixedTimeEquals(recebida, Hash(anterior ?? chaves.Chave)) & (anterior is not null);
+        if (!(valeAtual | valeAnterior))
         {
             return Task.FromResult(AuthenticateResult.Fail("Chave de integração inválida."));
+        }
+
+        if (valeAnterior)
+        {
+            Logger.LogWarning(
+                AvisoUso + ": a integração recebeu a chave anterior. Troque a credencial do n8n e depois rode a fase 2"
+                + " (README › Trocar chaves e senhas)");
         }
 
         var identidade = new ClaimsIdentity([new Claim(ClaimTypes.Name, "n8n")], Esquema);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identidade), Esquema)));
     }
 
-    private static bool Iguais(string recebida, string esperada) =>
-        CryptographicOperations.FixedTimeEquals(
-            SHA256.HashData(Encoding.UTF8.GetBytes(recebida)),
-            SHA256.HashData(Encoding.UTF8.GetBytes(esperada)));
+    private static byte[] Hash(string chave) => SHA256.HashData(Encoding.UTF8.GetBytes(chave));
 }
 
 internal static class IntegracaoExtensions
@@ -76,6 +98,15 @@ internal static class IntegracaoExtensions
             .Validate(
                 o => string.IsNullOrEmpty(o.Chave) || o.Chave.Length >= IntegracaoOptions.TamanhoMinimoChave,
                 $"Integracao__Chave precisa ter pelo menos {IntegracaoOptions.TamanhoMinimoChave} caracteres (veja o README).")
+            .Validate(
+                o => string.IsNullOrEmpty(o.ChaveAnterior) || o.ChaveAnterior.Length >= IntegracaoOptions.TamanhoMinimoChave,
+                $"Integracao__ChaveAnterior precisa ter pelo menos {IntegracaoOptions.TamanhoMinimoChave} caracteres (veja o README).")
+            .Validate(
+                o => string.IsNullOrEmpty(o.ChaveAnterior) || !string.IsNullOrEmpty(o.Chave),
+                "Integracao__ChaveAnterior só vale com a Integracao__Chave preenchida (veja o README › Trocar chaves e senhas).")
+            .Validate(
+                o => string.IsNullOrEmpty(o.ChaveAnterior) || o.ChaveAnterior != o.Chave,
+                "Integracao__ChaveAnterior não pode ser igual à Integracao__Chave (veja o README › Trocar chaves e senhas).")
             .ValidateOnStart();
 
         services.AddAuthentication()
@@ -94,5 +125,18 @@ internal static class IntegracaoExtensions
         }));
 
         return services;
+    }
+
+    /// <summary>
+    /// Enquanto a anterior estiver preenchida, a subida avisa no log, sem a chave: depois da fase 2 da troca, o aviso some.
+    /// </summary>
+    public static void AvisarDaTrocaDaChave(this WebApplication app)
+    {
+        if (!string.IsNullOrEmpty(app.Services.GetRequiredService<IOptions<IntegracaoOptions>>().Value.ChaveAnterior))
+        {
+            app.Services.GetRequiredService<ILogger<ChaveIntegracaoHandler>>().LogWarning(
+                ChaveIntegracaoHandler.AvisoTroca + ": a Integracao__ChaveAnterior ainda vale. Troque a credencial do n8n e depois"
+                + " rode a fase 2 (README › Trocar chaves e senhas)");
+        }
     }
 }

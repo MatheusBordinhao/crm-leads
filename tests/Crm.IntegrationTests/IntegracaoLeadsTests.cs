@@ -14,7 +14,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Crm.IntegrationTests;
 
-/// <summary><c>POST /api/integracoes/leads</c> (seção 4.2), como o n8n chama.</summary>
+/// <summary>
+/// <c>POST /api/integracoes/leads</c> (seção 4.2), como o n8n chama. A chave, nas três rotas da integração, fica no
+/// <see cref="ChaveIntegracaoTests"/>.
+/// </summary>
 public class IntegracaoLeadsTests(CrmApiFactory fabrica)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -203,19 +206,6 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
         Assert.Equal(["Informe o e-mail ou o telefone."], await resposta.LerErrosDoCampoAsync("email"));
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("chave-errada-mas-com-o-mesmo-tamanho-0123")]
-    [InlineData("")]
-    public async Task Sem_a_chave_certa_responde_401(string? chave)
-    {
-        using var n8n = fabrica.CriarClienteIntegracao(chave);
-
-        var resposta = await n8n.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao());
-
-        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-    }
-
     [Fact]
     public async Task Sessao_de_admin_nao_vale_na_integracao()
     {
@@ -224,27 +214,6 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
         var resposta = await admin.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao());
 
         Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-    }
-
-    [Fact]
-    public async Task Sem_chave_configurada_a_integracao_fica_desligada()
-    {
-        using var api = fabrica.WithWebHostBuilder(builder => builder.UseSetting("Integracao:Chave", ""));
-        using var n8n = api.CriarClienteIntegracao();
-
-        var resposta = await n8n.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao());
-
-        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-    }
-
-    [Fact]
-    public void Chave_curta_impede_a_api_de_subir()
-    {
-        using var api = fabrica.WithWebHostBuilder(builder => builder.UseSetting("Integracao:Chave", "curta"));
-
-        var erro = Assert.ThrowsAny<Exception>(() => api.CreateClient());
-
-        Assert.Contains("Integracao__Chave precisa ter pelo menos 32 caracteres", erro.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

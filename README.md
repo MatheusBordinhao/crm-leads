@@ -771,7 +771,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    | `CRM - Erros`, `CRM - Alertas` | `emailAdmin` e `remetente` (o e-mail da credencial SMTP) |
    | `CRM - Entrada Site` | `urlCrm` (`https://` e o `DOMINIO`), `emailAdmin` e `remetente` (o `limiteSitePorHora` e o `limiteSitePorDia` ficam) |
    | `CRM - Reenvio de pendentes` | `urlCrm`, `emailAdmin` e `remetente` (o `linhasPorRodada` fica) |
-   | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` |
+   | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` (o `googleKeySha256Anterior` fica vazio: ele só vale durante a troca da chave) |
    | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
    | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |
    | `CRM - Resumo diário` | `emailAdmin` e `remetente` (o `diasRecusadas`, o `diasEnviosSite` e o `diaDoResumoSemanal` ficam) |
@@ -781,7 +781,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    - em Settings, deixe o Error Workflow no `CRM - Erros` (depois de publicá-lo), as quatro opções de salvar em "Do not save" e o fuso em America/Sao_Paulo;
    - no `CRM - Entrada Site`, ponha o domínio do site em "Allowed Origins (CORS)" do Webhook;
    - na `CRM - Entrada Meta`, escolha a página e o formulário.
-5. Gere a chave do Google de produção. A chave vai para a área de transferência, para a Gama colar no formulário de lead do Google Ads, e o SHA-256 aparece na tela, para o `googleKeySha256`:
+5. Gere a chave do Google de produção. A chave vai para a área de transferência, para a Gama colar no formulário de lead do Google Ads, e o SHA-256 aparece na tela, para o `googleKeySha256`. Antes, desative o "Histórico da área de transferência em seus dispositivos" (Configurações › Sistema › Área de Transferência), que pode mandar o texto copiado para a nuvem da Microsoft:
 
    ```powershell
    $bytes = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
@@ -791,6 +791,8 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    "SHA-256 da chave do Google: $hash"
    Remove-Variable bytes, chave
    ```
+
+   Depois que a chave chegar à Gama, limpe a área de transferência com o comando de "Trocar chaves e senhas" e, com o histórico ligado (Win+V), apague o item da chave.
 6. **[n8n Cloud]** Publique o `CRM - Erros`, depois os outros. A Meta só pode ser publicada com o app Live.
 7. **[servidor]** No `.env` do servidor, ponha `N8n__WebhookUrl=https://<instância>.app.n8n.cloud/webhook/crm-alertas` e rode `docker compose -f docker-compose.prod.yml up -d api`.
 8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`, em JSON ou como formulário, e não como multipart: no multipart, o envio do robô gasta uma execução.
@@ -969,35 +971,138 @@ Restaurar desfaz as anonimizações e as exclusões de leads de teste feitas dep
 
 Os comandos rodam no servidor **[servidor]**, na pasta do CRM. As chaves e senhas novas vão direto para o `.env`, sem aparecer no terminal, a não ser quando é preciso colá-las em outro lugar.
 
-**Chave da integração (`Integracao__Chave`).** O n8n a manda no `X-Api-Key` para enviar os leads e buscar o relatório.
+**Chave da integração (`Integracao__Chave`).** O n8n a manda no `X-Api-Key` para enviar os leads e buscar o relatório. A troca vai em duas fases, sem nenhuma entrada recusada no meio: na fase 1, a chave de hoje passa para a `Integracao__ChaveAnterior` e continua valendo junto com a nova; depois de trocar a credencial do n8n, a fase 2 esvazia a anterior.
+
+1. **A fase 1.** O bloco:
+   - para com "PAROU", sem mudar nada, se a troca já começou (a anterior preenchida) ou se o `.env` não tem uma linha `Integracao__Chave` só, com valor;
+   - passa a chave de hoje para a anterior pelo próprio `sed`, com qualquer caractere que ela tenha, e grava a nova, em hex. O fim das linhas e as permissões do `.env` ficam como estavam, e nenhuma cópia do arquivo fica para trás;
+   - confere de novo antes de reiniciar a API: cada linha uma vez só, e a anterior preenchida e diferente da atual. Se algo não bater, ele para com "PAROU" sem reiniciar, e a API continua com as chaves de antes: confira o `.env` à mão;
+   - não mostra as chaves: a conferência acontece dentro do `awk`, que só diz o estado.
+
+   ```bash
+   # Fase 1: a chave nova vale junto com a de hoje, que passa a ser a anterior.
+   (
+     # O estado do .env, sem mostrar as chaves: sem-anterior, com-anterior, iguais ou confira.
+     estado() { awk -F= 'function v(l){l=substr(l,index(l,"=")+1);sub(/\r$/,"",l);sub(/[ \t]+#.*/,"",l);gsub(/^[ \t]+|[ \t]+$/,"",l);return l}
+       $1=="Integracao__Chave"{n++;a=v($0)} $1=="Integracao__ChaveAnterior"{m++;p=v($0)}
+       END{print (n!=1||a==""||m>1) ? "confira" : (p=="" ? "sem-anterior" : (p==a ? "iguais" : "com-anterior"))}' .env; }
+     [ "$(estado)" = sem-anterior ] || { echo "PAROU: a troca ja comecou (rode a fase 2) ou o .env precisa de conferencia: $(estado)"; exit 1; }
+     nova=$(openssl rand -hex 24) && [ ${#nova} -eq 48 ] || { echo "PAROU: o openssl nao gerou a chave"; exit 1; }
+     cr=$(printf '\r')
+     sed -b -i -e '/^Integracao__ChaveAnterior=/d' \
+       -e "s/^Integracao__Chave=\([^$cr]*\)\($cr*\)\$/Integracao__ChaveAnterior=\1\2\nIntegracao__Chave=$nova\2/" .env
+     [ "$(estado)" = com-anterior ] || { echo "PAROU: confira o .env a mao; a API nao reiniciou: $(estado)"; exit 1; }
+     docker compose -f docker-compose.prod.yml up -d api
+   )
+   ```
+
+2. **A credencial do n8n.** O comando abaixo mostra a chave nova. Copie-a e, logo depois, limpe a tela com o `clear`; nunca tire um print dela. Se você limpar a tela antes de colar, o mesmo comando mostra a chave de novo.
+
+   ```bash
+   # Mostra uma chave do .env, para colar no n8n. Depois de copiar: clear.
+   nome=Integracao__Chave; awk -F= -v n="$nome" '$1==n{v=substr($0,index($0,"=")+1);sub(/\r$/,"",v);sub(/[ \t]+#.*/,"",v);gsub(/^[ \t]+|[ \t]+$/,"",v);print v}' .env
+   ```
+
+   Troque o valor na credencial `CRM - Chave de integração` do n8n (Header Auth, `X-Api-Key`). Os seis HTTP Request que chamam o CRM usam essa credencial: o envio do site, o do Google e o da Meta, o reenvio e os dois do relatório.
+
+   Se o "Histórico da área de transferência em seus dispositivos" estiver ativado (Configurações › Sistema › Área de Transferência), o texto copiado pode ir para a nuvem da Microsoft: desative-o antes de copiar uma chave. Depois de colar, limpe a área de transferência no seu computador, e não no SSH: a chave copiada do terminal do servidor fica na área de transferência de quem copiou. O comando abaixo, no PowerShell, limpa a área de transferência e diz se ela ficou vazia, sem mostrar o que tinha; com "AINDA TEM TEXTO", rode-o de novo. No Git Bash, rode-o dentro de `powershell -c '…'`. Com o histórico da área de transferência ligado (Win+V), apague também o item da chave: os três pontos ao lado dele › Excluir.
+
+   ```powershell
+   # Limpa a area de transferencia e diz se ficou vazia, sem mostrar o que tinha.
+   Set-Clipboard -Value $null; if (Get-Clipboard -Raw) { "AINDA TEM TEXTO: rode de novo" } else { "Vazia" }
+   ```
+
+3. **A conferência.** O log da API mostra cada uso da anterior e cada subida com a troca em andamento, com a hora em UTC e sem a chave:
+
+   ```bash
+   # As linhas da troca no log da API, só com a hora (UTC) e o aviso.
+   docker compose -f docker-compose.prod.yml logs -t --no-log-prefix api | grep -E 'Uso da Integracao__ChaveAnterior|Troca da chave em andamento' | sed -E 's/^([^ ]+) .*(Uso da Integracao__ChaveAnterior|Troca da chave em andamento).*/\1 \2/'
+   ```
+
+   Depois que algum lead entrar pelo n8n, o último "Uso da Integracao__ChaveAnterior" precisa ser de antes da troca da credencial. Sem leads, espere: até a fase 2, as duas chaves valem.
+4. **A fase 2.** O bloco esvazia a anterior e reinicia a API. Ele para com "PAROU", sem mudar nada, se o `.env` não tiver uma linha `Integracao__Chave` só, com valor. Rodado duas vezes, ele não muda o arquivo. Depois dele, a conferência do passo 3 não mostra mais o "Troca da chave em andamento", porque o `up -d` recria a API.
+
+   ```bash
+   # Fase 2: só a chave nova vale.
+   (
+     # O estado do .env, sem mostrar as chaves: sem-anterior, com-anterior, iguais ou confira.
+     estado() { awk -F= 'function v(l){l=substr(l,index(l,"=")+1);sub(/\r$/,"",l);sub(/[ \t]+#.*/,"",l);gsub(/^[ \t]+|[ \t]+$/,"",l);return l}
+       $1=="Integracao__Chave"{n++;a=v($0)} $1=="Integracao__ChaveAnterior"{m++;p=v($0)}
+       END{print (n!=1||a==""||m>1) ? "confira" : (p=="" ? "sem-anterior" : (p==a ? "iguais" : "com-anterior"))}' .env; }
+     case "$(estado)" in com-anterior|sem-anterior) ;; *) echo "PAROU: o .env precisa de conferencia: $(estado)"; exit 1 ;; esac
+     cr=$(printf '\r')
+     sed -b -i "s/^\(Integracao__ChaveAnterior=\)[^$cr]*\($cr*\)\$/\1\2/" .env
+     [ "$(estado)" = sem-anterior ] || { echo "PAROU: confira o .env a mao; a API nao reiniciou: $(estado)"; exit 1; }
+     docker compose -f docker-compose.prod.yml up -d api
+   )
+   ```
+
+- A API sobe de novo em alguns segundos, nas duas fases, e as sessões continuam.
+- Se a fase 2 vier antes da troca no n8n, as entradas recebem 401: vão para a `crm_entradas_pendentes`, com um e-mail de configuração ao admin, e o `CRM - Reenvio de pendentes` as manda depois da troca da credencial.
+- Em desenvolvimento (Git Bash, na pasta do projeto), os blocos são os mesmos, com `docker compose restart api` na última linha. O `-b` do `sed` mantém o CRLF do `.env`: sem ele, o `sed` do Git Bash tira o CR de todas as linhas. O `restart` mantém o log de antes: na conferência, use `logs -t --since 2m`. A chave vai direto para a área de transferência, sem aparecer na tela; para a chave dos eventos, `nome=N8n__WebhookChave`. No PowerShell, a `Copiar-DoEnv` de "n8n local" faz o mesmo:
+
+  ```bash
+  # Em desenvolvimento: copia uma chave do .env para a area de transferencia, sem mostra-la.
+  nome=Integracao__Chave; awk -F= -v n="$nome" '$1==n{v=substr($0,index($0,"=")+1);sub(/\r$/,"",v);sub(/[ \t]+#.*/,"",v);gsub(/^[ \t]+|[ \t]+$/,"",v);printf "%s",v}' .env | clip
+  ```
+
+**Nenhuma chave no log.** Para conferir, conte quantas vezes cada chave da integração aparece nos logs. As chaves saem do `.env` direto para a busca, por texto fixo, e só os números aparecem: todos precisam dar 0. O bloco mostra também quantas linhas leu de cada log. Se o Docker der erro, como sem permissão, ou se o log vier vazio, ele avisa que não conseguiu ler, e a contagem daquele log não vale. Em desenvolvimento, sem o `-f docker-compose.prod.yml` e com `api n8n` no lugar de `api caddy`.
 
 ```bash
-sed -i "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" .env
-docker compose -f docker-compose.prod.yml up -d api
-grep '^Integracao__Chave=' .env   # para colar no n8n
+# Quantas vezes cada chave aparece nos logs: tem que dar 0. A contagem de um log só vale com as linhas lidas.
+for servico in api caddy; do
+  linhas=$(docker compose -f docker-compose.prod.yml logs --no-log-prefix "$servico" | wc -l; exit "${PIPESTATUS[0]}") && [ "$linhas" -gt 0 ] ||
+    { echo "$servico: NAO CONSEGUI LER O LOG (sem permissao no Docker? servico sem log?): a contagem dele nao vale"; continue; }
+  echo "$servico: $linhas linhas lidas"
+  for nome in Integracao__Chave Integracao__ChaveAnterior; do
+    chave=$(awk -F= -v n="$nome" '$1==n{v=substr($0,index($0,"=")+1);sub(/\r$/,"",v);sub(/[ \t]+#.*/,"",v);gsub(/^[ \t]+|[ \t]+$/,"",v);printf "%s",v}' .env)
+    [ -n "$chave" ] || { echo "  $nome: vazia"; continue; }
+    vezes=$(docker compose -f docker-compose.prod.yml logs --no-log-prefix "$servico" | grep -cF -- "$chave"; exit "${PIPESTATUS[0]}") || vezes="NAO CONSEGUI LER O LOG"
+    echo "  $nome: $vezes"
+  done
+done; unset chave
 ```
 
-Depois, troque o valor na credencial `CRM - Chave de integração` do n8n (Header Auth, `X-Api-Key`), que os fluxos de entrada, o reenvio e o relatório usam.
+**Chave dos alertas (`N8n__WebhookChave`).** O CRM a manda no `X-Crm-Chave` para o fluxo `CRM - Alertas`. O Webhook do n8n confere uma credencial só, e por isso a troca não tem convivência: a chave nova vai primeiro para o `.env`, sem reiniciar a API, depois para a credencial, e logo em seguida a API reinicia.
 
-- A API sobe de novo em alguns segundos, e as sessões continuam.
-- Entre a troca no CRM e a troca no n8n, as entradas recebem 401: elas vão para a `crm_entradas_pendentes`, e cada fluxo de entrada manda um e-mail de configuração ao admin.
-- Por isso, troque num horário calmo e atualize o n8n logo em seguida. Depois, rode o `CRM - Reenvio de pendentes`, que manda as entradas que esperavam e apaga as linhas. Publicado, ele também roda sozinho, de hora em hora, nos dias úteis.
-- Aceitar a chave antiga e a nova durante a troca, para não haver o 401 nem os e-mails, está anotado como pendência.
+1. O bloco grava a chave nova no `.env`, em hex, e confere, dentro do `awk`, que a linha `N8n__WebhookChave` aparece uma vez só e tem a chave nova. A chave chega ao `awk` pelo ambiente, e não pela linha de comando, e nada aparece na tela. Se o `sed` não trocar nada, ele para com "PAROU": não troque a credencial. O fim da linha e as permissões ficam como estavam, e nenhuma cópia do arquivo fica para trás.
 
-**Chave dos alertas (`N8n__WebhookChave`).** O CRM a manda no `X-Crm-Chave` para o fluxo `CRM - Alertas`.
+   ```bash
+   # Chave dos eventos: a nova vai para o .env, sem reiniciar a API.
+   (
+     [ "$(grep -c '^N8n__WebhookChave=' .env)" = 1 ] || { echo "PAROU: o .env precisa ter uma linha N8n__WebhookChave so"; exit 1; }
+     nova=$(openssl rand -hex 24) && [ ${#nova} -eq 48 ] || { echo "PAROU: o openssl nao gerou a chave"; exit 1; }
+     cr=$(printf '\r')
+     sed -b -i "s/^N8n__WebhookChave=[^$cr]*\($cr*\)\$/N8n__WebhookChave=$nova\1/" .env
+     [ "$(NOVA=$nova awk -F= '$1=="N8n__WebhookChave"{n++;v=substr($0,index($0,"=")+1);sub(/\r$/,"",v)} END{print (n==1&&v==ENVIRON["NOVA"]) ? "ok" : "confira"}' .env)" = ok ] || { echo "PAROU: a chave nova nao entrou no .env; confira a mao e nao troque a credencial"; exit 1; }
+     echo "A chave nova esta no .env. Troque a credencial do n8n e reinicie a API logo depois."
+   )
+   ```
 
-```bash
-sed -i "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$(openssl rand -hex 24)/" .env
-docker compose -f docker-compose.prod.yml up -d api
-grep '^N8n__WebhookChave=' .env   # para colar no n8n
-```
+2. Mostre a chave pelo comando do passo 2 da integração, com `nome=N8n__WebhookChave`, e troque o valor na credencial `CRM - Chave dos eventos` do n8n, a do Webhook do `CRM - Alertas`. Depois, limpe a tela e a área de transferência, como na integração.
+3. Logo em seguida, reinicie a API: `docker compose -f docker-compose.prod.yml up -d api`.
 
-Depois, troque o valor na credencial `CRM - Chave dos eventos` do n8n, a do Webhook do `CRM - Alertas`.
+- Entre a troca da credencial e o `up -d`, o n8n recusa os eventos com 401 ou 403. O CRM os guarda no banco e tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h, também depois de reiniciar: um evento recusado nesse intervalo sai na tentativa seguinte.
+- Nada se perde se a API reiniciar em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
 
-- Até lá, o n8n recusa os eventos, que ficam pendentes no CRM e são reenviados depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h.
-- Nada se perde se o n8n for atualizado em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
+**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no `googleKeySha256` do nó "Configuração". Durante a troca, o fluxo aceita também o `googleKeySha256Anterior`, vazio fora dela:
 
-**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no nó "Configuração". Para trocá-la, gere uma nova com o comando do passo 5 de "n8n Cloud: importar os fluxos", troque o `googleKeySha256` e passe a chave nova à Gama. Entre as duas trocas, os leads do Google recebem 403 e não ficam no n8n, que só conta as tentativas (`google_chave_errada`, na `crm_entradas_recusadas`). Traga os que faltarem pela Importação, com o CSV de leads do Google Ads.
+1. Gere a chave nova pelo passo 5 de "n8n Cloud: importar os fluxos".
+2. No "Configuração" do `CRM - Entrada Google`, passe o hash de hoje para o `googleKeySha256Anterior`, ponha o novo no `googleKeySha256` e publique o fluxo. As duas chaves valem.
+3. A Gama cola a chave nova no formulário do Google Ads. Depois, limpe a área de transferência.
+4. Esvazie o `googleKeySha256Anterior`, publique o fluxo de novo e peça à Gama um "Enviar dados de teste".
+   - Se o teste falhar, o Google Ads ainda manda a chave antiga: ponha o hash antigo de volta no `googleKeySha256Anterior` e publique o fluxo de novo.
+   - Depois que a Gama corrigir a chave no Google Ads, repita este passo.
+
+Uma chave errada recebe 403 e só conta na `crm_entradas_recusadas` (`google_chave_errada`), sem nada do envio, e o resumo diário mostra a contagem.
+
+**Uma chave que vazou.** A troca vai sem convivência, para a chave vazada parar de valer na hora:
+
+- **Integração:** rode a fase 1 e, logo em seguida, a fase 2, antes de trocar a credencial no n8n. Até a troca da credencial, as entradas recebem 401 e vão para a `crm_entradas_pendentes`, com um e-mail de configuração ao admin. Depois da troca, rode o `CRM - Reenvio de pendentes`, que as manda e apaga as linhas.
+- **Google:** ponha o hash novo direto no `googleKeySha256`, sem passar pela anterior, e publique o fluxo. Até a Gama colar a chave nova, os leads do Google recebem 403 e não ficam no n8n. Traga os que faltarem pela Importação, com o CSV de leads do Google Ads:
+  - em "Origem", escolha Google Ads, e em "Coluna de id externo", a do id do lead. Assim, um lead que já entrou pelo webhook dá "já recebido" e não muda;
+  - com outra origem, como a Planilha, quem já entrou é vinculado pelo e-mail ou pelo telefone: não nasce um lead novo, mas o lead ganha uma entrada a mais, e um lead perdido volta para a etapa inicial.
+- **Alertas:** o roteiro de cima já é sem convivência.
 
 **Senha do banco (`POSTGRES_PASSWORD`).** O PostgreSQL grava a senha quando o volume é criado: trocar só o `.env` deixa a API sem acesso ao banco. Troque no banco e no `.env`, nessa ordem:
 
