@@ -15,10 +15,16 @@ public class AutorizacaoTests(CrmApiFactory fabrica)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>Os endpoints dos controllers, do hub e o /health.</summary>
+    private IEnumerable<RouteEndpoint> TodosOsEndpoints() =>
+        fabrica.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>();
+
     private IEnumerable<RouteEndpoint> EndpointsDosControllers() =>
-        fabrica.Services.GetRequiredService<EndpointDataSource>().Endpoints
-            .OfType<RouteEndpoint>()
-            .Where(e => e.Metadata.GetMetadata<ControllerActionDescriptor>() is not null);
+        TodosOsEndpoints().Where(e => e.Metadata.GetMetadata<ControllerActionDescriptor>() is not null);
+
+    /// <summary>Os métodos e o caminho, como "GET /api/leads/{id:long}". Sem métodos declarados, "*".</summary>
+    private static string Descrever(RouteEndpoint endpoint) =>
+        $"{string.Join(",", endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? ["*"])} /{endpoint.RoutePattern.RawText?.TrimStart('/')}";
 
     /// <summary>As rotas que passam no filtro, inclusive as que os próximos passos criarem.</summary>
     private List<(string Metodo, string Caminho)> Rotas(Func<RouteEndpoint, bool> filtro) =>
@@ -126,12 +132,16 @@ public class AutorizacaoTests(CrmApiFactory fabrica)
         }
     }
 
+    /// <summary>
+    /// Todo endpoint, dos controllers, do hub e o /health, declara a autorização: uma política, o [Authorize] ou o anônimo. Sem
+    /// política de fallback, um endpoint sem declaração nenhuma ficaria aberto sem ninguém ter decidido.
+    /// </summary>
     [Fact]
-    public void Todo_endpoint_de_controller_declara_a_autorizacao()
+    public void Todo_endpoint_declara_a_autorizacao()
     {
-        var semDeclaracao = EndpointsDosControllers()
+        var semDeclaracao = TodosOsEndpoints()
             .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is null && !e.Metadata.GetOrderedMetadata<IAuthorizeData>().Any())
-            .Select(e => e.DisplayName)
+            .Select(Descrever)
             .ToList();
 
         Assert.NotEmpty(EndpointsDosControllers());
@@ -139,12 +149,58 @@ public class AutorizacaoTests(CrmApiFactory fabrica)
     }
 
     [Fact]
-    public void So_o_login_e_anonimo()
+    public void So_o_login_e_o_health_sao_anonimos()
     {
-        var anonimos = EndpointsDosControllers()
+        var anonimos = TodosOsEndpoints()
             .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is not null)
-            .Select(e => $"{e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Single()} /{e.RoutePattern.RawText}");
+            .Select(Descrever)
+            .Order(StringComparer.Ordinal);
 
-        Assert.Equal(["POST /api/auth/login"], anonimos);
+        Assert.Equal(["* /health", "POST /api/auth/login"], anonimos);
+    }
+
+    /// <summary>
+    /// As rotas que a atendente alcança: tudo o que não é só do admin, só da integração ou anônimo. Uma rota nova só com o
+    /// [Authorize] derruba este teste até alguém decidir: ou ela ganha a política de admin, ou entra na lista, com o teste de que a
+    /// atendente recebe 404 no lead de outra pessoa (regra que não pode quebrar).
+    /// </summary>
+    [Fact]
+    public void As_rotas_que_a_atendente_alcanca_sao_as_da_lista()
+    {
+        string[] daAtendente =
+        [
+            // Sem lead: a sessão e os cadastros que o funil e a ficha leem.
+            "GET /api/auth/eu",
+            "POST /api/auth/logout",
+            "POST /api/auth/trocar-senha",
+            "GET /api/campanhas",
+            "GET /api/etapas",
+            "GET /api/motivos-perda",
+
+            // Com lead: o lead de outra pessoa dá 404 ou fica de fora (LeadsVisibilidadeTests, LeadsTests e TempoRealTests).
+            "GET /api/funil",
+            "GET /api/leads",
+            "POST /api/leads",
+            "GET /api/leads/{id:long}",
+            "PUT /api/leads/{id:long}",
+            "POST /api/leads/{id:long}/etapa",
+            "POST /api/leads/{id:long}/interacoes",
+            "GET /api/leads/{id:long}/linha-do-tempo",
+            "GET /api/notificacoes",
+            "POST /api/notificacoes/lidas",
+            "POST /api/notificacoes/{id:long}/lida",
+            "GET /api/painel",
+            "* /hubs/notificacoes",
+            "* /hubs/notificacoes/negotiate",
+        ];
+
+        var alcancadas = TodosOsEndpoints()
+            .Where(e => e.Metadata.GetMetadata<IAllowAnonymous>() is null
+                && !TemPolitica(e, Politicas.Admin)
+                && !TemPolitica(e, Politicas.Integracao))
+            .Select(Descrever)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(daAtendente.Order(StringComparer.Ordinal), alcancadas);
     }
 }
