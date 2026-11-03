@@ -21,7 +21,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - funil: mudança de etapa, motivo obrigatório em Perdido e recusa de Ganho sem CPF/CNPJ, com o botão "Abrir a ficha";
   - lead cadastrado à mão fica "Ainda sem contato" até a primeira interação;
   - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
-- O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
+- O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial`, `Integracao__Chave` e, desde 03/11/2026, a linha `Integracao__ChaveAnterior`, vazia fora da troca da chave.
 - O n8n Cloud de teste (`matheusbordinhao.app.n8n.cloud`) acabou em 06/10/2026. A produção vai ser o n8n Cloud, numa conta da empresa, quando o pagamento sair (decidido em 14/10/2026).
 - Desde 14/10/2026, o n8n de desenvolvimento é um n8n Community 2.43.5 no `docker-compose.yml` (serviço `n8n`, README › n8n local):
   - a interface fica em `http://localhost:5679`, porque a 5678 é de outro n8n desta máquina, um projeto do Compose no WSL (`/home/mathe/n8n`) que não é do CRM e não deve ser mexido;
@@ -29,7 +29,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - o `.env` tem `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`: com a API no ar, cada evento vira um e-mail de verdade;
   - as credenciais são `CRM - Chave de integração` (`X-Api-Key`), `CRM - Chave dos eventos` (`X-Crm-Chave`) e `CRM - E-mail` (SMTP do `testecrmfs@gmail.com`, uma conta só para os testes, com senha de app);
   - as Data Tables são a `crm_entradas_pendentes`, a fila do reenvio, a `crm_entradas_recusadas`, com as entradas recusadas, por 7 dias, e a `crm_envios_site`, com a hora de cada envio do site, por 31 dias;
-  - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo.
+  - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo. Ela foi trocada em 03/11/2026, no ensaio do Lote 3.
 - Fluxos no n8n local:
 
   | Fluxo | Id | Situação |
@@ -185,7 +185,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a auditoria registra os logins (inclusive o recusado), a criação, a exclusão, as exportações e a anonimização, com quem fez e a hora, sem dados pessoais. A exportação com busca grava "1 lead, busca", sem o termo buscado;
   - logada como Adriana: sem Auditoria no menu, sem Exportar CSV e sem o cartão Privacidade. O `/auditoria` volta para o funil, e o `/api/leads/exportacao` responde 403;
   - o `preparar-demonstracao` pelo contêiner gravou 60 leads, 11 ganhos e 8 perdidos. A sessão continuou valendo, e as telas se atualizaram sozinhas: com o `start api`, o tempo real reconecta, e o front recarrega tudo.
-- Em 12/10/2026, a consulta da auditoria ganhou um teste próprio do 403 da atendente, mesmo filtrando pelos registros dela (`AuditoriaTests`). As outras quatro rotas do Passo 10 já tinham o dele, com um lead da própria atendente: a exportação CSV (`ExportacaoLeadsTests`), os dados do titular e a exclusão (`LgpdTests`) e a anonimização (`AnonimizacaoTests`). O `AutorizacaoTests` cobre todas as rotas de admin, mas só as que têm a política: uma rota nova sem o atributo sairia da lista sem o teste falhar.
+- Em 12/10/2026, a consulta da auditoria ganhou um teste próprio do 403 da atendente, mesmo filtrando pelos registros dela (`AuditoriaTests`). As outras quatro rotas do Passo 10 já tinham o dele, com um lead da própria atendente: a exportação CSV (`ExportacaoLeadsTests`), os dados do titular e a exclusão (`LgpdTests`) e a anonimização (`AnonimizacaoTests`). O `AutorizacaoTests` cobre todas as rotas de admin. Desde o Lote 3, ele também tem a lista das rotas que a atendente alcança: uma rota nova sem a política de admin derruba o teste até alguém decidir.
 - Do Passo 10, fica pendente a conferência das configurações de execução no n8n de produção. Desde o Lote 2A, nenhum fluxo salva execução, e os JSONs levam as quatro configurações. Lá:
   - conferir que elas valem depois de importar os fluxos;
   - apontar o fluxo de erro de cada fluxo para o id novo do `CRM - Erros`;
@@ -230,7 +230,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - no Lote 4A, o aviso "Avisos do navegador", que no celular fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
-  - no Lote 3, aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
+  - no Lote 4A, o teste "a tela inicial do admin é o painel, o primeiro item do menu" (`painel.test.tsx`). Em 03/11/2026, com a CPU entre 56 e 83%, o título "Painel" não apareceu a tempo, e o teste falhou em 2,1 s; na rodada seguinte, com a máquina mais livre, passou. Medir onde vai o tempo e ver se ele precisa de mais espera, porque a máquina do CI é mais fraca;
   - no Lote 4A, o PR #2 do Dependabot (Caddy 2.11.7 e n8n 2.43.7):
     - ele não tem nenhuma rodada do CI, porque foi aberto antes de os workflows existirem na `master`. Antes da avaliação, um `@dependabot rebase` faz o CI rodar nele;
     - como ele sobe o n8n, o volume `crm-leads_dados-n8n` é copiado e conferido antes, pelo roteiro do README (Versões fixadas › O n8n numa versão nova);
@@ -462,7 +462,32 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 816, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 6,1 s depois;
   - validado por mim: os 5 e-mails de teste (o da falha do limite, o do limite pelo dia, no primeiro reteste, e os três do Resumo), nenhum outro, e o do lead 816 no celular. Apaguei as 9 execuções salvas na investigação;
   - depois, o Claude conferiu o n8n (os 8 fluxos iguais aos JSONs, os 4 publicados e as 3 credenciais), contou as marcas de novo (nenhuma fora das execuções apagadas, que a limpeza do n8n tira) e apagou a cópia `crm-dados-n8n-copia`;
-  - os 2 e-mails dos retestes (o da hora e o do dia), a recontagem depois da limpeza, o push e o CI entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 3:
+    - validado por mim: os 2 e-mails dos retestes do aviso chegaram, e nenhum outro: às 09:39, pela hora ("2 envios na última hora (limite 1)"), e às 09:40, pelo dia ("5 nas últimas 24 horas (limite 4)");
+    - no push de `5221aa4..d9ab3fa`, o `Testes` #11 ficou verde em 5 min 45 s, no `d9ab3fa`. O `Imagem de produção` não rodou, porque nenhum arquivo dele mudou;
+    - a recontagem das marcas dos exemplos depois da limpeza das execuções apagadas: às 13:16 UTC, ainda havia 6 execuções apagadas no banco, 5 delas com a marca de um exemplo (as dos retestes), e nenhuma marca nas Data Tables, nas definições, nos logs de eventos, no log do contêiner nem em execução salva. Às 13:52 UTC (10:52 em Brasília), depois da limpeza do n8n, a recontagem deu zero.
+- Lote 3 (troca de chaves sem parar), feito em 03/11/2026:
+  - antes de mexer no n8n, em 27/10/2026, a cópia do volume no `crm-dados-n8n-copia`, pelo roteiro do README, com "OK". Em 03/11, os 8 fluxos ainda batiam com os JSONs, e a cópia continuava valendo;
+  - os commits:
+    - `38850a5`: o `Integracao__ChaveAnterior`. O CRM compara a chave recebida sempre com a atual e com a anterior, em tempo constante; sem a anterior, ausente ou vazia, a segunda comparação repete a atual e não conta. Cada uso da anterior e cada subida com ela preenchida vão para o log, sem a chave ("Uso da Integracao__ChaveAnterior" e "Troca da chave em andamento"), e a subida recusa a anterior curta, sem a atual ou igual a ela. O `ChaveIntegracaoTests` passa pelas três rotas da integração com o cabeçalho ausente, vazio, repetido e errado, com e sem a anterior, e o `LogDoCaddyTests` ganhou o `x-api-key` em minúsculas;
+    - `b3ca8b7`: o `DespachanteEventosTests` com o 401 e o 403 do n8n, que esperam a tentativa seguinte, sem a chave no log;
+    - `77fb4b9`: o `googleKeySha256Anterior` no `CRM - Entrada Google`, vazio fora da troca. A "A chave confere?" compara com o `googleKeySha256` ou com o `googleKeySha256Anterior || googleKeySha256`. O `FluxosN8nTests` confere essa forma e a lista dos 6 HTTP Request que chamam o CRM, todos com a `CRM - Chave de integração`;
+    - `8eb647b`: os testes de rota passam a olhar todos os endpoints, com o hub e o `/health`, que ganhou o `AllowAnonymous`, e a lista das 20 rotas que a atendente alcança. Quebrado de propósito: sem a política de admin na exportação de leads, só o teste novo falhou; sem o `AllowAnonymous` no `/health`, os 3 que olham todos os endpoints;
+    - `4f16d16`: o README › Trocar chaves e senhas: a integração em duas fases, a dos eventos conferida contra a chave nova, a do Google em quatro etapas e a chave que vazou;
+  - o teste dos blocos do README, num `.env` de mentira, com o `docker` trocado por um falso: 223 de 223 no Git Bash e 206 de 206 no Ubuntu 24.04 da imagem do SDK, com o `mawk`, o GNU sed 4.9 e o `.env` em 600. Ele achou o CR que o `sed` do Git Bash tira, o `clip < /dev/null`, que não limpa, e, pelo meu ponto, a conferência dos eventos que só olhava o formato (Armadilhas conhecidas);
+  - o ensaio em desenvolvimento, com as chaves de verdade e os comandos com chave rodados por mim:
+    - a integração: a fase 1 duas vezes (a segunda deu PAROU); o `site.json` entrou com a chave antiga, com um "Uso da"; depois da troca da credencial, entrou sem aviso; a contagem das chaves deu 0 nos logs da `api` (387 linhas) e do `n8n` (2.918); depois da fase 2, nenhuma linha da troca. A chave errada, a vazia e a ausente deram 401 nas três rotas antes, durante e depois da troca, e nada foi para as pendentes nem para as recusadas;
+    - o Google, com uma chave de desenvolvimento nova: durante a troca, a antiga e a nova deram 200; depois, só a nova. A errada, a vazia e o envio sem o campo deram 403 nas duas rodadas;
+    - os eventos: com a chave trocada só no n8n, o `lead.entrada_repetida` ficou pendente, com `HTTP 403`; depois do `restart`, saiu na tentativa seguinte;
+  - fora da lista aprovada: um POST com `{}` ao webhook do Google, para conferir a publicação, deu 403 e gravou uma linha `google_chave_errada` a mais. Apaguei as 7 linhas de teste. Desde então, qualquer envio, execução ou publicação fora da lista só com o meu ok antes (Como trabalhar);
+  - conferido pelo Claude:
+    - a suíte .NET, no contêiner, com 817 de 817, e a formatação. A do commit 1 levou 11 min, com a CPU tomada pelo Chrome; a do fim, 2 min 30 s;
+    - a do front, no `front.sh completo`, com 260 de 260, na segunda rodada. A primeira, com a CPU entre 56 e 83%, falhou por tempo num teste (pendência do Lote 4A);
+    - os 8 fluxos iguais aos JSONs. A varredura, só contando, não achou execução no banco nem marca nos logs de eventos e no do contêiner: as marcas só estão nas definições e no histórico dos fluxos;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 878, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 4,2 s depois;
+  - validado por mim: os 5 e-mails do lote, todos para a Adriana (09:45, 10:27 e 10:39 do ensaio da integração, 12:10 do dos eventos e 12:15 da demonstração), e nenhum de configuração nem do `CRM - Erros`;
+  - depois, o Claude conferiu o n8n (os 8 fluxos, os 4 publicados e as 3 credenciais) e apagou a cópia `crm-dados-n8n-copia`;
+  - o push e o CI entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -723,6 +748,17 @@ docker compose up -d n8n                                 # n8n local em http://l
 - No modo do Microsoft.Testing.Platform, o `dotnet test` cria a pasta dos resultados (`TestResults`) na pasta de trabalho. No contêiner dos testes, ela é o `/src`, só para leitura, e o `docker-compose.testes.yml` manda os resultados para o volume (`--results-directory /artefatos/TestResults`). Sem isso, num checkout limpo, como o do CI, a suíte falha antes de rodar, com o código 134.
   - Aqui, a pasta do projeto tinha uma `TestResults` vazia desde 28/09/2026, que o `.gitignore` escondia, e o erro não aparecia. Ela foi apagada em 20/10/2026. Se voltar, como depois de um `dotnet test` no Windows, o erro volta a ficar escondido aqui.
   - Uma mudança no contêiner dos testes ou no CI se confere num clone limpo, numa pasta temporária, com um projeto do Compose descartável (`-p`), que tem volumes novos, como o runner. No fim, o `down -v` desse projeto e o clone apagado.
+- Uma chave vazia tem o mesmo SHA-256 de um cabeçalho vazio. Uma chave que pode estar vazia nunca entra numa comparação:
+  - no CRM, sem a `Integracao__ChaveAnterior`, a segunda comparação repete a atual e não conta (`ChaveIntegracaoHandler`);
+  - no `CRM - Entrada Google`, a segunda condição compara com o `googleKeySha256Anterior || googleKeySha256`;
+  - a anterior chega ausente em desenvolvimento, porque o `ArquivoEnv` ignora o valor vazio, e vazia no Compose de produção. Os testes cobrem os dois casos.
+- No Git Bash, o `sed -i` abre o arquivo em modo texto e tira o CR de todas as linhas, mesmo das que ele não muda: use o `sed -b`, que no Linux é aceito sem efeito. O `grep` do Git Bash também tira o CR ao ler um arquivo de texto: para achar um CR, use o `grep -U`.
+- O `clip < /dev/null` não limpa a área de transferência: com a entrada vazia, ele só mostra a ajuda. O `Set-Clipboard -Value $null` limpa. Como ele não limpou uma vez, em 13 seguidas no teste dos blocos, o comando do README diz se a área de transferência ficou vazia, sem mostrar o que tinha.
+- Uma conferência depois de um `sed` compara com o valor que ele devia gravar, e não só com o formato: no bloco dos eventos, com o `sed` sem trocar nada e a chave de hoje em 48 caracteres hex, a conferência do formato dizia que deu certo. O valor chega ao `awk` pelo ambiente (`ENVIRON`), e não pela linha de comando, que aparece no `ps`.
+- O JSON que o CLI do n8n exporta vem minificado, e o Prettier mantém aberto todo objeto que chega aberto. Ao deixar só `id`, `name`, `nodes`, `connections` e `settings`, grave o JSON minificado (`JSON.stringify(objeto)`) e só então formate: com o `JSON.stringify(objeto, null, 2)`, o diff do fluxo do Google teve 262 linhas, e não 17.
+- O PowerShell 5.1 lê um `.ps1` sem BOM como Windows-1252, e um caractere de fora do ASCII pode virar aspas curvas, que ele aceita como aspas. Os scripts `.ps1` ficam só com ASCII.
+- Um arquivo que o `docker compose cp` põe no contêiner do n8n fica do root, e o `docker compose exec` roda como `node`. Para apagá-lo, use o `docker compose exec -u root n8n rm -f <arquivo>`.
+- O `docker compose restart` do Compose 5 pode terminar mostrando só o "Restarting", sem o "Started". Confira com o `docker compose ps` e o `/health`.
 
 ## n8n
 
@@ -757,10 +793,11 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 5B: os alertas do npm de 26/10/2026 (o `zod`, o `undici` e o `@vitest/mocker`), logo depois do push do 2A, feito em 26/10/2026;
   - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy, feito em 26/10/2026;
   - 2B: n8n (o limite do site), feito em 27/10/2026;
-  - 3: troca de chaves sem parar;
+  - 3: troca de chaves sem parar, feito em 03/11/2026;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
+  - Desde 03/11/2026, qualquer envio (um webhook, um `site.json` a mais), execução de fluxo ou publicação fora da lista aprovada do lote só com o meu ok antes, mesmo que seja só para conferir. Para conferir sem enviar nada, use o export pelo CLI, o `/healthz`, o `docker compose ps` e as contagens.
 - Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.
@@ -769,5 +806,6 @@ docker compose up -d n8n                                 # n8n local em http://l
 - A suíte do .NET (pelo contêiner) e a do front rodam uma depois da outra, nunca ao mesmo tempo, nem uma em segundo plano enquanto a outra roda.
   - Juntas, elas deixam a máquina lenta, e os testes do front estouram o tempo de espera de 1 segundo do `findBy` e do `waitFor`, falhando até em telas que não mudaram.
   - Em 08/10/2026, rodando junto com a do .NET, a suíte do front teve 5 falhas, com arquivos levando até 34 s; sozinha, passou inteira.
+  - Antes de qualquer uma das duas, confira a carga da CPU. Acima do normal, avise antes de rodar, em vez de rodar e repetir (desde 03/11/2026).
 - Se algo mudar uma regra, atualize `docs/especificacao.md` no mesmo commit.
 - As decisões em aberto da seção 11 têm um padrão definido. Implemente o padrão e deixe configurável quando a especificação pedir.
