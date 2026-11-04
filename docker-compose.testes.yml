@@ -1,14 +1,16 @@
 # Os testes .NET (unitários e de integração) num contêiner Linux. Serve quando o Windows não deixa rodar o build, como
 # com o Controle Inteligente de Aplicativos, que bloqueia o Testcontainers.dll (veja o README › Testes e qualidade).
 #   docker compose -f docker-compose.testes.yml run --rm testes
-# O código entra só para leitura: o build fica no volume "artefatos", e os pacotes, no "nuget".
+# O código entra só para leitura: o build e os resultados dos testes ficam no volume "artefatos", e os pacotes, no
+# "nuget". Sem o --results-directory, o dotnet test cria a pasta TestResults no /src e falha num checkout limpo, como o
+# do CI (README › CI no GitHub Actions).
 name: crm-testes
 
 services:
   testes:
-    image: mcr.microsoft.com/dotnet/sdk:10.0.402
+    image: mcr.microsoft.com/dotnet/sdk:10.0.403
     working_dir: /src
-    entrypoint: ["dotnet", "test", "--artifacts-path", "/artefatos"]
+    entrypoint: ["dotnet", "test", "--artifacts-path", "/artefatos", "--results-directory", "/artefatos/TestResults"]
     environment:
       # O Testcontainers sobe o PostgreSQL pelo Docker do computador (o socket abaixo). De dentro deste contêiner, as
       # portas que ele publica ficam no host.

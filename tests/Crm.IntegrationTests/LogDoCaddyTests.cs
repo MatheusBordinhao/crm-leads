@@ -18,8 +18,14 @@ public class LogDoCaddyTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    [Fact]
-    public async Task O_502_com_a_API_fora_do_ar_vai_para_o_log_sem_a_query_string_o_Referer_e_o_X_Api_Key()
+    /// <summary>
+    /// O X-Api-Key também em minúsculas, como chega pelo HTTP/2 e de alguns clientes: o Caddy, em Go, põe o nome na forma
+    /// canônica antes do filtro do log.
+    /// </summary>
+    [Theory]
+    [InlineData("X-Api-Key")]
+    [InlineData("x-api-key")]
+    public async Task O_502_com_a_API_fora_do_ar_vai_para_o_log_sem_a_query_string_o_Referer_e_o_X_Api_Key(string nomeDaChave)
     {
         var caddyfile = await File.ReadAllBytesAsync(Path.Combine(Repositorio.Raiz, "deploy", "Caddyfile"), Ct);
         await using var rede = new NetworkBuilder().Build();
@@ -43,7 +49,7 @@ public class LogDoCaddyTests
         };
         using var requisicao = new HttpRequestMessage(HttpMethod.Get, "/api/leads/42?busca=maria.sigilosa%40example.com&pagina=2");
         requisicao.Headers.Referrer = new Uri("https://crm.example.com/leads?busca=referer.sigiloso%40example.com");
-        requisicao.Headers.Add("X-Api-Key", "chave-sigilosa-da-integracao");
+        requisicao.Headers.Add(nomeDaChave, "chave-sigilosa-da-integracao");
         requisicao.Headers.Add("Cookie", ".AspNetCore.Identity.Application=cookie-sigiloso");
         requisicao.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "token-sigiloso");
 

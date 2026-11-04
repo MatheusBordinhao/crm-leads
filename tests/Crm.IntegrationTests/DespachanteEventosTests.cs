@@ -62,11 +62,19 @@ public class DespachanteEventosTests(CrmApiFactory fabrica)
         Assert.Equal(0, await api.DespacharAsync());
     }
 
-    [Fact]
-    public async Task Falha_deixa_o_evento_pendente_para_tentar_de_novo_em_1_minuto()
+    /// <summary>
+    /// O 401 e o 403 são os da chave dos eventos trocada no n8n antes da API (README › Trocar chaves e senhas): o evento
+    /// espera no banco e sai na tentativa seguinte, e a chave não vai para o log.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    public async Task Falha_deixa_o_evento_pendente_para_tentar_de_novo_em_1_minuto(HttpStatusCode status)
     {
-        var n8n = new N8nFalso { Status = HttpStatusCode.ServiceUnavailable };
-        await using var api = await CriarApiAsync(n8n);
+        var captura = new CapturaDeLogs();
+        var n8n = new N8nFalso { Status = status };
+        await using var api = await CriarApiAsync(n8n, logs: captura);
         var evento = await api.CriarEventoAsync();
         var inicio = api.Relogio.GetUtcNow();
 
@@ -80,10 +88,13 @@ public class DespachanteEventosTests(CrmApiFactory fabrica)
         Assert.Equal(SituacaoEvento.Pendente, depois.Situacao);
         Assert.Equal(1, depois.Tentativas);
         Assert.Equal(inicio + TimeSpan.FromMinutes(1), depois.ProximaTentativaEm);
-        Assert.Equal("HTTP 503", depois.UltimoErro);
+        Assert.Equal($"HTTP {(int)status}", depois.UltimoErro);
         Assert.Equal(0, antesDoMinuto);
         Assert.Equal(1, noMinuto);
         Assert.Equal(2, (await api.EventoAsync(evento.Id)).Tentativas);
+        var registros = captura.Registros.ToList();
+        Assert.Contains(registros, r => r.StartsWith("Trace ", StringComparison.Ordinal));
+        Assert.DoesNotContain(registros, r => r.Contains(ChaveDoN8n, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

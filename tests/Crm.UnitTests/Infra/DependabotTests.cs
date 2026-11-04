@@ -4,8 +4,9 @@ namespace Crm.UnitTests.Infra;
 
 /// <summary>
 /// O Dependabot avisa quando sai uma versão nova do que tem versão fixa (README › Versões fixadas): um PR por mês para as
-/// imagens, com o Dockerfile e os Compose juntos, e um para os pacotes do NuGet. O npm fica de fora, por causa do
-/// Controle Inteligente de Aplicativos do Windows, e a versão principal é uma decisão nossa.
+/// imagens, com o Dockerfile e os Compose juntos, um para os pacotes do NuGet e um para as ações dos workflows. O npm fica
+/// de fora, por causa do Controle Inteligente de Aplicativos do Windows. A versão principal é uma decisão nossa, menos nas
+/// ações: nelas, ficar numa versão principal antiga acaba em aviso de descontinuação do GitHub.
 /// </summary>
 public class DependabotTests
 {
@@ -33,12 +34,28 @@ public class DependabotTests
     }
 
     [Fact]
-    public void O_npm_e_as_versoes_principais_ficam_de_fora()
+    public void As_acoes_dos_workflows_saem_num_PR_por_mes()
+    {
+        var acoes = Entradas()["github-actions"];
+
+        Assert.Contains("interval: monthly", acoes);
+        Assert.Contains("groups:", acoes);
+    }
+
+    [Fact]
+    public void O_npm_fica_de_fora()
+    {
+        Assert.Equal(["docker", "docker-compose", "github-actions", "nuget"], Entradas().Keys.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void A_versao_principal_fica_de_fora_menos_nas_acoes()
     {
         var entradas = Entradas();
+        string[] semAVersaoPrincipal = ["docker", "docker-compose", "nuget"];
 
-        Assert.Equal(["docker", "docker-compose", "nuget"], entradas.Keys.Order(StringComparer.Ordinal));
-        Assert.All(entradas.Values, entrada => Assert.Contains("version-update:semver-major", entrada));
+        Assert.All(semAVersaoPrincipal, ecossistema => Assert.Contains("version-update:semver-major", entradas[ecossistema]));
+        Assert.DoesNotContain("version-update:semver-major", entradas["github-actions"]);
     }
 
     /// <summary>O texto de cada entrada de <c>updates</c>, pelo ecossistema.</summary>

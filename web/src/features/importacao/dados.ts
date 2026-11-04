@@ -5,9 +5,7 @@ import {
   type AnalisarImportacaoRequest,
   type CriarImportacaoRequest,
 } from '@/api/cliente'
-
-/** De quanto em quanto tempo a tela consulta o andamento de uma importação que ainda processa. */
-export const INTERVALO_ANDAMENTO = 1000
+import { INTERVALO_ANDAMENTO } from './andamento'
 
 /** Lê o arquivo e devolve a prévia e a sugestão de mapeamento. A API não grava nada. */
 export function useAnalisarArquivo() {

@@ -1,0 +1,19 @@
+{
+  "lead_id": "TeStLeAd-0002-SemNome",
+  "api_version": "1.0",
+  "form_id": 40000000001,
+  "campaign_id": 20000000001,
+  "adgroup_id": 30000000001,
+  "creative_id": 50000000001,
+  "gcl_id": "TeSt-gclid-0002",
+  "google_key": "CHAVE_DO_GOOGLE",
+  "is_test": true,
+  "user_column_data": [
+    {
+      "column_name": "User Email",
+      "string_value": "google.sem.nome@example.com",
+      "column_id": "EMAIL"
+    },
+    { "column_name": "Region", "string_value": "Rio Grande do Sul", "column_id": "REGION" }
+  ]
+}

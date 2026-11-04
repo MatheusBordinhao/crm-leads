@@ -39,3 +39,13 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+
+  # As ações dos workflows, fixadas pelo commit (SHA), num PR por mês. Aqui a versão principal entra: nas ações, ficar
+  # parado numa versão principal antiga acaba em aviso de descontinuação do GitHub, e o próprio CI testa o PR.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      acoes:
+        patterns: ["*"]

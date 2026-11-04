@@ -23,7 +23,20 @@
         "includeOtherFields": false,
         "assignments": {
           "assignments": [
-            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" }
+            { "id": "url-crm", "name": "urlCrm", "value": "http://api:5080", "type": "string" },
+            { "id": "linhas-por-rodada", "name": "linhasPorRodada", "value": 20, "type": "number" },
+            {
+              "id": "email-admin",
+              "name": "emailAdmin",
+              "value": "matheusbordinhao11@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "remetente",
+              "name": "remetente",
+              "value": "testecrmfs@gmail.com",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -39,10 +52,7 @@
         "resource": "row",
         "operation": "get",
         "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
-        "returnAll": true,
-        "orderBy": true,
-        "orderByColumn": "createdAt",
-        "orderByDirection": "ASC"
+        "returnAll": true
       }
     },
     {
@@ -50,7 +60,7 @@
       "name": "Reenviar ao CRM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [672, 80],
+      "position": [896, 80],
       "parameters": {
         "method": "POST",
         "url": "={{ $(\"Configuração\").first().json.urlCrm }}/api/integracoes/leads",
@@ -75,11 +85,11 @@
       "name": "Classificar a falha",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [896, 240],
+      "position": [1120, 240],
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
-        "jsCode": "// Classifica a falha do reenvio (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst codigo = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\n\nlet ultimoErro;\nif (/^[0-9]{3}$/.test(codigo)) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Um 4xx que não é 408 nem 429 é definitivo: a linha fica na tabela, e o admin precisa olhar.\nconst definitiva = /^4[0-9]{2}$/.test(codigo) && codigo !== '408' && codigo !== '429';\nconst linha = $('Buscar os pendentes').item.json;\nreturn { json: { id: linha.id, tentativas: (Number(linha.tentativas) || 0) + 1, ultimoErro: ultimoErro, definitiva: definitiva } };"
+        "jsCode": "// Classifica a falha do reenvio (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\n// A regra do destino é a mesma nos fluxos de entrada e no reenvio, e o FluxosN8nTests confere que o texto dela é igual nos quatro.\nfunction destinoDaFalha(codigo) {\n  // A recusa da própria entrada: tentar de novo não resolve, e ela vai para as recusadas.\n  if (codigo === '400' || codigo === '413') return 'recusada';\n  // O CRM fora do ar, lento ou no limite de requisições: o reenvio tenta de novo, sem e-mail.\n  if (codigo === '' || codigo === '408' || codigo === '429' || /^5[0-9]{2}$/.test(codigo)) return 'temporaria';\n  // A chave ou o endereço do CRM (401, 403, 404) e qualquer outro código: a entrada espera na fila, e o admin corrige.\n  return 'configuracao';\n}\n\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst bruto = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\nconst codigo = /^[0-9]{3}$/.test(bruto) ? bruto : '';\n\nlet ultimoErro;\nif (codigo) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Na recusa, a linha vai para as recusadas com o tipo pela origem do lead, como nos fluxos de entrada.\nconst linha = $('Buscar os pendentes').item.json;\nlet origem = 'entrada';\ntry {\n  origem = JSON.parse(linha.payload).origem || origem;\n} catch (e) {\n  // Um payload que não é JSON fica com o tipo genérico.\n}\n\n// Nas recusadas, o corpo vai inteiro só até 8 KB; acima disso, os primeiros 8 KB, e o detalhe guarda o tamanho original. Num 413,\n// vai sem o corpo. As Data Tables dividem um teto de 200 MiB.\nconst LIMITE_GUARDADO = 8 * 1024;\nconst corpo = String(linha.payload || '');\nconst tamanho = Buffer.byteLength(corpo, 'utf8');\nlet guardado = corpo;\nif (codigo === '413') {\n  guardado = '';\n} else if (tamanho > LIMITE_GUARDADO) {\n  guardado = Buffer.from(corpo, 'utf8').subarray(0, LIMITE_GUARDADO).toString('utf8').replace(/�$/, '');\n}\nconst cortado = guardado !== '' && guardado.length < corpo.length;\n\nreturn {\n  json: {\n    id: linha.id,\n    tentativas: (Number(linha.tentativas) || 0) + 1,\n    ultimoErro: ultimoErro,\n    destino: destinoDaFalha(codigo),\n    tipo: origem + '_recusada',\n    payloadRecusada: guardado,\n    detalheRecusada: ultimoErro + ' no reenvio, entrada de ' + tamanho + ' bytes' + (cortado ? ', guardados os primeiros 8 KB' : ''),\n  },\n};"
       }
     },
     {
@@ -87,7 +97,7 @@
       "name": "Atualizar a tentativa",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1120, 240],
+      "position": [1568, 320],
       "parameters": {
         "resource": "row",
         "operation": "update",
@@ -127,48 +137,11 @@
       }
     },
     {
-      "id": "3b5d679b-34ce-4e11-a005-832edc183ba8",
-      "name": "Falha definitiva?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [1344, 240],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $(\"Classificar a falha\").item.json.definitiva }}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "39d37783-680e-477f-aa75-394f24fdc94d",
-      "name": "Avisar o admin",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [1568, 160],
-      "parameters": {
-        "errorType": "errorMessage",
-        "errorMessage": "=O CRM recusou uma entrada da fila de pendentes ({{ $(\"Classificar a falha\").item.json.ultimoErro }}). Ela continua na Data Table crm_entradas_pendentes, com as tentativas e o último erro."
-      }
-    },
-    {
       "id": "bf4516ba-eb93-4fc0-b694-70280c1eecd3",
       "name": "Apagar da fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [896, 0],
+      "position": [1120, 0],
       "parameters": {
         "resource": "row",
         "operation": "deleteRows",
@@ -193,10 +166,176 @@
       "typeVersion": 1,
       "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Reenvio de pendentes\nDe hora em hora, das 8h às 20h, de segunda a sexta, reenvia ao CRM as entradas da Data Table `crm_entradas_pendentes`, uma por segundo. Deu certo (inclusive \"já recebido\"): apaga a linha. Falhou: soma a tentativa e grava o erro, sem o corpo da resposta. Um 4xx definitivo avisa o admin pelo CRM - Erros, e a linha fica na tabela. O endereço do CRM fica no nó \"Configuração\".",
+        "content": "## CRM - Reenvio de pendentes\nDe hora em hora, das 8h às 20h, de segunda a sexta, reenvia ao CRM as entradas da Data Table `crm_entradas_pendentes`, uma por segundo e no máximo 20 por rodada (`linhasPorRodada`): as com menos tentativas primeiro e, entre elas, as mais antigas, para uma linha que sempre falha não ocupar as vagas das novas. Com o CRM lento, 20 linhas levam no máximo 220 s, dentro dos 5 minutos do Starter. Deu certo (inclusive \"já recebido\"): apaga a linha. Recusa da entrada (400 ou 413): tira a linha da fila e a guarda na `crm_entradas_recusadas`, com no máximo 8 KB do corpo. Falha temporária ou de configuração: soma a tentativa e grava o erro, sem o corpo da resposta; na configuração, manda um e-mail só por rodada. Os endereços e os e-mails ficam no nó \"Configuração\".",
         "color": 7,
         "width": 832,
         "height": 224
+      }
+    },
+    {
+      "id": "e4fdaf3a-ec2a-4f9a-bdb4-e8520d6ec932",
+      "name": "Recusada pelo CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1344, 240],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.destino }}",
+              "rightValue": "recusada",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dc9f92ae-48ba-4459-9a54-1868127f62db",
+      "name": "Guardar nas recusadas",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1568, 160],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "={{ $json.tipo }}",
+            "payload": "={{ $json.payloadRecusada }}",
+            "detalhe": "={{ $json.detalheRecusada }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3349502d-bff0-4041-bb92-655f21556d8b",
+      "name": "Tirar da fila",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1792, 160],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_pendentes" },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Classificar a falha').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1329f5a5-f18a-4efd-b306-b7deef572a83",
+      "name": "Falha de configuração?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1792, 320],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Classificar a falha').item.json.destino }}",
+              "rightValue": "configuracao",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e429dd8b-094c-4810-9464-d0e1aaf26c62",
+      "name": "Avisar da configuração",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2016, 320],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
+        "toEmail": "={{ $('Configuração').first().json.emailAdmin }}",
+        "subject": "=[CRM] O CRM recusou o envio do fluxo {{ $workflow.name }}",
+        "emailFormat": "text",
+        "text": "=O fluxo {{ $workflow.name }} recebeu {{ $('Classificar a falha').item.json.ultimoErro }} do CRM em {{ $input.all().length }} entrada(s) desta rodada.\n\nElas continuam na Data Table crm_entradas_pendentes, com a tentativa somada, e vão na próxima rodada quando a configuração estiver certa: a credencial CRM - Chave de integração, num 401, ou o urlCrm do nó \"Configuração\", num 404.\n\nEste e-mail não traz os dados das entradas.",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "executeOnce": true,
+      "webhookId": "f43ca2d0-5d83-4047-8fde-040a64eff336"
+    },
+    {
+      "id": "78e559bb-3d6c-4818-8bfe-14dba6cc0d94",
+      "name": "Escolher as da rodada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 80],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Escolhe as linhas da rodada (seção 4.5): as com menos tentativas primeiro e, entre elas, as mais antigas, até o linhasPorRodada\n// do \"Configuração\". Uma linha que sempre falha vai para o fim e não ocupa as vagas das novas; numa queda longa do CRM, nada é\n// descartado. A Data Table só ordena por uma coluna, e por isso a ordem fica aqui.\nconst limite = Number($('Configuração').first().json.linhasPorRodada);\nconst linhas = $input\n  .all()\n  .map((item, indice) => ({ linha: item.json, indice: indice }))\n  .filter(({ linha }) => linha.id !== undefined);\nlinhas.sort(\n  (a, b) =>\n    (Number(a.linha.tentativas) || 0) - (Number(b.linha.tentativas) || 0) ||\n    new Date(a.linha.criado_em).getTime() - new Date(b.linha.criado_em).getTime() ||\n    a.linha.id - b.linha.id,\n);\nreturn linhas.slice(0, limite).map(({ linha, indice }) => ({ json: linha, pairedItem: { item: indice } }));"
       }
     }
   ],
@@ -205,9 +344,6 @@
       "main": [[{ "node": "Configuração", "type": "main", "index": 0 }]]
     },
     "Configuração": { "main": [[{ "node": "Buscar os pendentes", "type": "main", "index": 0 }]] },
-    "Buscar os pendentes": {
-      "main": [[{ "node": "Reenviar ao CRM", "type": "main", "index": 0 }]]
-    },
     "Reenviar ao CRM": {
       "main": [
         [{ "node": "Apagar da fila", "type": "main", "index": 0 }],
@@ -215,18 +351,38 @@
       ]
     },
     "Classificar a falha": {
-      "main": [[{ "node": "Atualizar a tentativa", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Recusada pelo CRM?", "type": "main", "index": 0 }]]
+    },
+    "Recusada pelo CRM?": {
+      "main": [
+        [{ "node": "Guardar nas recusadas", "type": "main", "index": 0 }],
+        [{ "node": "Atualizar a tentativa", "type": "main", "index": 0 }]
+      ]
+    },
+    "Guardar nas recusadas": {
+      "main": [[{ "node": "Tirar da fila", "type": "main", "index": 0 }]]
     },
     "Atualizar a tentativa": {
-      "main": [[{ "node": "Falha definitiva?", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Falha de configuração?", "type": "main", "index": 0 }]]
     },
-    "Falha definitiva?": { "main": [[{ "node": "Avisar o admin", "type": "main", "index": 0 }]] }
+    "Falha de configuração?": {
+      "main": [[{ "node": "Avisar da configuração", "type": "main", "index": 0 }]]
+    },
+    "Buscar os pendentes": {
+      "main": [[{ "node": "Escolher as da rodada", "type": "main", "index": 0 }]]
+    },
+    "Escolher as da rodada": {
+      "main": [[{ "node": "Reenviar ao CRM", "type": "main", "index": 0 }]]
+    }
   },
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": true,
     "errorWorkflow": "jp3A8ziIhGPROWOc",
     "timezone": "America/Sao_Paulo",
-    "saveDataSuccessExecution": "none"
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataErrorExecution": "none"
   }
 }

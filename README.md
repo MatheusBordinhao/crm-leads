@@ -118,6 +118,16 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
    cd web && npm ci
    ```
 
+6. Num Windows com o Docker Desktop, feche para a rede as portas que ele publica. O Docker Desktop cria no firewall a regra "Docker Desktop Backend", que libera a entrada no perfil Público em qualquer porta. Assim, uma porta publicada sem IP, como as do Testcontainers durante a suíte .NET, fica aberta para o Wi-Fi enquanto o contêiner está no ar. A regra abaixo bloqueia a entrada pela rede em todas essas portas, em qualquer perfil, e vence a do Docker; o próprio computador continua chegando nelas. Num PowerShell de administrador:
+
+   ```powershell
+   New-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede' -Description 'CRM, Lote 1C (26/10/2026): bloqueia a entrada pela rede em todas as portas que o Docker Desktop publica, em qualquer perfil. Só o próprio computador chega nelas. Vence a regra Docker Desktop Backend, que libera a entrada no perfil Público.' -Direction Inbound -Action Block -Profile Any -Program 'C:\Program Files\Docker\Docker\resources\com.docker.backend.exe'
+   ```
+
+   - Depois de cada atualização do Docker Desktop, confira que ela continua ativa: `Get-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede'`.
+   - Para desfazer: `Remove-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede'`.
+   - Só outro aparelho, como um celular no mesmo Wi-Fi, prova que ela funciona: o Windows não filtra o que o computador manda para ele mesmo.
+
 ## Dia a dia
 
 Num Windows com o Controle Inteligente de Aplicativos ligado, como o deste projeto, a API e o `dotnet ef` rodam num contêiner Linux, e o front continua no Windows (veja "API e dotnet ef num contêiner Linux", logo abaixo). No PowerShell 5.1, use `npm.cmd` e rode os comandos em linhas separadas:
@@ -167,6 +177,7 @@ docker compose stop api           # para a API
 - O código entra só para leitura, e o build fica num volume do Docker: as pastas `bin/` e `obj/` do Windows não mudam.
 - A primeira subida baixa a imagem do SDK e os pacotes, o que leva alguns minutos. Nas seguintes, o build só recompila o que mudou.
 - Depois de mudar o `.env`, use o `restart`: a API lê o arquivo quando sobe. Depois de mudar o `docker-compose.yml`, use `docker compose up -d api`, que recria o contêiner com a configuração nova.
+- Depois de atualizar ou reiniciar o Docker Desktop, o banco e o n8n voltam sozinhos (`restart: unless-stopped`), e a API não: rode `docker compose up -d api`. Ela fica sem `restart` de propósito. Com o código sem compilar, o Docker a subiria de novo em laço, recompilando a cada uns 30 s com quase 2 CPUs, sem ninguém ver.
 - O log mostra a hora de Brasília, como no Windows.
 - Na auditoria, o IP de quem acessa aparece como o do Docker (o gateway da rede do Compose, como `172.18.0.1`), e não como `127.0.0.1`.
 - O que vier depois do nome do serviço num `docker compose run` vai para a API, como o `preparar-demonstracao` (veja "Demonstração"). Pare o `api` antes, porque os dois compilam no mesmo volume e usam a porta 5080. Para subir sem mandar eventos ao n8n:
@@ -298,7 +309,7 @@ docker compose stop n8n
 
 - A interface fica em `http://localhost:5679`, só no próprio computador. A 5678, a padrão, é de outro n8n desta máquina; dentro da rede do Compose, ele continua em `http://n8n:5678`.
 - Os fluxos chamam a API em `http://api:5080`, o `urlCrm` do nó "Configuração" de cada um. Com a API no `dotnet run` do Windows, troque por `http://host.docker.internal:5080`.
-- A conta de dono, as credenciais, a Data Table e as execuções ficam no volume `dados-n8n`.
+- A conta de dono, as credenciais e as Data Tables ficam no volume `dados-n8n`.
 - A API não depende dele. Com o n8n parado, o CRM funciona, e os eventos ficam tentando de novo; depois de cerca de 20 horas, falham, com o aviso no sino. Se ele vai ficar parado por muito tempo, esvazie o `N8n__WebhookUrl`.
 
 **Primeira vez.**
@@ -319,8 +330,11 @@ docker compose stop n8n
    function Copiar-DoEnv($nome) { $l = Select-String -Path .env -Pattern "^$nome=" | Select-Object -First 1; ($l.Line -replace "^$nome=", '' -replace '\s#.*$', '').Trim().Trim('"', "'") | Set-Clipboard }
    Copiar-DoEnv Integracao__Chave
    ```
-3. Crie a Data Table `crm_entradas_pendentes` (Overview › Data tables), com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data). Os fluxos a acham pelo nome.
-4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e "Save successful production executions: Do not save". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
+3. Crie as Data Tables (Overview › Data tables), que os fluxos acham pelo nome:
+   - `crm_entradas_pendentes`, com as colunas `payload` (texto), `tentativas` (número), `ultimo_erro` (texto) e `criado_em` (data);
+   - `crm_entradas_recusadas`, com as colunas `tipo`, `payload` e `detalhe` (texto) e `criado_em` (data);
+   - `crm_envios_site`, só com a coluna `criado_em` (data).
+4. Importe os fluxos (Workflows › Import from File), o `crm-erros.json` primeiro. Em cada um, confira a credencial dos nós e, em Settings, o Error Workflow (`CRM - Erros`) e as quatro opções de salvar em "Do not save": "Save failed production executions", "Save successful production executions", "Save manual executions" e "Save execution progress". O `CRM - Erros` precisa estar publicado antes de virar o fluxo de erro dos outros.
 5. Gere a chave do Google de desenvolvimento. Ela é aleatória e fica num arquivo fora do repositório; o SHA-256 dela vai para o `googleKeySha256` do nó "Configuração" do `CRM - Entrada Google`:
 
    ```powershell
@@ -353,10 +367,11 @@ docker compose stop n8n
 | --- | --- | --- | --- |
 | `CRM - Erros` | Error Trigger | Sim | Qualquer falha dos outros fluxos manda o e-mail ao admin |
 | `CRM - Alertas` | `POST /webhook/crm-alertas`, com o `X-Crm-Chave` | Sim | Um lead pelo rodízio: o e-mail chega no alias da atendente |
-| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` não cria nada |
-| `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste |
+| `CRM - Entrada Site` | `POST /webhook/crm-entrada-site` | Sim | `site.json` cria um lead real; `site-robo.json` recebe `{"message":"Webhook call received"}`, sem criar execução; `site-sem-nome.json` vai para as recusadas |
+| `CRM - Entrada Google` | `POST /webhook/crm-entrada-google` | Sim | `google-teste.json`, com a chave do arquivo: lead de teste; `google-sem-nome.json`, com a chave: vai para as recusadas |
 | `CRM - Reenvio de pendentes` | De hora em hora, das 8h às 20h, de segunda a sexta | Não | Execução manual, depois de um envio com a API parada |
 | `CRM - Relatório semanal Gama` | Segunda às 8h | Não | Execução manual: o CSV da semana anterior vai para o `emailGama` |
+| `CRM - Resumo diário` | Todo dia às 8h | Não | Execução manual: o e-mail com as contagens do dia anterior vai para o `emailAdmin` se houver algo a contar e, no dia do `diaDoResumoSemanal` (1 é segunda), sempre; as recusadas com mais de 7 dias e os envios do site com mais de 31 saem |
 | `CRM - Entrada Meta` | Gatilho de Lead Ads | Não, sem o app Live | `test_workflow` do MCP, com `meta-gatilho.json` e `meta-graph.json` |
 
 ```powershell
@@ -364,7 +379,7 @@ docker compose stop n8n
 curl.exe -s -H "Content-Type: application/json" --data-binary "@n8n/exemplos/site.json" http://localhost:5679/webhook/crm-entrada-site
 
 # Google: a chave sai do arquivo e não aparece na tela. Responde 200 com {}; o segundo envio é "já recebido" no CRM.
-# Sem a chave (o exemplo como está), responde 403 e avisa o admin pelo CRM - Erros.
+# Sem a chave (o exemplo como está), responde 403 e só conta a tentativa na crm_entradas_recusadas, sem e-mail.
 $chave = (Get-Content ..\crm-google-chave-dev.txt -Raw).Trim()
 $corpo = (Get-Content n8n\exemplos\google-teste.json -Raw -Encoding UTF8).Replace('CHAVE_DO_GOOGLE', $chave)
 $resposta = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:5679/webhook/crm-entrada-google -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($corpo))
@@ -374,10 +389,25 @@ Remove-Variable chave, corpo, resposta
 
 Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para a `crm_entradas_pendentes`; depois `docker compose start api` e uma execução manual do `CRM - Reenvio de pendentes`, que manda o lead e apaga a linha.
 
+O campo isca fica no "Only Run If" do Webhook. Ele barra, sem criar execução, o envio em JSON e o como formulário; no multipart, que o n8n só lê depois, quem barra é o "É um robô?", e a execução é gasta:
+
+```powershell
+curl.exe -s --data-urlencode "website=http://spam.example.com" http://localhost:5679/webhook/crm-entrada-site   # {"message":"Webhook call received"}, sem execução
+curl.exe -s -F "website=http://spam.example.com" http://localhost:5679/webhook/crm-entrada-site                 # multipart: {"recebido":true}, com execução
+```
+
+**O limite do site.** Cada envio que passa pelo campo isca vira uma linha na `crm_envios_site`, só com a hora. Acima de 20 envios na última hora ou de 60 nas últimas 24 horas (`limiteSitePorHora` e `limiteSitePorDia`, no "Configuração"), o site recebe a resposta de sempre, e o envio não vai ao CRM:
+
+- ele fica 7 dias na `crm_entradas_recusadas`, com o tipo `site_acima_do_limite`, no máximo os primeiros 8 KB do lead e, no detalhe, as contagens;
+- o primeiro barrado de cada janela manda um e-mail ao admin. Se algum envio barrado for de uma pessoa de verdade, cadastre o lead à mão no CRM (Leads › Novo lead) e apague a linha. Se o tráfego for de verdade, suba o limite no "Configuração" e publique o fluxo de novo;
+- o lado ruim: um robô que preenche tudo certo pode esgotar o limite, e os leads de verdade que chegarem com a janela cheia ficam nas recusadas até o cadastro à mão. O aviso na hora e os 7 dias nas recusadas cobrem isso até o CAPTCHA no formulário (seção 11 da especificação).
+
+Se falhar a gravação ou a busca na `crm_envios_site`, como com a tabela sem a coluna `criado_em`, o envio vai ao CRM sem o limite. A falha fica nas recusadas como `site_sem_limite`, sem o corpo, e o admin recebe no máximo um aviso por dia.
+
 **Cuidados.**
 
 - Nunca publique nem execute um fluxo sem querer: publicado, o `CRM - Alertas` manda um e-mail de verdade a cada evento do CRM.
-- As execuções com erro ficam salvas com o que o gatilho recebeu: o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Apague as de teste (Executions › Delete).
+- Nenhuma execução fica salva, nem as com erro: o gatilho guardaria o que recebeu, com o lead, o `google_key` do Google e o `X-Crm-Chave` do Alertas. Para ver o motivo de uma falha, siga "Investigar uma falha no n8n", abaixo. A execução que não fica salva ainda passa pelo banco do n8n: ela fica nele, apagada e fora da tela, até a limpeza das apagadas, a cada 15 minutos (a manual, só depois de 1 hora).
 - Não baixe um arquivo (formato de resposta "File") num HTTP Request com credencial. Nesse modo, o n8n guarda nos dados da execução a requisição inteira, com o cabeçalho da credencial. Por isso, o relatório semanal baixa o CSV como texto e refaz o anexo.
 - Depois de mudar um fluxo, exporte o JSON pelo CLI e deixe só `id`, `name`, `nodes`, `connections` e `settings` (sem `pinData`, `active`, `versionId`, `meta` e as datas). Depois, formate com o Prettier do `web/`, rodando no `web/`: `npx.cmd prettier --config .prettierrc.json --write "../n8n/*.json"`. O `FluxosN8nTests` confere as regras dos JSONs.
 
@@ -385,6 +415,16 @@ Para o CRM fora do ar: `docker compose stop api`, um envio do site, que vai para
   docker compose exec n8n n8n export:workflow --id=<id do fluxo> --output=/tmp/fluxo.json
   docker compose cp n8n:/tmp/fluxo.json n8n/fluxo-exportado.json
   ```
+
+**Investigar uma falha no n8n.** Como nenhuma execução fica salva, o e-mail do `CRM - Erros` diz só o fluxo e o nó. Para ver o motivo:
+
+1. No fluxo, em Settings, ponha "Save failed production executions" em "Save". Para um teste pelo editor, ponha também "Save manual executions". A mudança vale na hora, sem publicar o fluxo de novo.
+2. Reproduza a falha e abra a execução em Executions. Uma execução manual não dispara o `CRM - Erros`.
+3. Apague as execuções salvas (Executions › Delete): elas guardam o que o gatilho recebeu, como os dados do lead, o `X-Crm-Chave` no Alertas e o `google_key` no Google.
+4. Volte as duas opções para "Do not save".
+
+- Não exporte o JSON do fluxo com o salvamento ligado: o `FluxosN8nTests` falha.
+- No n8n local, a mensagem do erro também sai no log do contêiner (`docker compose logs n8n`), sem salvar a execução. Ela pode trazer um dado do lead: não copie o log para fora do computador.
 
 ### Importação de leads
 
@@ -430,7 +470,7 @@ Em **Auditoria** (só admin) ficam, do mais recente para o mais antigo, os login
 - O "Ver na auditoria" da ficha abre a tela só com os registros do lead.
 - Os registros não têm dados pessoais: os leads aparecem pelo número.
 
-No n8n, os fluxos não salvam as execuções que deram certo (os JSONs de `n8n/` já levam o ajuste). As que dão erro ficam salvas com o que o gatilho recebeu, inclusive os dados do lead: veja "n8n local", em Dia a dia. Conferir o ajuste e o prazo das execuções com erro no n8n de produção fica para quando ele existir.
+No n8n, os fluxos não salvam nenhuma execução, nem as com erro (os JSONs de `n8n/` levam o ajuste): o gatilho guardaria o que recebeu, inclusive os dados do lead. Para investigar uma falha, veja "n8n local", em Dia a dia. Conferir o ajuste no n8n de produção fica para quando ele existir.
 
 O passo a passo de um pedido do titular, com o que fica fora do CRM, está em "Pedido do titular (LGPD)", no fim deste README.
 
@@ -484,7 +524,7 @@ docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.e
 Para mostrar o e-mail de alerta chegando no celular quando um lead novo cai para a Adriana:
 
 1. Rode o `preparar-demonstracao`: com a massa nova, a Adriana é a próxima do rodízio.
-2. Deixe no ar a API, o n8n e o front: `docker compose up -d api n8n` e, em `web/`, `npm.cmd run dev`.
+2. Deixe no ar a API, o n8n e o front: `docker compose up -d api n8n` e, em `web/`, `npm.cmd run dev`. Confira com o `docker compose ps` que a `api` está no ar: depois de atualizar ou reiniciar o Docker Desktop, ela não volta sozinha (veja "API e dotnet ef num contêiner Linux", em Dia a dia).
 3. No n8n, deixe o `CRM - Erros` e o `CRM - Alertas` publicados. No `.env`, deixe `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`.
 4. Os e-mails saem do `testecrmfs@gmail.com` para os aliases das atendentes (`+adriana` e `+pietra`) e para o seu Gmail.
    - O remetente precisa ser outra conta. Um e-mail mandado de uma conta para um alias dela mesma chega como enviado, sem notificar o celular.
@@ -506,7 +546,7 @@ Se o ambiente de desenvolvimento falhar no dia, a demonstração roda no Compose
 
 No dia da reunião, depois do congelamento:
 
-1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088` e `PORTA_HTTPS=8443`, sem o `N8n__WebhookUrl`, para não mandar e-mail:
+1. Reconstrua com o código congelado. O `.env` do teste (`../crm-teste.env`) tem o `POSTGRES_PASSWORD`, o `Admin__Email`, o `Admin__SenhaInicial`, `DOMINIO=localhost`, `PORTA_HTTP=8088`, `PORTA_HTTPS=8443` e `PORTAS_IP=127.0.0.1`, sem o `N8n__WebhookUrl`, para não mandar e-mail. O `PORTAS_IP` deixa o Caddy só no próprio computador. Sem ele, o Docker publica as portas em todas as interfaces, e a regra que o Docker Desktop cria no firewall do Windows deixa o Wi-Fi chegar nelas:
 
    ```powershell
    docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build
@@ -555,6 +595,8 @@ cd web && npm run format                 # Prettier; format:check só confere
 
 O `dotnet test` usa o Microsoft.Testing.Platform, ligado no `global.json`. O build trata avisos como erros. Os testes de integração que mudam o que vale para todos (configurações, ordem das etapas, quem está no rodízio) ficam na coleção `EstadoGlobal`, que roda sozinha depois das outras. Os testes do despachante de eventos usam um banco só deles, no mesmo contêiner, e um relógio falso. Os da anonimização também usam bancos só deles, porque uma importação processando, de qualquer teste, faz a anonimização responder 409. Os testes do tempo real conectam ao hub pelo cliente do SignalR para .NET, com o cookie da sessão; nos testes do front, o hub é falso (`web/src/test/hubFalso.ts`). O teste do log do Caddy (`LogDoCaddyTests`) sobe, também pelo Testcontainers, a imagem do Caddy do Compose de produção com o Caddyfile de verdade.
 
+A suíte do front usa no máximo 2 workers (`maxWorkers: '25%'`, no [web/vite.config.ts](web/vite.config.ts)), e 1 numa máquina de 2 CPUs, como o runner do CI. Com mais workers, os testes disputam a CPU e estouram os tempos de espera: 1 s no `findBy` e no `waitFor` e 5 s por teste. Pelo mesmo motivo, rode-a sem carga pesada na máquina, como um vídeo no navegador, e nunca ao mesmo tempo que a suíte .NET.
+
 No Windows PowerShell 5.1, use `npm.cmd` no lugar de `npm` (a política de execução bloqueia o `npm.ps1`) e rode os comandos em linhas separadas, porque o `&&` não existe nele: `cd web` e, depois, `npm.cmd test`.
 
 ### Testes .NET num contêiner Linux
@@ -565,7 +607,7 @@ Com o Controle Inteligente de Aplicativos do Windows ligado, o `dotnet test` nã
 docker compose -f docker-compose.testes.yml run --rm testes
 ```
 
-- O código entra só para leitura: o build fica num volume do Docker, e nada muda nas pastas `bin/` e `obj/` do Windows. Por isso, ele roda mesmo com a API de desenvolvimento aberta, que trava o `Crm.Api.exe` do build do Windows.
+- O código entra só para leitura: o build fica num volume do Docker, e nada muda nas pastas `bin/` e `obj/` do Windows. Por isso, ele roda mesmo com a API de desenvolvimento aberta, que trava o `Crm.Api.exe` do build do Windows. Os resultados dos testes (`TestResults`) também vão para esse volume: no `/src`, só para leitura, o `dotnet test` não consegue criá-los.
 - O PostgreSQL dos testes sobe no Docker do computador, como no `dotnet test` normal.
 - A primeira vez baixa a imagem do SDK e os pacotes, o que leva alguns minutos; as seguintes reaproveitam os volumes. Para apagá-los: `docker compose -f docker-compose.testes.yml down -v`.
 - O que vem depois de `testes` vai para o `dotnet test`. Para rodar uma classe só:
@@ -573,6 +615,33 @@ docker compose -f docker-compose.testes.yml run --rm testes
   ```powershell
   docker compose -f docker-compose.testes.yml run --rm testes --project tests/Crm.IntegrationTests/Crm.IntegrationTests.csproj --filter-class "Crm.IntegrationTests.ImportacaoTests"
   ```
+
+### CI no GitHub Actions
+
+Três workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em runners Ubuntu de 2 vCPUs:
+
+| Workflow | Quando roda | O que faz |
+| --- | --- | --- |
+| `Testes` ([testes.yml](.github/workflows/testes.yml)) | Em todo push na `master` e em todo PR, inclusive os do Dependabot, menos quando só mudam arquivos `.md` | A suíte .NET pelo `docker-compose.testes.yml`, o `dotnet format --verify-no-changes` e o front: o `npm ci`, o lint, o `format:check`, a suíte e o build |
+| `Imagem de produção` ([imagem.yml](.github/workflows/imagem.yml)) | Quando muda o que entra na imagem ou nos Compose: o `Dockerfile`, os Compose, os `.props`, o `global.json`, o `dotnet-tools.json`, o `package.json` e o lockfile do front ou o Caddyfile | O build da imagem e o Compose de produção num projeto só do CI, com dados sorteados: as migrations terminam com 0, o `/health` responde 200 pelo Caddy, e a API roda o ASP.NET Core 10.0.13 ou mais novo |
+| `Front: 5 rodadas em paralelo` ([front-5-rodadas.yml](.github/workflows/front-5-rodadas.yml)) | Só quando alguém dispara, pela tela do Actions | A suíte do front 5 vezes ao mesmo tempo, cada uma num runner próprio, para medir a folga das esperas |
+
+- **O front roda na imagem do Node do `Dockerfile`**, a mesma do build de produção, pelo [.github/scripts/front.sh](.github/scripts/front.sh). Assim, o CI pega um problema do build em Alpine e acompanha sozinho a versão que o Dependabot subir. O script roda igual aqui, pelo Git Bash, sem tocar no `node_modules` nem no `dist` do Windows:
+
+  ```bash
+  sh .github/scripts/front.sh completo
+  FRONT_DOCKER_OPCOES="--cpuset-cpus=0,1 --memory=7g" sh .github/scripts/front.sh completo   # com 2 CPUs, como o runner
+  ```
+
+- **As 5 rodadas do front:** em Actions › "Front: 5 rodadas em paralelo" › Run workflow, na `master`. As rodadas não disputam CPU entre si, e cada uma escreve na página da rodada o processador do runner, o tempo da suíte, as falhas e os 10 testes mais lentos, com o "Perdido pede o motivo" em destaque. Rode depois de uma mudança grande no front ou quando o `Testes` falhar por tempo: uma espera acima de 1 s mostra que a folga do runner acabou.
+- **Os workflows só leem o repositório:** a permissão é só de leitura, o checkout não guarda o token do GitHub no `.git` (`persist-credentials: false`), nenhum usa segredos nem o `pull_request_target`, e as ações de terceiros ficam fixadas pelo commit (SHA), com a versão num comentário. O `WorkflowsTests` cobra isso. Para conferir os workflows antes do push:
+
+  ```powershell
+  docker run --rm -v "${PWD}:/repo:ro" -w /repo rhysd/actionlint:1.7.12
+  ```
+
+- **Minutos:** o repositório é privado, e o GitHub Free dá 2.000 minutos por mês, com cada job arredondado para o minuto de cima. Nas três primeiras rodadas verdes, em 20/10/2026, o `Testes` levou 4 min 37 s, 6 min 58 s e 6 min 47 s, conforme a máquina do runner: de 5 a 7 minutos cobrados, o que dá mais de 250 rodadas por mês. O `Imagem de produção` leva de 2 a 3 minutos, o que dá 3 minutos cobrados, e roda poucas vezes por mês. As 5 rodadas do front terminaram em 2 min 40 s, o que dá até 3 minutos cobrados por rodada, 15 por disparo. Sem forma de pagamento cadastrada, o Actions para quando a cota acaba, sem cobrança.
+- **O check vermelho não impede o merge:** no GitHub Free, repositório privado não tem proteção de branch. A conferência antes do merge é manual (veja "Versões fixadas").
 
 ## Banco de dados
 
@@ -609,12 +678,14 @@ web/                         React + TypeScript + Vite: features/ por módulo (a
                              api/ com o cliente e os tipos gerados, pwa/ com o registro do service worker; public/ com o
                              manifesto, os ícones e o service worker do PWA; icones/ com as fontes dos ícones e o script que
                              gera os PNGs
-n8n/                         JSON dos 7 fluxos do n8n da seção 4.5 e, em exemplos/, os payloads fictícios dos testes
+n8n/                         JSON dos 8 fluxos do n8n da seção 4.5 e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, usados pelo docker-compose.prod.yml
 docs/                        especificação, guia das atendentes, guia de uso do Claude Code e CSVs de exemplo para a
                              importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
-.github/                     o Dependabot: um PR por mês com as imagens e outro com o NuGet (veja "Versões fixadas")
+.github/                     o CI, com os workflows e os scripts deles (veja "CI no GitHub Actions"), a conferência dos
+                             binários nativos do lockfile do front (veja "Um pacote do npm com alerta") e o Dependabot: um
+                             PR por mês com as imagens, outro com o NuGet e outro com as ações (veja "Versões fixadas")
 ```
 
 ## Publicação
@@ -634,7 +705,8 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 - o log do Caddy, que grava as falhas do proxy sem a query string, o `Referer` e o `X-Api-Key` (veja "Cuidados");
 - o backup e o teste da restauração;
 - a importação e o PWA no build de produção;
-- as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas").
+- as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas");
+- o build da imagem e a subida do Compose com dados fictícios, também no CI, a cada mudança nas imagens ou nos pacotes (veja "CI no GitHub Actions").
 
 Falta:
 
@@ -643,7 +715,8 @@ Falta:
 - **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
 - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
 - **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
-- **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos").
+- **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos");
+- **com o site:** o CAPTCHA no formulário, de quem fizer o site (seção 11 da especificação). O campo isca e o limite de envios protegem o CRM e as atendentes, mas um robô que preencha tudo certo gasta uma execução do n8n por envio, e, com a cota esgotada, todos os fluxos param.
 
 ### O que o servidor precisa
 
@@ -689,24 +762,26 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    - `CRM - Chave de integração` e `CRM - Chave dos eventos`: o `Integracao__Chave` e o `N8n__WebhookChave` do `.env` do servidor;
    - `CRM - E-mail`: o SMTP do e-mail da empresa;
    - `CRM - Meta Lead Ads`: com o app da Meta em modo Live (seção 4.5 da especificação).
-2. **[n8n Cloud]** Crie a Data Table `crm_entradas_pendentes`, com as mesmas colunas, no projeto dos fluxos.
+2. **[n8n Cloud]** Crie as Data Tables `crm_entradas_pendentes`, `crm_entradas_recusadas` e `crm_envios_site`, com as mesmas colunas, no projeto dos fluxos.
 3. **[n8n Cloud]** Importe pela tela (Workflows › Import from File), primeiro o `crm-erros.json`, depois os outros. A importação dá ids novos aos fluxos.
 4. Em cada fluxo, troque os valores do nó "Configuração":
 
    | Fluxo | Campos |
    | --- | --- |
    | `CRM - Erros`, `CRM - Alertas` | `emailAdmin` e `remetente` (o e-mail da credencial SMTP) |
-   | `CRM - Entrada Site`, `CRM - Reenvio de pendentes` | `urlCrm`: `https://` e o `DOMINIO` |
-   | `CRM - Entrada Google` | `urlCrm` e `googleKeySha256` (passo 5) |
-   | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica) |
+   | `CRM - Entrada Site` | `urlCrm` (`https://` e o `DOMINIO`), `emailAdmin` e `remetente` (o `limiteSitePorHora` e o `limiteSitePorDia` ficam) |
+   | `CRM - Reenvio de pendentes` | `urlCrm`, `emailAdmin` e `remetente` (o `linhasPorRodada` fica) |
+   | `CRM - Entrada Google` | `urlCrm`, `googleKeySha256` (passo 5), `emailAdmin` e `remetente` (o `googleKeySha256Anterior` fica vazio: ele só vale durante a troca da chave) |
+   | `CRM - Entrada Meta` | `urlCrm` (o `urlGraph` fica), `emailAdmin` e `remetente` |
    | `CRM - Relatório semanal Gama` | `urlCrm`, `emailGama` (o endereço que a Gama indicar) e `remetente` |
+   | `CRM - Resumo diário` | `emailAdmin` e `remetente` (o `diasRecusadas`, o `diasEnviosSite` e o `diaDoResumoSemanal` ficam) |
 
    E também:
    - escolha a credencial nos nós que a pedem;
-   - em Settings, deixe o Error Workflow no `CRM - Erros` (depois de publicá-lo), "Save successful production executions" em "Do not save" e o fuso em America/Sao_Paulo;
+   - em Settings, deixe o Error Workflow no `CRM - Erros` (depois de publicá-lo), as quatro opções de salvar em "Do not save" e o fuso em America/Sao_Paulo;
    - no `CRM - Entrada Site`, ponha o domínio do site em "Allowed Origins (CORS)" do Webhook;
    - na `CRM - Entrada Meta`, escolha a página e o formulário.
-5. Gere a chave do Google de produção. A chave vai para a área de transferência, para a Gama colar no formulário de lead do Google Ads, e o SHA-256 aparece na tela, para o `googleKeySha256`:
+5. Gere a chave do Google de produção. A chave vai para a área de transferência, para a Gama colar no formulário de lead do Google Ads, e o SHA-256 aparece na tela, para o `googleKeySha256`. Antes, desative o "Histórico da área de transferência em seus dispositivos" (Configurações › Sistema › Área de Transferência), que pode mandar o texto copiado para a nuvem da Microsoft:
 
    ```powershell
    $bytes = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
@@ -716,12 +791,15 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    "SHA-256 da chave do Google: $hash"
    Remove-Variable bytes, chave
    ```
+
+   Depois que a chave chegar à Gama, limpe a área de transferência com o comando de "Trocar chaves e senhas" e, com o histórico ligado (Win+V), apague o item da chave.
 6. **[n8n Cloud]** Publique o `CRM - Erros`, depois os outros. A Meta só pode ser publicada com o app Live.
 7. **[servidor]** No `.env` do servidor, ponha `N8n__WebhookUrl=https://<instância>.app.n8n.cloud/webhook/crm-alertas` e rode `docker compose -f docker-compose.prod.yml up -d api`.
-8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`.
+8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`, em JSON ou como formulário, e não como multipart: no multipart, o envio do robô gasta uma execução.
 9. Confira:
-   - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório;
-   - no fim, apague as execuções de teste e veja por quanto tempo o plano guarda as execuções com erro.
+   - um "Enviar dados de teste" do Google, um lead da Ferramenta de Teste da Meta, um envio do site e uma execução manual do relatório e do resumo diário;
+   - um envio do site com o campo isca, que não pode aparecer no contador de execuções do plano;
+   - no fim, confira em Executions que nenhuma execução ficou salva e veja por quanto tempo o plano guarda uma execução "crashed", a interrompida por uma queda do n8n.
 10. No Claude Code, aponte o `.mcp.json` para o MCP do n8n Cloud e remova o local: `claude mcp remove --scope user n8n-local`.
 
 ### Atualizar
@@ -736,38 +814,121 @@ O serviço `migracoes` aplica as migrations novas antes de a API subir. As sess�
 
 ### Versões fixadas
 
-Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `2` ou `17`. Assim, o servidor, este computador e os testes rodam a mesma versão.
+Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `2` ou `17`. Assim, o servidor, este computador e os testes rodam a mesma versão. O número fica só nos arquivos, e não aqui, para o PR mensal do Dependabot não deixar esta tabela velha.
 
-| Imagem | Onde | Versão |
-| --- | --- | --- |
-| `mcr.microsoft.com/dotnet/sdk` | `Dockerfile` (build), `docker-compose.yml` (`api` e `ef`) e `docker-compose.testes.yml` | 10.0.402, que traz o runtime 10.0.13 |
-| `mcr.microsoft.com/dotnet/aspnet` | `Dockerfile` (a imagem final) | 10.0.13, com a correção da CVE-2026-70159 |
-| `node` | `Dockerfile` (build do front) | 22.23.3-alpine3.24 |
-| `postgres` | `docker-compose.yml` e `docker-compose.prod.yml` (`db` e `backup`); os testes de integração usam a do Compose de produção | 17.11 |
-| `caddy` | `docker-compose.prod.yml`; o teste do log do Caddy usa a do Compose | 2.11.4 |
-| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento | 2.43.5 |
+| Imagem | Onde |
+| --- | --- |
+| `mcr.microsoft.com/dotnet/sdk` | `Dockerfile` (build), `docker-compose.yml` (`api` e `ef`) e `docker-compose.testes.yml`, a mesma nos quatro lugares. O runtime que ela traz é o da imagem `aspnet` |
+| `mcr.microsoft.com/dotnet/aspnet` | `Dockerfile` (a imagem final), na 10.0.13 ou mais nova, com a correção da CVE-2026-70159 |
+| `node` | `Dockerfile` (build do front). O CI roda o front nela |
+| `postgres` | `docker-compose.yml` e `docker-compose.prod.yml` (`db` e `backup`), a mesma nos dois. Os testes de integração usam a do Compose de produção |
+| `caddy` | `docker-compose.prod.yml`. O teste do log do Caddy usa a do Compose |
+| `n8nio/n8n` | `docker-compose.yml`, só em desenvolvimento. Acompanha a do n8n Cloud. Antes de uma versão nova, veja "O n8n numa versão nova", abaixo |
 
 O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lugares, o mesmo PostgreSQL em desenvolvimento e em produção e o runtime com a correção. Uma imagem nova precisa entrar nele.
 
 **Quando subir.**
-- O Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) abre, uma vez por mês, um PR com as imagens novas, com o `Dockerfile` e os Compose juntos, e outro com os pacotes do NuGet.
-- A versão principal (.NET 11, PostgreSQL 18, Node 24) fica de fora, porque é uma decisão nossa.
-- O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê, e não instale nem atualize nada no Windows.
+- O Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) abre, uma vez por mês, um PR com as imagens novas, com o `Dockerfile` e os Compose juntos, um com os pacotes do NuGet e um com as ações dos workflows.
+- Nas imagens e no NuGet, a versão principal (.NET 11, PostgreSQL 18, Node 24) fica de fora, porque é uma decisão nossa. Nas ações, ela entra: ficar parado numa versão principal antiga acaba em aviso de descontinuação do GitHub, e o próprio CI testa o PR.
+- O npm também fica de fora, por causa do Controle Inteligente de Aplicativos do Windows, e o "Create Dependabot security update" dos alertas dele não é usado. No mesmo dia do PR, rode o `npm.cmd audit` em `web/`, que só lê. Um pacote com alerta sobe pelo roteiro "Um pacote do npm com alerta", abaixo.
 - O Dependabot só funciona com o arquivo no GitHub e os alertas ligados no repositório (Settings › Code security).
 
-**Como conferir um PR do Dependabot, antes do merge.**
+**Como conferir um PR do Dependabot.** No GitHub Free, repositório privado não tem proteção de branch: nada impede o merge com o check vermelho. A conferência é manual:
 
-1. Traga o branch do PR: `git fetch origin` e `git switch <branch do PR>`.
-2. Confira qual runtime a imagem nova do SDK traz. Ele precisa ser o mesmo da imagem `aspnet` do PR:
+1. O check do PR está verde: o `Testes` e, quando o PR muda as imagens, os pacotes ou as ações, o `Imagem de produção` (veja "CI no GitHub Actions"). O `Testes` roda as duas suítes, com o teste do log do Caddy na imagem do Compose, e o `Imagem de produção` sobe o Compose de produção.
+2. O check vale para o que vai entrar:
+   - se a `master` andou depois do último rebase do PR só com arquivos `.md`, ele continua valendo;
+   - com qualquer outro arquivo, comente `@dependabot rebase` no PR e espere o check de novo;
+   - um PR sem nenhum check, como um aberto antes de os workflows existirem, também ganha os checks com o rebase.
+3. Num PR de imagens:
+   - a versão nova saiu há pelo menos 3 dias. Nesses PRs, o Dependabot avisa que não aplicou a espera de 3 dias, porque o registro não informa a data de publicação: confira a data no Docker Hub ou no registro da Microsoft;
+   - o runtime que a imagem nova do SDK traz é o mesmo da imagem `aspnet` do PR:
+
+     ```powershell
+     (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
+     ```
+
+4. Traga o branch do PR para a pasta do projeto (`git fetch origin` e `git switch <branch do PR>`) e suba o ambiente de desenvolvimento com ele:
+   - num PR do NuGet, `docker compose up -d --force-recreate api`, que recria só a API, e ela compila com os pacotes novos. Com a API no ar e a configuração igual, o `docker compose up -d api` não faz nada, e ela continua com os pacotes antigos;
+   - num PR de imagens, `docker compose up -d`, que recria só os serviços cuja imagem mudou (o `ef`, que tem perfil, fica de fora). Se o PR sobe o n8n, antes copie e confira o volume dele (veja "O n8n numa versão nova", abaixo).
+5. Confira a demonstração (veja "O alerta no celular", em Demonstração). Quando o PR sobe o n8n, repita também os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
+6. Só então faça o merge, pelo "Squash and merge": a `master` fica sem merge commits. Troque o título do Dependabot, em inglês, por um em português, como "Pacotes do NuGet: FluentValidation 12.2.0 e outros 11 (#3)", e mantenha o corpo dele, que lista as versões.
+7. Depois do merge, a pasta do projeto volta para a `master`:
+   1. `git switch master` e `git pull --ff-only`. O `git status` mostra a `master` igual à `origin/master`, sem nada à frente nem atrás.
+   2. Suba o ambiente com a `master`: num PR do NuGet, recrie a API (`docker compose up -d --force-recreate api`); num PR de imagens, o `docker compose up -d` recria os serviços que mudaram.
+   3. Confira a árvore inteira: `git diff --stat master <branch do PR>` só pode mostrar arquivos `.md`, os que a `master` ganhou depois do último rebase do PR. Se aparecer qualquer outro arquivo, pare e investigue antes de apagar o branch.
+   4. Apague o branch local: `git branch -D <branch do PR>`. Com o squash, o commit do PR não entra no histórico da `master`, e o `git branch -d` recusa. O Dependabot apaga o branch dele no GitHub, e o `git fetch --prune` tira a referência.
+   5. Se o PR subiu o n8n, confira o n8n com a `master` (ele entra, os fluxos e as credenciais estão lá, e os publicados continuam publicados) e só então apague a cópia do volume: `docker volume rm crm-dados-n8n-copia`.
+
+**O n8n numa versão nova.** O volume `crm-leads_dados-n8n` guarda o banco do n8n local, com os fluxos, as Data Tables e as credenciais, e o arquivo `config`, com a chave que as criptografa. Uma versão nova pode mudar esse banco de um jeito que a anterior não abre mais. Por isso, antes de o n8n subir na versão nova, copie o volume para o `crm-dados-n8n-copia`. A mesma cópia serve antes de uma mudança grande nos fluxos ou nas Data Tables: ela volta tudo de uma vez, e um fluxo sozinho volta pelo histórico de versões.
+
+- Neste roteiro, "a cópia" é sempre esse volume. A pasta do projeto, quando volta para a `master`, é só o `git switch master`.
+- Nenhum passo apaga nada sem conferir a cópia.
+- As mensagens dos comandos saem sem acento, para não saírem trocadas no PowerShell 5.1.
+
+Antes de o n8n subir na versão nova:
+
+1. Pare o n8n e copie o volume. O original entra só para leitura. Se o volume da cópia não existir, o `docker run` o cria. Se ele já tiver arquivos, de uma atualização anterior, o comando para com "PAROU" sem copiar nada: confira essa cópia velha e apague-a antes de seguir.
 
    ```powershell
-   (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
+   docker compose stop n8n
+   docker run --rm -v crm-leads_dados-n8n:/n8n:ro -v crm-dados-n8n-copia:/copia alpine:3.22 sh -c 'find /copia -mindepth 1 | grep -q . && { echo PAROU: crm-dados-n8n-copia tem arquivos de antes; exit 1; }; cp -a /n8n/. /copia/'
    ```
 
-3. Rode as suítes, uma depois da outra: `docker compose -f docker-compose.testes.yml run --rm testes`, que inclui o teste do log do Caddy com a imagem do Compose, e, em `web/`, `npm.cmd test`.
-4. Recrie a API de desenvolvimento (`docker compose up -d api`) e confira a demonstração (veja "O alerta no celular", em Demonstração). Numa imagem de produção nova, suba também o Compose de produção no próprio computador (veja "Testar a publicação no próprio computador").
-5. Quando o PR subir o n8n do Compose de desenvolvimento, recrie-o (`docker compose up -d n8n`) e repita, além do alerta da demonstração, os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
-6. Só então faça o merge.
+2. Confira a cópia contra o original: a mesma lista de arquivos e os mesmos tamanhos, e o `database.sqlite` e o `config` com conteúdo. O comando diz "OK" ou "DIFERENTE".
+
+   ```powershell
+   docker run --rm -v crm-leads_dados-n8n:/n8n:ro -v crm-dados-n8n-copia:/copia:ro alpine:3.22 sh -c 'for v in n8n copia; do (cd /$v && { find . -mindepth 1 -type f -exec stat -c %n:%s {} +; find . -mindepth 1 ! -type f; } | sort > /tmp/$v); done; cmp -s /tmp/n8n /tmp/copia && test -s /copia/database.sqlite && test -s /copia/config && echo OK: mesmos arquivos e tamanhos || { echo DIFERENTE: pare aqui; exit 1; }'
+   ```
+
+   Com "DIFERENTE", o n8n não sobe na versão nova. A pasta do projeto volta para a `master` (`git switch master`), para um `docker compose up -d` não subir a versão nova por engano, e o `docker compose start n8n` religa o contêiner de antes. Investigue antes de tentar de novo.
+3. Com "OK", siga o passo 4 de "Como conferir um PR do Dependabot": o `docker compose up -d` sobe o n8n na versão nova.
+
+Se a versão nova der errado, volte o n8n à versão de antes, com os dados da cópia:
+
+1. Pare o n8n e volte a pasta do projeto para a `master`, que ainda tem a versão de antes.
+2. Ponha a cópia de volta. O comando confere antes que a cópia tem o `database.sqlite` e o `config` com conteúdo. Sem eles, ele para com "PAROU" sem apagar nada: sem a cópia, esvaziar o volume apagaria as credenciais, e a senha de app do e-mail só existe lá. Com eles, o comando esvazia o volume do n8n, para não sobrar o `-wal` do SQLite da versão nova, e põe a cópia de volta.
+
+   ```powershell
+   docker compose stop n8n
+   git switch master
+   docker run --rm -v crm-dados-n8n-copia:/copia:ro -v crm-leads_dados-n8n:/n8n alpine:3.22 sh -c 'test -s /copia/database.sqlite && test -s /copia/config || { echo PAROU: sem o database.sqlite e o config, nada foi apagado; exit 1; }; find /n8n -mindepth 1 -delete && cp -a /copia/. /n8n/'
+   ```
+
+3. Rode de novo a conferência, a do passo 2 da lista de cima: ela precisa dizer "OK".
+4. Suba o ambiente (`docker compose up -d`) e confira o n8n na tela: ele entra, os fluxos e as credenciais estão lá, e os publicados continuam publicados.
+5. Só então apague a cópia: `docker volume rm crm-dados-n8n-copia`.
+
+Se a cópia não existir, o `docker run` cria um volume vazio com o nome dela, e os comandos param do mesmo jeito: a conferência diz "DIFERENTE", e a volta diz "PAROU". Apague esse volume vazio depois de investigar.
+
+**Um pacote do npm com alerta.** O Controle Inteligente de Aplicativos do Windows bloqueia um binário nativo novo que não seja assinado. Por isso, o lockfile muda num contêiner, e o Windows só recebe a mudança depois de conferida:
+
+1. Escolha a versão: a corrigida mais antiga do alerta, com pelo menos 3 dias, e que não troque nenhum pacote com binário nativo, como o rolldown, o lightningcss e o oxide do Tailwind. As dependências de cada versão saem do `npm.cmd view <pacote>@<versão> dependencies optionalDependencies`, e as datas, do `npm.cmd view <pacote> time`, que só leem.
+2. Na raiz do projeto, escreva o `package.json` e o `package-lock.json` num contêiner com a imagem do Node do `Dockerfile` e o mesmo npm do Windows. O `node_modules` fica num volume que sai com o contêiner, e o `--package-lock-only` não instala nada:
+
+   ```powershell
+   $imagem = (Select-String -Path Dockerfile -Pattern '^FROM (node:\S+)').Matches[0].Groups[1].Value
+   $npm = npm.cmd --version
+   function npmNoConteiner { docker run --rm -v "${PWD}\web:/web" -v /web/node_modules -w /web $imagem npx -y "npm@$npm" @args --package-lock-only --no-audit --no-fund }
+   npmNoConteiner install -D vite@8.3.3   # um pacote do package.json
+   npmNoConteiner update source-map-js    # um pacote que vem por outro
+   npmNoConteiner install                 # sempre no fim, sem pacote
+   ```
+
+   - O último `install`, sem pacote, recalcula as marcas `dev` e `devOptional` do lockfile, que podem ficar velhas depois de um `uninstall`. Rodado de novo, ele não pode mudar mais nada.
+   - O `install` de um pacote também resolve de novo as dependências dele e pega a mais nova de cada faixa. Se isso trouxer a versão nova de uma dependência que não precisava mudar, segure a do lockfile: instale-a junto e tire-a do `package.json` logo em seguida. Em 26/10/2026, o `install -D vitest@5.0.3` puxava o `magic-string` 1.4.4, publicado naquele dia, e a regra dos 3 dias a barra. O `--prefer-dedupe` não segurou, e o par abaixo segurou a 1.4.2:
+
+     ```powershell
+     npmNoConteiner install -D vitest@5.0.3 magic-string@1.4.2
+     npmNoConteiner uninstall magic-string
+     ```
+   - O contêiner escreve o mesmo lockfile que o npm do Windows, byte a byte. A diferença é que o `--package-lock-only` no Windows regrava o `node_modules/.package-lock.json`, e o contêiner não toca no `node_modules` do Windows.
+   - O npm 11 avisa que o `msw` tem um script de instalação que não está no `allowScripts`. Nada roda: no contêiner, o `--package-lock-only` não instala nada, e, no passo 5, o `--ignore-scripts` não roda nenhum script.
+3. Confira o lockfile entrada por entrada: `node .github/scripts/nativos-do-lock.mjs` compara o do último commit com o da pasta do projeto, lista o que entrou, saiu ou mudou de versão e diz se as entradas com binário nativo (as que têm `os` ou `cpu`) ficaram IGUAIS. Com DIFERENTES, pare: o Windows receberia um binário novo.
+4. Valide como no CI, no Git Bash: `sh .github/scripts/front.sh completo`.
+5. Só com as nativas iguais, atualize o Windows, em `web/`: `npm.cmd install --ignore-scripts`. Ele só baixa os pacotes de JavaScript que mudaram. Depois, o `git status` não pode mostrar mudança no `package.json` nem no `package-lock.json`, e o `npm.cmd audit` não acha mais o alerta.
+
+**Um componente novo do shadcn.** O pacote `shadcn` saiu do `package.json` em 21/10/2026: o front só usava dele o CSS, que fica em `web/src/shadcn.css`, copiado do `dist/tailwind.css` da versão 4.21.0, com o aviso de licença. A CLI dele, que copia os componentes, roda pelo `npx`, no contêiner, como no passo 2 (`npx shadcn@<versão> add <componente>`). Esse caminho ainda não foi usado. A CLI escreve os arquivos do componente e pode pôr pacotes no `package.json`, e então o lockfile passa pelos passos 2 a 5. Se ela trouxer de volta o pacote `shadcn` ou o `@import 'shadcn/tailwind.css'`, compare o CSS dela com o `web/src/shadcn.css` antes do commit.
 
 ### Backup
 
@@ -810,35 +971,138 @@ Restaurar desfaz as anonimizações e as exclusões de leads de teste feitas dep
 
 Os comandos rodam no servidor **[servidor]**, na pasta do CRM. As chaves e senhas novas vão direto para o `.env`, sem aparecer no terminal, a não ser quando é preciso colá-las em outro lugar.
 
-**Chave da integração (`Integracao__Chave`).** O n8n a manda no `X-Api-Key` para enviar os leads e buscar o relatório.
+**Chave da integração (`Integracao__Chave`).** O n8n a manda no `X-Api-Key` para enviar os leads e buscar o relatório. A troca vai em duas fases, sem nenhuma entrada recusada no meio: na fase 1, a chave de hoje passa para a `Integracao__ChaveAnterior` e continua valendo junto com a nova; depois de trocar a credencial do n8n, a fase 2 esvazia a anterior.
+
+1. **A fase 1.** O bloco:
+   - para com "PAROU", sem mudar nada, se a troca já começou (a anterior preenchida) ou se o `.env` não tem uma linha `Integracao__Chave` só, com valor;
+   - passa a chave de hoje para a anterior pelo próprio `sed`, com qualquer caractere que ela tenha, e grava a nova, em hex. O fim das linhas e as permissões do `.env` ficam como estavam, e nenhuma cópia do arquivo fica para trás;
+   - confere de novo antes de reiniciar a API: cada linha uma vez só, e a anterior preenchida e diferente da atual. Se algo não bater, ele para com "PAROU" sem reiniciar, e a API continua com as chaves de antes: confira o `.env` à mão;
+   - não mostra as chaves: a conferência acontece dentro do `awk`, que só diz o estado.
+
+   ```bash
+   # Fase 1: a chave nova vale junto com a de hoje, que passa a ser a anterior.
+   (
+     # O estado do .env, sem mostrar as chaves: sem-anterior, com-anterior, iguais ou confira.
+     estado() { awk -F= 'function v(l){l=substr(l,index(l,"=")+1);sub(/\r$/,"",l);sub(/[ \t]+#.*/,"",l);gsub(/^[ \t]+|[ \t]+$/,"",l);return l}
+       $1=="Integracao__Chave"{n++;a=v($0)} $1=="Integracao__ChaveAnterior"{m++;p=v($0)}
+       END{print (n!=1||a==""||m>1) ? "confira" : (p=="" ? "sem-anterior" : (p==a ? "iguais" : "com-anterior"))}' .env; }
+     [ "$(estado)" = sem-anterior ] || { echo "PAROU: a troca ja comecou (rode a fase 2) ou o .env precisa de conferencia: $(estado)"; exit 1; }
+     nova=$(openssl rand -hex 24) && [ ${#nova} -eq 48 ] || { echo "PAROU: o openssl nao gerou a chave"; exit 1; }
+     cr=$(printf '\r')
+     sed -b -i -e '/^Integracao__ChaveAnterior=/d' \
+       -e "s/^Integracao__Chave=\([^$cr]*\)\($cr*\)\$/Integracao__ChaveAnterior=\1\2\nIntegracao__Chave=$nova\2/" .env
+     [ "$(estado)" = com-anterior ] || { echo "PAROU: confira o .env a mao; a API nao reiniciou: $(estado)"; exit 1; }
+     docker compose -f docker-compose.prod.yml up -d api
+   )
+   ```
+
+2. **A credencial do n8n.** O comando abaixo mostra a chave nova. Copie-a e, logo depois, limpe a tela com o `clear`; nunca tire um print dela. Se você limpar a tela antes de colar, o mesmo comando mostra a chave de novo.
+
+   ```bash
+   # Mostra uma chave do .env, para colar no n8n. Depois de copiar: clear.
+   nome=Integracao__Chave; awk -F= -v n="$nome" '$1==n{v=substr($0,index($0,"=")+1);sub(/\r$/,"",v);sub(/[ \t]+#.*/,"",v);gsub(/^[ \t]+|[ \t]+$/,"",v);print v}' .env
+   ```
+
+   Troque o valor na credencial `CRM - Chave de integração` do n8n (Header Auth, `X-Api-Key`). Os seis HTTP Request que chamam o CRM usam essa credencial: o envio do site, o do Google e o da Meta, o reenvio e os dois do relatório.
+
+   Se o "Histórico da área de transferência em seus dispositivos" estiver ativado (Configurações › Sistema › Área de Transferência), o texto copiado pode ir para a nuvem da Microsoft: desative-o antes de copiar uma chave. Depois de colar, limpe a área de transferência no seu computador, e não no SSH: a chave copiada do terminal do servidor fica na área de transferência de quem copiou. O comando abaixo, no PowerShell, limpa a área de transferência e diz se ela ficou vazia, sem mostrar o que tinha; com "AINDA TEM TEXTO", rode-o de novo. No Git Bash, rode-o dentro de `powershell -c '…'`. Com o histórico da área de transferência ligado (Win+V), apague também o item da chave: os três pontos ao lado dele › Excluir.
+
+   ```powershell
+   # Limpa a area de transferencia e diz se ficou vazia, sem mostrar o que tinha.
+   Set-Clipboard -Value $null; if (Get-Clipboard -Raw) { "AINDA TEM TEXTO: rode de novo" } else { "Vazia" }
+   ```
+
+3. **A conferência.** O log da API mostra cada uso da anterior e cada subida com a troca em andamento, com a hora em UTC e sem a chave:
+
+   ```bash
+   # As linhas da troca no log da API, só com a hora (UTC) e o aviso.
+   docker compose -f docker-compose.prod.yml logs -t --no-log-prefix api | grep -E 'Uso da Integracao__ChaveAnterior|Troca da chave em andamento' | sed -E 's/^([^ ]+) .*(Uso da Integracao__ChaveAnterior|Troca da chave em andamento).*/\1 \2/'
+   ```
+
+   Depois que algum lead entrar pelo n8n, o último "Uso da Integracao__ChaveAnterior" precisa ser de antes da troca da credencial. Sem leads, espere: até a fase 2, as duas chaves valem.
+4. **A fase 2.** O bloco esvazia a anterior e reinicia a API. Ele para com "PAROU", sem mudar nada, se o `.env` não tiver uma linha `Integracao__Chave` só, com valor. Rodado duas vezes, ele não muda o arquivo. Depois dele, a conferência do passo 3 não mostra mais o "Troca da chave em andamento", porque o `up -d` recria a API.
+
+   ```bash
+   # Fase 2: só a chave nova vale.
+   (
+     # O estado do .env, sem mostrar as chaves: sem-anterior, com-anterior, iguais ou confira.
+     estado() { awk -F= 'function v(l){l=substr(l,index(l,"=")+1);sub(/\r$/,"",l);sub(/[ \t]+#.*/,"",l);gsub(/^[ \t]+|[ \t]+$/,"",l);return l}
+       $1=="Integracao__Chave"{n++;a=v($0)} $1=="Integracao__ChaveAnterior"{m++;p=v($0)}
+       END{print (n!=1||a==""||m>1) ? "confira" : (p=="" ? "sem-anterior" : (p==a ? "iguais" : "com-anterior"))}' .env; }
+     case "$(estado)" in com-anterior|sem-anterior) ;; *) echo "PAROU: o .env precisa de conferencia: $(estado)"; exit 1 ;; esac
+     cr=$(printf '\r')
+     sed -b -i "s/^\(Integracao__ChaveAnterior=\)[^$cr]*\($cr*\)\$/\1\2/" .env
+     [ "$(estado)" = sem-anterior ] || { echo "PAROU: confira o .env a mao; a API nao reiniciou: $(estado)"; exit 1; }
+     docker compose -f docker-compose.prod.yml up -d api
+   )
+   ```
+
+- A API sobe de novo em alguns segundos, nas duas fases, e as sessões continuam.
+- Se a fase 2 vier antes da troca no n8n, as entradas recebem 401: vão para a `crm_entradas_pendentes`, com um e-mail de configuração ao admin, e o `CRM - Reenvio de pendentes` as manda depois da troca da credencial.
+- Em desenvolvimento (Git Bash, na pasta do projeto), os blocos são os mesmos, com `docker compose restart api` na última linha. O `-b` do `sed` mantém o CRLF do `.env`: sem ele, o `sed` do Git Bash tira o CR de todas as linhas. O `restart` mantém o log de antes: na conferência, use `logs -t --since 2m`. A chave vai direto para a área de transferência, sem aparecer na tela; para a chave dos eventos, `nome=N8n__WebhookChave`. No PowerShell, a `Copiar-DoEnv` de "n8n local" faz o mesmo:
+
+  ```bash
+  # Em desenvolvimento: copia uma chave do .env para a area de transferencia, sem mostra-la.
+  nome=Integracao__Chave; awk -F= -v n="$nome" '$1==n{v=substr($0,index($0,"=")+1);sub(/\r$/,"",v);sub(/[ \t]+#.*/,"",v);gsub(/^[ \t]+|[ \t]+$/,"",v);printf "%s",v}' .env | clip
+  ```
+
+**Nenhuma chave no log.** Para conferir, conte quantas vezes cada chave da integração aparece nos logs. As chaves saem do `.env` direto para a busca, por texto fixo, e só os números aparecem: todos precisam dar 0. O bloco mostra também quantas linhas leu de cada log. Se o Docker der erro, como sem permissão, ou se o log vier vazio, ele avisa que não conseguiu ler, e a contagem daquele log não vale. Em desenvolvimento, sem o `-f docker-compose.prod.yml` e com `api n8n` no lugar de `api caddy`.
 
 ```bash
-sed -i "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" .env
-docker compose -f docker-compose.prod.yml up -d api
-grep '^Integracao__Chave=' .env   # para colar no n8n
+# Quantas vezes cada chave aparece nos logs: tem que dar 0. A contagem de um log só vale com as linhas lidas.
+for servico in api caddy; do
+  linhas=$(docker compose -f docker-compose.prod.yml logs --no-log-prefix "$servico" | wc -l; exit "${PIPESTATUS[0]}") && [ "$linhas" -gt 0 ] ||
+    { echo "$servico: NAO CONSEGUI LER O LOG (sem permissao no Docker? servico sem log?): a contagem dele nao vale"; continue; }
+  echo "$servico: $linhas linhas lidas"
+  for nome in Integracao__Chave Integracao__ChaveAnterior; do
+    chave=$(awk -F= -v n="$nome" '$1==n{v=substr($0,index($0,"=")+1);sub(/\r$/,"",v);sub(/[ \t]+#.*/,"",v);gsub(/^[ \t]+|[ \t]+$/,"",v);printf "%s",v}' .env)
+    [ -n "$chave" ] || { echo "  $nome: vazia"; continue; }
+    vezes=$(docker compose -f docker-compose.prod.yml logs --no-log-prefix "$servico" | grep -cF -- "$chave"; exit "${PIPESTATUS[0]}") || vezes="NAO CONSEGUI LER O LOG"
+    echo "  $nome: $vezes"
+  done
+done; unset chave
 ```
 
-Depois, troque o valor na credencial `CRM - Chave de integração` do n8n (Header Auth, `X-Api-Key`), que os fluxos de entrada, o reenvio e o relatório usam.
+**Chave dos alertas (`N8n__WebhookChave`).** O CRM a manda no `X-Crm-Chave` para o fluxo `CRM - Alertas`. O Webhook do n8n confere uma credencial só, e por isso a troca não tem convivência: a chave nova vai primeiro para o `.env`, sem reiniciar a API, depois para a credencial, e logo em seguida a API reinicia.
 
-- A API sobe de novo em alguns segundos, e as sessões continuam.
-- Entre a troca no CRM e a troca no n8n, as entradas recebem 401, e o n8n não guarda um 401 na fila de pendentes: o lead fica só no e-mail do `CRM - Erros`.
-- Por isso, troque num horário calmo e atualize o n8n logo em seguida. Depois, confira os e-mails do `CRM - Erros` e traga o que ficou de fora pela Importação, com o CSV da Central de Leads da Meta.
-- Aceitar a chave antiga e a nova durante a troca, para nenhuma entrada se perder, está anotado como pendência.
+1. O bloco grava a chave nova no `.env`, em hex, e confere, dentro do `awk`, que a linha `N8n__WebhookChave` aparece uma vez só e tem a chave nova. A chave chega ao `awk` pelo ambiente, e não pela linha de comando, e nada aparece na tela. Se o `sed` não trocar nada, ele para com "PAROU": não troque a credencial. O fim da linha e as permissões ficam como estavam, e nenhuma cópia do arquivo fica para trás.
 
-**Chave dos alertas (`N8n__WebhookChave`).** O CRM a manda no `X-Crm-Chave` para o fluxo `CRM - Alertas`.
+   ```bash
+   # Chave dos eventos: a nova vai para o .env, sem reiniciar a API.
+   (
+     [ "$(grep -c '^N8n__WebhookChave=' .env)" = 1 ] || { echo "PAROU: o .env precisa ter uma linha N8n__WebhookChave so"; exit 1; }
+     nova=$(openssl rand -hex 24) && [ ${#nova} -eq 48 ] || { echo "PAROU: o openssl nao gerou a chave"; exit 1; }
+     cr=$(printf '\r')
+     sed -b -i "s/^N8n__WebhookChave=[^$cr]*\($cr*\)\$/N8n__WebhookChave=$nova\1/" .env
+     [ "$(NOVA=$nova awk -F= '$1=="N8n__WebhookChave"{n++;v=substr($0,index($0,"=")+1);sub(/\r$/,"",v)} END{print (n==1&&v==ENVIRON["NOVA"]) ? "ok" : "confira"}' .env)" = ok ] || { echo "PAROU: a chave nova nao entrou no .env; confira a mao e nao troque a credencial"; exit 1; }
+     echo "A chave nova esta no .env. Troque a credencial do n8n e reinicie a API logo depois."
+   )
+   ```
 
-```bash
-sed -i "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$(openssl rand -hex 24)/" .env
-docker compose -f docker-compose.prod.yml up -d api
-grep '^N8n__WebhookChave=' .env   # para colar no n8n
-```
+2. Mostre a chave pelo comando do passo 2 da integração, com `nome=N8n__WebhookChave`, e troque o valor na credencial `CRM - Chave dos eventos` do n8n, a do Webhook do `CRM - Alertas`. Depois, limpe a tela e a área de transferência, como na integração.
+3. Logo em seguida, reinicie a API: `docker compose -f docker-compose.prod.yml up -d api`.
 
-Depois, troque o valor na credencial `CRM - Chave dos eventos` do n8n, a do Webhook do `CRM - Alertas`.
+- Entre a troca da credencial e o `up -d`, o n8n recusa os eventos com 401 ou 403. O CRM os guarda no banco e tenta de novo depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h, também depois de reiniciar: um evento recusado nesse intervalo sai na tentativa seguinte.
+- Nada se perde se a API reiniciar em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
 
-- Até lá, o n8n recusa os eventos, que ficam pendentes no CRM e são reenviados depois de 1 min, 5 min, 30 min, 2 h, 6 h e 12 h.
-- Nada se perde se o n8n for atualizado em até cerca de 20 horas. Depois disso, o evento fica como falhou, e os admins recebem o aviso no sino.
+**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no `googleKeySha256` do nó "Configuração". Durante a troca, o fluxo aceita também o `googleKeySha256Anterior`, vazio fora dela:
 
-**Chave do Google (`google_key`).** A Gama a cola no formulário de lead do Google Ads, e o `CRM - Entrada Google` confere o SHA-256 dela, que fica no nó "Configuração". Para trocá-la, gere uma nova com o comando do passo 5 de "n8n Cloud: importar os fluxos", troque o `googleKeySha256` e passe a chave nova à Gama. Entre as duas trocas, os leads do Google recebem 403, ficam nas execuções com erro do n8n e avisam o admin pelo `CRM - Erros`. Traga os que faltarem pela Importação, com o CSV de leads do Google Ads.
+1. Gere a chave nova pelo passo 5 de "n8n Cloud: importar os fluxos".
+2. No "Configuração" do `CRM - Entrada Google`, passe o hash de hoje para o `googleKeySha256Anterior`, ponha o novo no `googleKeySha256` e publique o fluxo. As duas chaves valem.
+3. A Gama cola a chave nova no formulário do Google Ads. Depois, limpe a área de transferência.
+4. Esvazie o `googleKeySha256Anterior`, publique o fluxo de novo e peça à Gama um "Enviar dados de teste".
+   - Se o teste falhar, o Google Ads ainda manda a chave antiga: ponha o hash antigo de volta no `googleKeySha256Anterior` e publique o fluxo de novo.
+   - Depois que a Gama corrigir a chave no Google Ads, repita este passo.
+
+Uma chave errada recebe 403 e só conta na `crm_entradas_recusadas` (`google_chave_errada`), sem nada do envio, e o resumo diário mostra a contagem.
+
+**Uma chave que vazou.** A troca vai sem convivência, para a chave vazada parar de valer na hora:
+
+- **Integração:** rode a fase 1 e, logo em seguida, a fase 2, antes de trocar a credencial no n8n. Até a troca da credencial, as entradas recebem 401 e vão para a `crm_entradas_pendentes`, com um e-mail de configuração ao admin. Depois da troca, rode o `CRM - Reenvio de pendentes`, que as manda e apaga as linhas.
+- **Google:** ponha o hash novo direto no `googleKeySha256`, sem passar pela anterior, e publique o fluxo. Até a Gama colar a chave nova, os leads do Google recebem 403 e não ficam no n8n. Traga os que faltarem pela Importação, com o CSV de leads do Google Ads:
+  - em "Origem", escolha Google Ads, e em "Coluna de id externo", a do id do lead. Assim, um lead que já entrou pelo webhook dá "já recebido" e não muda;
+  - com outra origem, como a Planilha, quem já entrou é vinculado pelo e-mail ou pelo telefone: não nasce um lead novo, mas o lead ganha uma entrada a mais, e um lead perdido volta para a etapa inicial.
+- **Alertas:** o roteiro de cima já é sem convivência.
 
 **Senha do banco (`POSTGRES_PASSWORD`).** O PostgreSQL grava a senha quando o volume é criado: trocar só o `.env` deixa a API sem acesso ao banco. Troque no banco e no `.env`, nessa ordem:
 
@@ -892,11 +1156,11 @@ Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
 
 ### Testar a publicação no próprio computador
 
-É o mesmo Compose do plano B da demonstração (veja "Plano B" em Demonstração). Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento:
+É o mesmo Compose do plano B da demonstração (veja "Plano B" em Demonstração). Com `DOMINIO=localhost`, o Caddy usa uma autoridade local, e o navegador avisa que o certificado não é confiável: siga mesmo assim, sem instalar a autoridade (assim o HSTS do teste não vale para o `localhost`). Use outro nome de projeto, um `.env` só do teste e outras portas, para não tocar no banco de desenvolvimento, e o `PORTAS_IP=127.0.0.1`, para a rede não chegar no Caddy. No servidor, o `PORTAS_IP` fica vazio:
 
 ```bash
-# ../crm-teste.env: POSTGRES_PASSWORD, Admin__Email, Admin__SenhaInicial, DOMINIO=localhost, PORTA_HTTP=8088 e
-# PORTA_HTTPS=8443, sem N8n__WebhookUrl (para não mandar e-mail)
+# ../crm-teste.env: POSTGRES_PASSWORD, Admin__Email, Admin__SenhaInicial, DOMINIO=localhost, PORTA_HTTP=8088,
+# PORTA_HTTPS=8443 e PORTAS_IP=127.0.0.1, sem N8n__WebhookUrl (para não mandar e-mail)
 docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build
 # abra https://localhost:8443
 docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env down -v   # aqui o -v apaga só o teste
@@ -925,8 +1189,9 @@ O dado da pessoa também passa por lugares que o CRM não alcança:
 
 | Onde | O que fica | O que fazer |
 | --- | --- | --- |
-| Execuções do n8n | As que deram certo não são salvas. As com erro guardam o que chegou, com nome, e-mail e telefone, pelo prazo do plano (n8n Cloud) ou do `EXECUTIONS_DATA_MAX_AGE` (n8n Community) | Em Executions, filtre as com erro do dia em que o lead entrou e apague as dele |
+| Execuções do n8n | Nenhuma é salva. Ficam, com o que chegou: a interrompida por uma queda do n8n, como "crashed"; a salva de propósito para investigar uma falha (veja "Investigar uma falha no n8n"); e, até a limpeza das apagadas, a cada 15 minutos, a que acabou de rodar, apagada e fora da tela (a manual, por 1 hora) | Em Executions, apague as do dia em que o lead entrou, se houver |
 | Fila de pendentes do n8n (`crm_entradas_pendentes`, do Passo 6) | O que não chegou ao CRM, até o reenvio | Apague a linha da pessoa, se houver |
+| Recusadas do n8n (`crm_entradas_recusadas`) | O que o CRM recusou (400) e o envio do site barrado pelo limite, com até 8 KB dos dados da pessoa, por 7 dias. A entrada acima de 64 KB e o 413 ficam sem o corpo | Apague a linha da pessoa, se houver |
 | Meta e Google Ads | A Meta guarda o lead do formulário e o deixa baixar por 90 dias; o Google Ads, por 30 dias na tela (60 pela API) | Peça à Gama, que administra as contas, para apagar as cópias que tiver. A pessoa também pode pedir direto à Meta e ao Google |
 | E-mails de alerta | O nome, a empresa, a origem e a campanha, na caixa da responsável e nos enviados da conta que manda os alertas | Peça à responsável para apagar os e-mails do lead e apague-os dos enviados |
 | Backups | O `pg_dump` diário guarda a pessoa até ser apagado, em 14 dias, no servidor e na cópia de fora | Eles somem sozinhos em 14 dias. Não restaure um backup de antes da anonimização sem anonimizar de novo (veja "Restaurar de verdade") |

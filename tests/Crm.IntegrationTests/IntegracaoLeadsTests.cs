@@ -6,12 +6,18 @@ using Crm.Api.Features.Usuarios;
 using Crm.Api.Infra.Dados;
 using Crm.IntegrationTests.Infra;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Crm.IntegrationTests;
 
-/// <summary><c>POST /api/integracoes/leads</c> (seção 4.2), como o n8n chama.</summary>
+/// <summary>
+/// <c>POST /api/integracoes/leads</c> (seção 4.2), como o n8n chama. A chave, nas três rotas da integração, fica no
+/// <see cref="ChaveIntegracaoTests"/>.
+/// </summary>
 public class IntegracaoLeadsTests(CrmApiFactory fabrica)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -200,19 +206,6 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
         Assert.Equal(["Informe o e-mail ou o telefone."], await resposta.LerErrosDoCampoAsync("email"));
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("chave-errada-mas-com-o-mesmo-tamanho-0123")]
-    [InlineData("")]
-    public async Task Sem_a_chave_certa_responde_401(string? chave)
-    {
-        using var n8n = fabrica.CriarClienteIntegracao(chave);
-
-        var resposta = await n8n.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao());
-
-        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-    }
-
     [Fact]
     public async Task Sessao_de_admin_nao_vale_na_integracao()
     {
@@ -221,27 +214,6 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
         var resposta = await admin.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao());
 
         Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-    }
-
-    [Fact]
-    public async Task Sem_chave_configurada_a_integracao_fica_desligada()
-    {
-        using var api = fabrica.WithWebHostBuilder(builder => builder.UseSetting("Integracao:Chave", ""));
-        using var n8n = api.CriarClienteIntegracao();
-
-        var resposta = await n8n.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao());
-
-        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
-    }
-
-    [Fact]
-    public void Chave_curta_impede_a_api_de_subir()
-    {
-        using var api = fabrica.WithWebHostBuilder(builder => builder.UseSetting("Integracao:Chave", "curta"));
-
-        var erro = Assert.ThrowsAny<Exception>(() => api.CreateClient());
-
-        Assert.Contains("Integracao__Chave precisa ter pelo menos 32 caracteres", erro.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -268,5 +240,33 @@ public class IntegracaoLeadsTests(CrmApiFactory fabrica)
             "/api/integracoes/leads", new StringContent("{ nao é json", System.Text.Encoding.UTF8, "application/json"), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+    }
+
+    /// <summary>
+    /// O n8n trata o 413 como recusa da própria entrada, como o 400: a linha vai para as recusadas, e o reenvio não a tenta de
+    /// novo. Um 500 aqui faria o reenvio tentar a mesma linha para sempre (seção 4.5).
+    /// O limite do <c>[RequestSizeLimit]</c> só vale num servidor de verdade: o TestServer aceita o corpo inteiro. Por isso, a
+    /// fábrica deste teste sobe o Kestrel, no 127.0.0.1 e numa porta livre. Sem o endereço explícito, ele escutaria na porta
+    /// padrão da imagem do .NET, a 8080 de todos os endereços.
+    /// </summary>
+    [Fact]
+    public async Task Corpo_acima_de_64_KB_responde_413_e_nao_cria_o_lead()
+    {
+        using var api = fabrica.WithWebHostBuilder(_ => { });
+        api.UseKestrel(opcoes => opcoes.Listen(IPAddress.Loopback, 0));
+        api.StartServer();
+        var endereco = api.Services.GetRequiredService<IServer>().Features.GetRequiredFeature<IServerAddressesFeature>().Addresses.First();
+        using var n8n = new HttpClient { BaseAddress = new Uri(endereco) };
+        n8n.DefaultRequestHeaders.Add("X-Api-Key", CrmApiFactory.ChaveIntegracao);
+        var corpo = LeadsDeTeste.CorpoIntegracao("site");
+        corpo["respostasExtras"] = new Dictionary<string, string> { ["Mensagem"] = new string('x', 70_000) };
+
+        var normal = await n8n.EnviarLeadAsync(LeadsDeTeste.CorpoIntegracao("site"));
+        var grande = await n8n.EnviarLeadAsync(corpo);
+
+        Assert.Equal(HttpStatusCode.Created, normal.StatusCode);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, grande.StatusCode);
+        Assert.Equal("Requisição grande demais", (await grande.LerJsonAsync()).GetProperty("title").GetString());
+        Assert.Equal(0, await ContarLeadsComEmailAsync((string)corpo["email"]!));
     }
 }

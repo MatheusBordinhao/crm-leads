@@ -33,6 +33,18 @@
               "name": "urlGraph",
               "value": "https://graph.facebook.com",
               "type": "string"
+            },
+            {
+              "id": "email-admin",
+              "name": "emailAdmin",
+              "value": "matheusbordinhao11@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "remetente",
+              "name": "remetente",
+              "value": "testecrmfs@gmail.com",
+              "type": "string"
             }
           ]
         },
@@ -79,7 +91,7 @@
       "name": "Enviar ao CRM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [896, 80],
+      "position": [1344, 80],
       "parameters": {
         "method": "POST",
         "url": "={{ $(\"Configuração\").item.json.urlCrm }}/api/integracoes/leads",
@@ -94,7 +106,7 @@
       "credentials": {
         "httpHeaderAuth": { "id": "eMi2FrHkWd3bhcKD", "name": "CRM - Chave de integração" }
       },
-      "retryOnFail": true,
+      "retryOnFail": false,
       "maxTries": 3,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput"
@@ -104,37 +116,11 @@
       "name": "Classificar a falha",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 240],
+      "position": [1568, 240],
       "parameters": {
         "mode": "runOnceForEachItem",
         "language": "javaScript",
-        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst codigo = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\n\nlet ultimoErro;\nif (/^[0-9]{3}$/.test(codigo)) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Um 4xx que não é 408 nem 429 é definitivo: tentar de novo não resolve, e o admin precisa olhar.\nconst definitiva = /^4[0-9]{2}$/.test(codigo) && codigo !== '408' && codigo !== '429';\nreturn { json: { definitiva: definitiva, ultimoErro: ultimoErro, lead: $('Montar o lead').item.json.lead } };"
-      }
-    },
-    {
-      "id": "ded64a4b-0141-452d-af8b-51bfa061275a",
-      "name": "Falha temporária?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [1344, 240],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.definitiva }}",
-              "rightValue": false,
-              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "jsCode": "// Classifica a falha do envio ao CRM (seção 4.5). Guarda só o código ou o tipo da falha, nunca o corpo da resposta, que pode ter dados pessoais.\n// A regra do destino é a mesma nos fluxos de entrada e no reenvio, e o FluxosN8nTests confere que o texto dela é igual nos quatro.\nfunction destinoDaFalha(codigo) {\n  // A recusa da própria entrada: tentar de novo não resolve, e ela vai para as recusadas.\n  if (codigo === '400' || codigo === '413') return 'recusada';\n  // O CRM fora do ar, lento ou no limite de requisições: o reenvio tenta de novo, sem e-mail.\n  if (codigo === '' || codigo === '408' || codigo === '429' || /^5[0-9]{2}$/.test(codigo)) return 'temporaria';\n  // A chave ou o endereço do CRM (401, 403, 404) e qualquer outro código: a entrada espera na fila, e o admin corrige.\n  return 'configuracao';\n}\n\nconst erro = $json.error || {};\nconst mensagem = String(erro.message || '');\nconst prefixo = /^([0-9]{3}) - /.exec(mensagem);\nconst bruto = String(erro.httpCode || erro.status || erro.statusCode || (prefixo ? prefixo[1] : ''));\nconst codigo = /^[0-9]{3}$/.test(bruto) ? bruto : '';\n\nlet ultimoErro;\nif (codigo) {\n  ultimoErro = 'HTTP ' + codigo;\n} else if (/timeout|timed out|ETIMEDOUT|ECONNABORTED/i.test(String(erro.code || '') + ' ' + mensagem)) {\n  ultimoErro = 'Tempo esgotado (10 s)';\n} else {\n  ultimoErro = 'Falha de conexão';\n}\n\n// Nas recusadas, o corpo vai inteiro só até 8 KB; acima disso, os primeiros 8 KB, e o detalhe guarda o tamanho original. Num 413,\n// vai sem o corpo. As Data Tables dividem um teto de 200 MiB, e o webhook do site é público.\nconst LIMITE_GUARDADO = 8 * 1024;\nconst lead = $('Montar o lead').item.json.lead;\nconst corpo = JSON.stringify(lead);\nconst tamanho = Buffer.byteLength(corpo, 'utf8');\nlet guardado = corpo;\nif (codigo === '413') {\n  guardado = '';\n} else if (tamanho > LIMITE_GUARDADO) {\n  guardado = Buffer.from(corpo, 'utf8').subarray(0, LIMITE_GUARDADO).toString('utf8').replace(/�$/, '');\n}\nconst cortado = guardado !== '' && guardado.length < corpo.length;\n\nreturn {\n  json: {\n    destino: destinoDaFalha(codigo),\n    ultimoErro: ultimoErro,\n    lead: lead,\n    payloadRecusada: guardado,\n    detalheRecusada: ultimoErro + ', entrada de ' + tamanho + ' bytes' + (cortado ? ', guardados os primeiros 8 KB' : ''),\n  },\n};"
       }
     },
     {
@@ -142,7 +128,7 @@
       "name": "Guardar na fila",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [1568, 160],
+      "position": [2016, 320],
       "parameters": {
         "resource": "row",
         "operation": "insert",
@@ -198,22 +184,11 @@
       }
     },
     {
-      "id": "16e9c762-7aa8-46f6-a649-3896b409245e",
-      "name": "Avisar o admin",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [1568, 320],
-      "parameters": {
-        "errorType": "errorMessage",
-        "errorMessage": "=O CRM recusou a entrada ({{ $json.ultimoErro }}). Ela não foi para a fila: os dados estão nesta execução."
-      }
-    },
-    {
       "id": "ed08571d-2027-4a30-8f0c-ab90d8678b08",
       "name": "Faltou a campanha?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1120, 0],
+      "position": [1568, 0],
       "parameters": {
         "conditions": {
           "options": {
@@ -235,27 +210,304 @@
       }
     },
     {
-      "id": "aa45d823-39be-464a-bb4d-b9f6428ee2e4",
-      "name": "Avisar da campanha",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [1344, -80],
-      "parameters": {
-        "errorType": "errorMessage",
-        "errorMessage": "=O lead {{ $json.leadId }} entrou no CRM sem a campanha e a plataforma: a consulta à Graph API falhou. Confira a credencial da Meta."
-      }
-    },
-    {
       "id": "9ec995f0-723d-4771-81c7-8d89fbdf572e",
       "name": "Sobre o fluxo",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [-32, -16],
       "parameters": {
-        "content": "## CRM - Entrada Meta\nRecebe os leads do Facebook e do Instagram pelo gatilho da Meta (página e formulário escolhidos com a credencial). Busca na Graph API a campanha e a plataforma, que o gatilho não traz, monta o lead da seção 4.2 e o manda ao CRM. Os leads da Ferramenta de Teste da Meta entram como teste. Se o CRM não responder, o lead vai para a Data Table `crm_entradas_pendentes`. Os endereços ficam no nó \"Configuração\". Depende do app da Meta em modo Live.",
+        "content": "## CRM - Entrada Meta\nRecebe os leads do Facebook e do Instagram pelo gatilho da Meta (página e formulário escolhidos com a credencial). Busca na Graph API a campanha e a plataforma, que o gatilho não traz, monta o lead da seção 4.2 e o manda ao CRM. Os leads da Ferramenta de Teste da Meta entram como teste. Se a Graph API falhar, o lead entra sem a campanha, e a Data Table `crm_entradas_recusadas` guarda só o número dele no CRM, para o resumo diário. Acima de 64 KB, o limite do CRM, a entrada nem vai ao CRM: fica nas recusadas, sem o corpo. A recusa do CRM (400 ou 413) vai para as recusadas, com no máximo 8 KB do corpo; o CRM fora do ar e a falha de configuração (401, 403, 404), para a `crm_entradas_pendentes`, e a configuração manda um e-mail na hora. Os endereços e os e-mails ficam no nó \"Configuração\". Depende do app da Meta em modo Live.",
         "color": 7,
         "width": 832,
         "height": 224
+      }
+    },
+    {
+      "id": "890ea946-c0fa-41cb-8187-8c3dc95b47af",
+      "name": "Recusada pelo CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1792, 240],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.destino }}",
+              "rightValue": "recusada",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "18f5b767-2064-4ad3-8b60-e951607f9c18",
+      "name": "Guardar nas recusadas",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [2016, 160],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "={{ $json.lead.origem }}_recusada",
+            "payload": "={{ $json.payloadRecusada }}",
+            "detalhe": "={{ $json.detalheRecusada }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ff1952e2-288d-49a2-b18d-4b553a1bf0e6",
+      "name": "Falha de configuração?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2240, 320],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Classificar a falha').item.json.destino }}",
+              "rightValue": "configuracao",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4b4e31bd-076a-4c1d-9623-937f15644fa5",
+      "name": "Avisar da configuração",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2464, 320],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "=CRM de Leads <{{ $('Configuração').first().json.remetente }}>",
+        "toEmail": "={{ $('Configuração').first().json.emailAdmin }}",
+        "subject": "=[CRM] O CRM recusou o envio do fluxo {{ $workflow.name }}",
+        "emailFormat": "text",
+        "text": "=O fluxo {{ $workflow.name }} recebeu {{ $('Classificar a falha').item.json.ultimoErro }} do CRM ao enviar uma entrada.\n\nA entrada está na Data Table crm_entradas_pendentes e vai pelo CRM - Reenvio de pendentes quando a configuração estiver certa: a credencial CRM - Chave de integração, num 401, ou o urlCrm do nó \"Configuração\", num 404.\n\nEste e-mail não traz os dados da entrada.",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": { "smtp": { "id": "WyzbDQAO6auoyGl4", "name": "CRM - E-mail" } },
+      "webhookId": "a9476148-adb0-4d6c-bda8-d8cfa5a18f69"
+    },
+    {
+      "id": "ea48cedd-d437-4cb2-ac57-884cc69e35bc",
+      "name": "Registrar a falta da campanha",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1792, -80],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "meta_sem_campanha",
+            "payload": "",
+            "detalhe": "=lead {{ $json.leadId }}",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2cc9d29c-d86d-4a70-9b9a-9df24129e85b",
+      "name": "Conferir o tamanho",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 80],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Mede a entrada em bytes, como o CRM conta o limite do corpo: 64 KB (seção 4.2). Acima dele, a entrada nem vai ao CRM nem entra\n// na fila: fica nas recusadas, sem o corpo, só com o tamanho. O webhook do site é público, o n8n aceita corpos de até 16 MiB, e\n// as Data Tables dividem um teto de 200 MiB.\nconst LIMITE_DO_CRM = 64 * 1024;\nconst tamanho = Buffer.byteLength(JSON.stringify($json.lead), 'utf8');\nreturn { json: { ...$json, tamanho: tamanho, cabeNoCrm: tamanho <= LIMITE_DO_CRM } };"
+      }
+    },
+    {
+      "id": "fcd66ee3-210c-4371-83b2-1e692ea5ea18",
+      "name": "Cabe no CRM?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1120, 80],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.cabeNoCrm }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6fc3138d-22a3-4772-83bd-1d1357fab59a",
+      "name": "Recusar pelo tamanho",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1344, -160],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "crm_entradas_recusadas" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tipo": "={{ $json.lead.origem }}_recusada",
+            "payload": "",
+            "detalhe": "=Entrada de {{ $json.tamanho }} bytes, acima do limite de 64 KB do CRM",
+            "criado_em": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "tipo",
+              "displayName": "tipo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payload",
+              "displayName": "payload",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalhe",
+              "displayName": "detalhe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "criado_em",
+              "displayName": "criado_em",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
       }
     }
   ],
@@ -267,7 +519,6 @@
     "Buscar campanha e plataforma": {
       "main": [[{ "node": "Montar o lead", "type": "main", "index": 0 }]]
     },
-    "Montar o lead": { "main": [[{ "node": "Enviar ao CRM", "type": "main", "index": 0 }]] },
     "Enviar ao CRM": {
       "main": [
         [{ "node": "Faltou a campanha?", "type": "main", "index": 0 }],
@@ -275,16 +526,30 @@
       ]
     },
     "Classificar a falha": {
-      "main": [[{ "node": "Falha temporária?", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Recusada pelo CRM?", "type": "main", "index": 0 }]]
     },
-    "Falha temporária?": {
+    "Recusada pelo CRM?": {
       "main": [
-        [{ "node": "Guardar na fila", "type": "main", "index": 0 }],
-        [{ "node": "Avisar o admin", "type": "main", "index": 0 }]
+        [{ "node": "Guardar nas recusadas", "type": "main", "index": 0 }],
+        [{ "node": "Guardar na fila", "type": "main", "index": 0 }]
       ]
     },
+    "Guardar na fila": {
+      "main": [[{ "node": "Falha de configuração?", "type": "main", "index": 0 }]]
+    },
+    "Falha de configuração?": {
+      "main": [[{ "node": "Avisar da configuração", "type": "main", "index": 0 }]]
+    },
     "Faltou a campanha?": {
-      "main": [[{ "node": "Avisar da campanha", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Registrar a falta da campanha", "type": "main", "index": 0 }]]
+    },
+    "Montar o lead": { "main": [[{ "node": "Conferir o tamanho", "type": "main", "index": 0 }]] },
+    "Conferir o tamanho": { "main": [[{ "node": "Cabe no CRM?", "type": "main", "index": 0 }]] },
+    "Cabe no CRM?": {
+      "main": [
+        [{ "node": "Enviar ao CRM", "type": "main", "index": 0 }],
+        [{ "node": "Recusar pelo tamanho", "type": "main", "index": 0 }]
+      ]
     }
   },
   "settings": {
@@ -292,6 +557,9 @@
     "availableInMCP": true,
     "errorWorkflow": "jp3A8ziIhGPROWOc",
     "timezone": "America/Sao_Paulo",
-    "saveDataSuccessExecution": "none"
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataErrorExecution": "none"
   }
 }

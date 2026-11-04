@@ -140,6 +140,9 @@
     "availableInMCP": true,
     "errorWorkflow": "jp3A8ziIhGPROWOc",
     "timezone": "America/Sao_Paulo",
-    "saveDataSuccessExecution": "none"
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": false,
+    "saveDataErrorExecution": "none"
   }
 }

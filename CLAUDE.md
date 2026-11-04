@@ -21,15 +21,15 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - funil: mudança de etapa, motivo obrigatório em Perdido e recusa de Ganho sem CPF/CNPJ, com o botão "Abrir a ficha";
   - lead cadastrado à mão fica "Ainda sem contato" até a primeira interação;
   - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
-- O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial` e `Integracao__Chave`.
+- O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial`, `Integracao__Chave` e, desde 03/11/2026, a linha `Integracao__ChaveAnterior`, vazia fora da troca da chave.
 - O n8n Cloud de teste (`matheusbordinhao.app.n8n.cloud`) acabou em 06/10/2026. A produção vai ser o n8n Cloud, numa conta da empresa, quando o pagamento sair (decidido em 14/10/2026).
 - Desde 14/10/2026, o n8n de desenvolvimento é um n8n Community 2.43.5 no `docker-compose.yml` (serviço `n8n`, README › n8n local):
   - a interface fica em `http://localhost:5679`, porque a 5678 é de outro n8n desta máquina, um projeto do Compose no WSL (`/home/mathe/n8n`) que não é do CRM e não deve ser mexido;
   - dentro da rede do Compose, a API chama `http://n8n:5678`, e os fluxos chamam `http://api:5080`;
   - o `.env` tem `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`: com a API no ar, cada evento vira um e-mail de verdade;
   - as credenciais são `CRM - Chave de integração` (`X-Api-Key`), `CRM - Chave dos eventos` (`X-Crm-Chave`) e `CRM - E-mail` (SMTP do `testecrmfs@gmail.com`, uma conta só para os testes, com senha de app);
-  - a Data Table é a `crm_entradas_pendentes`;
-  - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo.
+  - as Data Tables são a `crm_entradas_pendentes`, a fila do reenvio, a `crm_entradas_recusadas`, com as entradas recusadas, por 7 dias, e a `crm_envios_site`, com a hora de cada envio do site, por 31 dias;
+  - a chave do Google de desenvolvimento fica em `C:\dev\crm-google-chave-dev.txt`, fora do repositório, e só o SHA-256 dela está no fluxo. Ela foi trocada em 03/11/2026, no ensaio do Lote 3.
 - Fluxos no n8n local:
 
   | Fluxo | Id | Situação |
@@ -40,6 +40,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   | `CRM - Entrada Google` | `3dm8urmanT4Fg0iP` | publicado |
   | `CRM - Reenvio de pendentes` | `yDU0FZa2tXN851ru` | não publicado: roda à mão |
   | `CRM - Relatório semanal Gama` | `ln7BS60hTE8HQ3Pp` | não publicado: roda à mão |
+  | `CRM - Resumo diário` | `hdga8JN0W5kRMNrt` | não publicado: roda à mão |
   | `CRM - Entrada Meta` | `GqSyYXbHtcv6vvsh` | não publicado: depende do app da Meta em modo Live |
 
   Os JSONs de `n8n/` são os exportados deles.
@@ -57,7 +58,8 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - uma varredura sem mostrar o conteúdo confirmou que nenhum outro fluxo guarda a chave.
 - Também em 14/10/2026, entrou a tela de campanhas (Configurações › Campanhas, `PUT /api/campanhas/{id}`), e o cliente do SignalR dos testes subiu para a 10.0.13, por causa da CVE-2026-70159. Nesse dia, sem a correção, a auditoria do NuGet derrubava o build dos testes.
 - Falta, do n8n:
-  - levar os 7 fluxos para o n8n Cloud (README › n8n Cloud: importar os fluxos);
+  - levar os 8 fluxos e as 3 Data Tables para o n8n Cloud (README › n8n Cloud: importar os fluxos);
+  - decidir o horário do Reenvio quando o plano do n8n Cloud for escolhido, porque cada rodada agendada conta como execução (Lote 2A);
   - o app da Meta em modo Live e o "Enviar dados de teste" de verdade do Google Ads;
   - o e-mail da Gama, no lugar do meu, no Relatório;
   - apontar o `.mcp.json` para o n8n Cloud e remover o MCP local.
@@ -183,11 +185,11 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - a auditoria registra os logins (inclusive o recusado), a criação, a exclusão, as exportações e a anonimização, com quem fez e a hora, sem dados pessoais. A exportação com busca grava "1 lead, busca", sem o termo buscado;
   - logada como Adriana: sem Auditoria no menu, sem Exportar CSV e sem o cartão Privacidade. O `/auditoria` volta para o funil, e o `/api/leads/exportacao` responde 403;
   - o `preparar-demonstracao` pelo contêiner gravou 60 leads, 11 ganhos e 8 perdidos. A sessão continuou valendo, e as telas se atualizaram sozinhas: com o `start api`, o tempo real reconecta, e o front recarrega tudo.
-- Em 12/10/2026, a consulta da auditoria ganhou um teste próprio do 403 da atendente, mesmo filtrando pelos registros dela (`AuditoriaTests`). As outras quatro rotas do Passo 10 já tinham o dele, com um lead da própria atendente: a exportação CSV (`ExportacaoLeadsTests`), os dados do titular e a exclusão (`LgpdTests`) e a anonimização (`AnonimizacaoTests`). O `AutorizacaoTests` cobre todas as rotas de admin, mas só as que têm a política: uma rota nova sem o atributo sairia da lista sem o teste falhar.
-- Do Passo 10, fica pendente a revisão das configurações de execução dos fluxos no n8n de produção:
-  - conferir que as execuções de produção que deram certo não são salvas (os JSONs já levam `saveDataSuccessExecution: none`);
-  - apontar o fluxo de erro do Alertas para o id novo do `CRM - Erros`;
-  - ver por quanto tempo ficam as execuções com erro.
+- Em 12/10/2026, a consulta da auditoria ganhou um teste próprio do 403 da atendente, mesmo filtrando pelos registros dela (`AuditoriaTests`). As outras quatro rotas do Passo 10 já tinham o dele, com um lead da própria atendente: a exportação CSV (`ExportacaoLeadsTests`), os dados do titular e a exclusão (`LgpdTests`) e a anonimização (`AnonimizacaoTests`). O `AutorizacaoTests` cobre todas as rotas de admin. Desde o Lote 3, ele também tem a lista das rotas que a atendente alcança: uma rota nova sem a política de admin derruba o teste até alguém decidir.
+- Do Passo 10, fica pendente a conferência das configurações de execução no n8n de produção. Desde o Lote 2A, nenhum fluxo salva execução, e os JSONs levam as quatro configurações. Lá:
+  - conferir que elas valem depois de importar os fluxos;
+  - apontar o fluxo de erro de cada fluxo para o id novo do `CRM - Erros`;
+  - ver por quanto tempo o plano guarda uma execução "crashed".
 - A mudança que decidi em 12/10/2026 para depois da reunião entrou em 13/10/2026, antes do congelamento do código: o lead anonimizado vai para Perdido só com o motivo.
   - O detalhe é texto livre e poderia trazer um dado pessoal de volta. Preenchido, responde 400 no campo `motivoPerdaDetalhe` (`RegrasFunil.Conferir`); o motivo continua obrigatório.
   - O cartão do funil traz `anonimizado`, e o `MotivoPerdaDialog`, aberto pela ficha (`EtapaDoLead`) e pelo quadro e pela lista do celular (`useMovimento`), esconde o campo do detalhe.
@@ -228,10 +230,14 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - no Lote 4A, o aviso "Avisos do navegador", que no celular fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
-  - no Lote 3, aceitar a chave de integração antiga e a nova durante a troca, para nenhuma entrada se perder com 401 (README › Trocar chaves e senhas);
-  - no Lote 5, passar o `shadcn` para as `devDependencies` (ele é a CLI que copia os componentes) e ver o `npm audit fix` do `source-map-js`, que não pede versão maior;
-  - no Lote 2A, os e-mails do `CRM - Erros` em massa. Hoje, cada envio inválido no webhook do site (400) e cada chave errada no do Google (403) disparam um e-mail. Em produção, um robô pode usar isso para lotar a caixa e estourar o limite diário de envio do Gmail;
-  - no Lote 2A, as execuções com erro do n8n, que guardam o que o gatilho recebeu: o `google_key` no corpo do Google e o `X-Crm-Chave` nos cabeçalhos do Alertas. A redação dos dados de execução do n8n é só do Enterprise; o caminho no Starter é não salvar as execuções.
+  - no Lote 4A, o teste "a tela inicial do admin é o painel, o primeiro item do menu" (`painel.test.tsx`). Em 03/11/2026, com a CPU entre 56 e 83%, o título "Painel" não apareceu a tempo, e o teste falhou em 2,1 s; na rodada seguinte, com a máquina mais livre, passou. Medir onde vai o tempo e ver se ele precisa de mais espera, porque a máquina do CI é mais fraca;
+  - no Lote 4A, o PR #2 do Dependabot (Caddy 2.11.7 e n8n 2.43.7):
+    - ele não tem nenhuma rodada do CI, porque foi aberto antes de os workflows existirem na `master`. Antes da avaliação, um `@dependabot rebase` faz o CI rodar nele;
+    - como ele sobe o n8n, o volume `crm-leads_dados-n8n` é copiado e conferido antes, pelo roteiro do README (Versões fixadas › O n8n numa versão nova);
+    - o roteiro foi testado pelo Claude em 21/10/2026, com os mesmos comandos do README, em volumes de teste:
+      - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
+      - a conferência pegou um byte e um arquivo a mais;
+      - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -248,7 +254,240 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a suíte do front, que este lote não mudou: com o padrão de workers, de 2 a 4 falhas de tempo por rodada, em arquivos diferentes, que passam sozinhos; com `--maxWorkers=4`, 260 de 260. A máquina estava com 2,7 GB de memória livre;
     - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 328, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 5,6 s depois;
   - validado por mim em 19/10/2026: o e-mail de alerta do lead 328 chegou no celular da Adriana, às 10:08.
-- Em 19/10/2026, o teste instável do front saiu do Lote 4A e vem antes do Lote 1B: o CI vai rodar a suíte do front num runner de 2 vCPUs, e, com a suíte falhando por tempo, ele ficaria vermelho à toa.
+- A causa do teste instável do front, trazida do Lote 4A em 19/10/2026, foi medida e corrigida em 20/10/2026, antes do Lote 1B: o CI vai rodar a suíte do front num runner de 2 vCPUs, e, com ela falhando por tempo, ele ficaria vermelho à toa.
+  - Todas as falhas eram de tempo (esperas de 1 s e limites de 5 s por teste), nenhuma de asserção.
+  - A causa principal era a disputa: o Vitest abria 7 workers nos 4 núcleos, a memória livre caía a cerca de 300 MB, e tudo ficava de 4 a 6 vezes mais lento. Só o render inicial de uma tela ia de 150 ms para 700 a 940 ms.
+  - Agravava o custo das consultas por papel em telas grandes (Armadilhas conhecidas).
+  - O teste do service worker não tinha corrida: a mensagem chegava e a navegação acontecia, mas, com a disputa, a ficha não renderizava a tempo. O `TempoReal.tsx` não mudou.
+  - A correção:
+    - no máximo 2 workers (`maxWorkers: '25%'`, no `web/vite.config.ts`);
+    - consultas mais baratas nos testes da ficha, da importação e do painel, sem mudar o que eles conferem, e sem os prazos de 3 s;
+    - o `INTERVALO_ANDAMENTO` num módulo próprio (`importacao/andamento.ts`), que os testes trocam por `vi.mock`, com a consulta a cada 200 ms. Na tela, ele continua com 1 s.
+  - Conferido pelo Claude, com a suíte inteira:
+    - antes, em 19/10/2026, com o padrão: de 3 a 13 falhas por rodada, em 80 a 106 s;
+    - em 20/10/2026, com 4 workers e a máquina mais ocupada: 2 das 10 rodadas falharam, por lentidão geral;
+    - com 2 workers: 10 rodadas seguidas sem falha, em 97 a 134 s;
+    - no contêiner de 2 CPUs, com 1 worker, como o CI: 5 rodadas seguidas sem falha, em 173 a 197 s (antes, em 185 a 229 s). O "Perdido pede o motivo", o teste de menos folga, levou de 684 a 1.350 ms, com mediana de 776 ms (antes, 1.140 ms).
+  - A medição vale com a máquina sem carga pesada de fora. Em 20/10/2026, um vídeo no Chrome ocupou de 3 a 4 threads, e a máquina ficou cerca de 1,7 vez mais lenta: no contêiner com 1 worker, 4 testes falharam por tempo (3 esperas de 1 s e 1 limite de 5 s). Essas rodadas ficaram fora da conta.
+  - No runner do GitHub, a folga é maior que no contêiner daqui: no Lote 1B, as 5 rodadas da suíte do front passaram, cerca de 2 vezes mais rápidas.
+  - Na demonstração de fim do item, o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 389, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois.
+  - Validado por mim em 20/10/2026: o e-mail de alerta do lead 389 chegou no celular.
+  - O volume `crm-medicao-node-modules`, com o `node_modules` do contêiner da medição, foi apagado no fim do Lote 1B, em 20/10/2026.
+- Lote 1B (CI no GitHub Actions), feito e validado em 20/10/2026, com o registro do fechamento em 21/10/2026:
+  - três workflows em `.github/workflows` (README › Testes e qualidade › CI no GitHub Actions):
+    - `testes.yml`, em todo push na `master` e em todo PR, menos os só de `.md`: a suíte .NET, o `dotnet format` e o front completo;
+    - `imagem.yml`, quando muda o que entra na imagem ou nos Compose: o build e o Compose de produção com dados sorteados, com as migrations, o `/health` pelo Caddy e o runtime 10.0.13 ou mais novo;
+    - `front-5-rodadas.yml`, disparado por mim pela tela do Actions: a suíte do front em 5 runners ao mesmo tempo, com o resumo de cada rodada na página dela;
+  - o front roda pelo `.github/scripts/front.sh`, na imagem do Node do `Dockerfile`, e o resumo das rodadas sai do `.github/scripts/resumo-do-front.mjs`;
+  - o Dependabot ganhou as ações, num PR por mês, com as versões principais;
+  - o `WorkflowsTests` cobra a permissão só de leitura, o SHA das ações, o `persist-credentials: false` e a falta de segredos e do `pull_request_target`;
+  - conferido pelo Claude:
+    - o `actionlint` 1.7.12, com o `shellcheck`, sem erros nos três workflows, e o `shellcheck` sem avisos no `front.sh`;
+    - três regras quebradas de propósito (o `persist-credentials`, uma tag no lugar do SHA e o `pull_request_target`) deram 4 falhas no `WorkflowsTests`, e só elas;
+    - o `front.sh` no contêiner de 2 CPUs: o `completo` em 259 s, com a suíte em 176 s, e o `suite` em 184 s, com o resumo. O `node_modules` e o `dist` do Windows não mudaram, e nenhum volume ficou;
+    - o `dotnet format` levou 77 s, com o restore pronto, e o build da imagem sem cache, 128 s, com as imagens base já baixadas;
+  - no primeiro push (`4e6872c`) e no PR #3 do Dependabot, o `Testes` falhou na suíte .NET, com `Read-only file system : '/src/TestResults'` e o código 134. A formatação e o front passaram:
+    - o `dotnet test` cria a pasta dos resultados na pasta de trabalho, que no contêiner é o `/src`, só para leitura. Aqui passava porque a pasta do projeto tinha uma `TestResults` vazia, apagada no fim do lote (Armadilhas conhecidas);
+    - reproduzido pelo Claude num clone limpo, com volumes novos, e corrigido com o `--results-directory /artefatos/TestResults` (`662d61d`). Num clone novo da correção, também com volumes novos, a suíte deu 749 de 749, e a formatação passou;
+  - o Dependabot fechou o PR #1 e abriu o #3, com os mesmos 12 pacotes do NuGet. É ele que passa pelo CI, com o `@dependabot rebase` depois da correção no GitHub;
+  - validado por mim no GitHub, em 20/10/2026:
+    - com a correção (`40133cc`), o `Testes` ficou verde em 4 min 37 s, e o `Imagem de produção`, em 2 min 24 s. O `Imagem de produção` também passou nas rodadas anteriores, em 2 min 22 s e 2 min 14 s;
+    - no PR #3, cada workflow rodou uma vez só, pelo `pull_request`, sem rodada a mais pelo push do branch do Dependabot: o `push` dos workflows vale só para a `master`;
+    - o vermelho já apareceu numa falha de verdade, a da `TestResults`, com o e-mail de aviso do GitHub;
+    - as 5 rodadas do front passaram, com 260 testes e nenhuma falha em cada uma, e o disparo terminou em 2 min 40 s:
+      - a suíte levou de 73 a 121 s (mediana de 91 s), contra 170 a 193 s no contêiner de 2 CPUs daqui, pela mesma medida do resumo: cerca de 2 vezes mais rápido, de 1,4 a 2,6 vezes nos extremos;
+      - o processador muda de uma rodada para outra (AMD EPYC 9V45, 9V74 e 7763), e a 7763 foi a mais lenta;
+      - o "Perdido pede o motivo" levou de 397 a 644 ms, contra 684 a 1.350 ms aqui;
+      - o mais lento em todas foi o "recarrega quando um lead ou o funil muda, pelo tempo real", de 1,09 a 1,15 s, que espera o relógio de verdade e tem prazo próprio. Fora ele, nenhum teste passou de 903 ms;
+      - com isso, o critério das 5 rodadas está cumprido, e a folga no runner é maior que no contêiner daqui;
+  - o push só de `.md` (`e4cfd71`) não rodou nenhum workflow, nem o Automatic Dependency Submission, que é do próprio GitHub;
+  - o PR #3, depois do `@dependabot rebase`, ficou verde: o `Testes` #4 em 6 min 58 s e o `Imagem de produção` #4 em 2 min 23 s. No rebase, o Dependabot trocou o título para "Bump FluentValidation and 11 others";
+  - a demonstração no branch do PR #3 valeu como a de fim de lote:
+    - o `preparar-demonstracao` compilou com os 12 pacotes novos e gravou 60 leads;
+    - a API subiu com eles (FluentValidation 12.2.0, Identity 10.0.13, Scalar 2.18.2 e libphonenumber 9.0.41);
+    - o `site.json` criou o lead 450, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 5,7 s depois;
+    - validado por mim: o e-mail do lead 450 chegou às 13:34, no endereço da Adriana, com os dados certos e o link da ficha;
+  - o merge foi pelo "Squash and merge", com o título em português e o corpo do Dependabot (`b25ade7`). Na `master`, o `Testes` #5 ficou verde em 6 min 47 s, e o `Imagem de produção` #5, em 2 min 2 s;
+  - por passo, do `Testes` #3 (pacotes antigos) para o #5 (pacotes novos):
+    - a suíte .NET, de 2 min 6 s para 2 min 50 s (1,35 vez);
+    - a formatação, de 38 s para 1 min (1,58 vez);
+    - o front, de 1 min 45 s para 2 min 46 s (1,58 vez);
+    - o job inteiro, de 4 min 33 s para 6 min 41 s (1,47 vez);
+    - o front não usa nenhum pacote do NuGet e ficou mais lento na mesma proporção, e a suíte .NET até menos: a diferença é da máquina do runner, e não dos pacotes;
+  - depois do merge, conferido pelo Claude:
+    - a pasta do projeto na `master`, igual à `origin/master`, e a API recriada a partir dela, com os pacotes novos;
+    - a árvore igual à do branch do #3, fora os `.md` do `e4cfd71`;
+    - o branch local apagado, e o `git fetch --prune` tirou as referências do #1 e do #3;
+  - na limpeza, em 20/10/2026, saíram o volume `crm-medicao-node-modules` e a pasta `TestResults` vazia da raiz da pasta do projeto.
+- Lote 5 (dependências do front), antecipado para antes do 2A e feito em 21/10/2026:
+  - o motivo foram 3 alertas novos do Dependabot no vite. Todos são do `launch-editor`, que vem dentro do vite e só roda no servidor de desenvolvimento, na função de abrir um arquivo no editor. O vite de 8.3.0 a 8.3.2 é afetado nos três, e a 8.3.3 corrige:
+    - #6, GHSA-587h-7wmj-h5pm, alto (7,5): só no Windows, com execução de comando por um caminho montado de propósito;
+    - #4, GHSA-698v-4r3x-3vcv, moderado (6,3): só no Windows, com um arquivo com `&` ou `%` no nome;
+    - #5, GHSA-r825-w8mm-5pxw, moderado (6,3): no WSL, com o Vim, o Emacs ou o Notepad++ com plugin;
+  - o servidor do Vite escuta só no próprio computador: sem `host` no `vite.config.ts` nem `--host` nos scripts, o `npm run dev` ficou só no `::1:5173`;
+  - a classificação dos alertas:
+    - o vite só roda no servidor de desenvolvimento. O npm o conta como de produção, porque ele é peer do `@tailwindcss/vite`, mas a imagem só leva o `web/dist`;
+    - o `source-map-js` vem pelo `postcss`, pelo `css-tree` e pelo `@tailwindcss/node`, que rodam no Node, e não vai para o pacote do navegador;
+    - o `npm audit` achou 10 pacotes vulneráveis, 9 altos e 1 moderado. Fora o vite e o source-map-js, os 8 só chegavam pela CLI do `shadcn`: o próprio `shadcn`, o `hono`, o `@modelcontextprotocol/sdk` e a cadeia que leva ao `braces` (`ts-morph`, `@ts-morph/common`, `fast-glob` e `micromatch`);
+    - o NuGet não tinha nenhum pacote vulnerável;
+  - os commits:
+    - `a8d8c9f`: o lockfile como o npm 11.17.0 o escreve, com as 6 `bundleDependencies` do `@tailwindcss/oxide-wasm32-wasi` (Armadilhas conhecidas);
+    - `041bad6`: o vite da 8.3.1 para a 8.3.3 (o lockfile tinha a 8.3.1, e não a 8.3.2) e o source-map-js da 1.2.1 para a 1.2.2. A 8.3.4 troca o rolldown, e a 8.3.5 tinha menos de 3 dias;
+    - `4d64e35`: o CSS do shadcn em `web/src/shadcn.css` e o pacote `shadcn` fora do `package.json`. Saíram 245 entradas do lockfile, com o `hono`, o `braces` e o `@modelcontextprotocol/sdk`, e o `npm ci` no Linux foi de 673 para 428 pacotes. O build deu o mesmo `web/dist`, arquivo por arquivo;
+    - `630b329`: 3 marcas `devOptional` que o `uninstall` deixou velhas, recalculadas como `dev`;
+    - `ea9883c`: o roteiro "Um pacote do npm com alerta" no README e o `.github/scripts/nativos-do-lock.mjs`;
+    - `436a72b`: o `front.sh` esconde o `web/dist` e o `web/coverage` (Armadilhas conhecidas);
+    - `82d6b67`: a `api` de desenvolvimento, que não volta sozinha depois de atualizar o Docker Desktop, no README e nas Armadilhas conhecidas;
+  - o `cn` 0.4.0 fica. Conferido por mim no npm: o mantenedor é o shadcn, o repositório é o shadcn-ui/cn, e a 0.4.0 foi publicada com proveniência. O nome era de outro pacote em 2013 e passou para o shadcn em 09/2026;
+  - conferido pelo Claude:
+    - o npm 11.17.0 escreve o mesmo lockfile, byte a byte, no contêiner, no contêiner com `--os=win32 --cpu=x64` e no Windows. No Windows, o `--package-lock-only` regravou o `node_modules/.package-lock.json`, com o mesmo conteúdo, e por isso o lockfile é escrito no contêiner;
+    - a cada commit do lockfile, a conferência por entrada mostrou só as mudanças esperadas, e as entradas com binário nativo ficaram iguais. Das 51, só saiu o `systeminformation`, que é JavaScript;
+    - o `front.sh completo`, no contêiner de 2 CPUs, passou com 260 de 260 testes depois do vite novo, depois da saída do shadcn e com as máscaras do `436a72b`. A suíte .NET, no contêiner, deu 749 de 749;
+    - no Windows, o `npm.cmd install --dry-run --ignore-scripts` não mudou nada e mostrou só o vite, o source-map-js e as 245 saídas. O `npm.cmd install --ignore-scripts` fez o mesmo, sem mudar o lockfile. Depois, o lint, o `format:check`, o build e a suíte (260 de 260) passaram, e o `npm.cmd audit` deu 0;
+    - a demonstração, antes do push: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 511, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 9,3 s depois;
+  - validado por mim em 21/10/2026: o e-mail do lead 511 chegou às 12:46, no endereço da Adriana, com os dados certos e o link da ficha, que abriu no front com o vite 8.3.3. No push dos 5 primeiros commits (`ea9883c`), o `Testes` #6 ficou verde em 6 min 39 s, e o `Imagem de produção` #6, em 2 min 41 s;
+  - os alertas: o lockfile da `master` não tem mais as versões afetadas, e o `npm audit` dá 0. O `braces`, com o alerta descartado em 20/10/2026, saiu do lockfile com o pacote `shadcn`. O fechamento dos 5 alertas abertos ficou pendente no GitHub:
+    - às 14:01, o Dependabot continuava com os 5 abertos e o "checked yesterday", e o Dependency graph, com o vite 8.3.1, o source-map-js 1.2.1 e o hono 4.13.10;
+    - o GitHub estava com um incidente desde as 11:52, com atraso na fila de eventos, e o push das 12:50 caiu dentro dele;
+    - o fechamento entra no registro do próximo lote.
+  - no push dos 3 últimos commits (`ea9883c..57791e5`), em 21/10/2026, o `Testes` #7 ficou verde em 6 min 56 s, e o lote fechou. Em 22/10/2026, o GitHub mostrava 7 alertas, todos de versões que não estão mais na `master`, e os 2 novos eram do `@modelcontextprotocol/sdk`, que saiu com o `shadcn`. O Dependency graph continuava no lockfile de antes: a releitura do push das 12:50 se perdeu no incidente, e o GitHub só relê o lockfile quando um push o muda. O `globals` do Lote 2A faz essa mudança.
+- Lote 2A (n8n: avisos agrupados e execuções sem chave nem dado pessoal), feito de 22 a 26/10/2026:
+  - antes de mexer no n8n, o volume `crm-leads_dados-n8n` foi copiado para o `crm-dados-n8n-copia`, pelo roteiro do README, e a conferência deu "OK";
+  - os commits:
+    - `bd0c58f`: o corpo acima de 64 KB na integração respondia 500, e não 413 (Armadilhas conhecidas). Agora responde 413, "Requisição grande demais";
+    - `b8738da`: as quatro configurações em todos os fluxos, e o `CRM - Erros` sem o link, que não abriria nada. Um fluxo temporário (`rXzmedNmwLqAqu7A`, arquivado) provou que o `CRM - Erros` dispara sem a execução salva;
+    - `0a17be7`: a `destinoDaFalha`, com o mesmo texto nos 4 fluxos que enviam ao CRM. O 400 e o 413 vão para a `crm_entradas_recusadas`, sem e-mail; o 408, o 429, o 5xx, o tempo esgotado e a falha de conexão, para a fila, sem e-mail; o 401, o 403, o 404 e qualquer outro código, para a fila, com um e-mail na hora. A chave errada do Google e a Meta sem campanha contam nas recusadas. Os Stop and Error saíram;
+    - `87cec05`: o reenvio, com no máximo 20 linhas por rodada, para caber nos 5 minutos do Starter, as recusas fora da fila e um e-mail só por rodada na falha de configuração;
+    - `280b6a3`: o `CRM - Resumo diário`, às 8h, só com números, que também apaga as recusadas com mais de 7 dias;
+    - `27fde39`, pedido por mim: a entrada acima de 64 KB nem vai ao CRM nem entra na fila, e fica nas recusadas sem o corpo. As outras recusadas guardam no máximo os primeiros 8 KB, e a do 413, nada. O limite de 64 KB existe agora no CRM e no n8n;
+    - `253f516`, pedido por mim: o envio ao CRM sem o Retry On Fail, que repetia o 400 (a recusa foi de 10,30 s para 0,15 s), e o reenvio com as linhas de menos tentativas primeiro. O `maxTries` e o `waitBetweenTries` ficaram no "Enviar ao CRM" dos três fluxos de entrada, sem efeito sem o `retryOnFail`;
+    - `a1865f1`: o `globals` 17.13.0, pelo roteiro do README, só para o GitHub reler o lockfile (veja o Lote 5). O `npm audit` achou 4 alertas novos, de pacotes que não mudaram (Lote 5B);
+  - o teste do 401 foi pulado, por decisão minha: ele cai no mesmo ramo do 404, testado no site e no reenvio com um `urlCrm` errado;
+  - conferido pelo Claude no n8n local, pelos efeitos, sem ler nenhuma execução:
+    - o site sem nome: 400 e a recusada, com os 390 bytes; um de 21.913 bytes ficou com 8.192, sem caractere quebrado; o de 70 KB foi recusado antes do CRM;
+    - o Google sem a chave: 403, a contagem e nenhum e-mail;
+    - o `urlCrm` errado (404): a fila e o e-mail na hora; no reenvio, um e-mail só para 2 linhas;
+    - a API parada: a fila, sem e-mail, e o reenvio criou o lead depois;
+    - 21 linhas sem nome na fila: 20 foram para as recusadas, e 1 ficou para a rodada seguinte; com 2 linhas por rodada, as sem tentativas saíram antes da que tinha 5;
+    - a Meta, pelo `test_workflow`, com a Graph API falhando: a linha `meta_sem_campanha`, só com o número do lead;
+    - o Resumo, à mão: o e-mail com as contagens e a linha de mais de 7 dias apagada;
+  - validado por mim:
+    - em 22/10/2026: os e-mails do `CRM - Erros`, sem o link, o da configuração, do site e do reenvio, o do resumo e nenhum pelo 400, pelo de 70 KB e pelo 403;
+    - em 26/10/2026, o Google sem nome com a chave certa, pelo meu comando: a linha `google_ads_recusada`, sem o `google_key` no payload, 1 s depois do envio, e nenhum e-mail;
+  - em 26/10/2026, o Resumo aparecia como alterado em 22/10, às 13:31: o editor do n8n, aberto por mim, salvou sozinho uma versão normalizada (Armadilhas conhecidas). O JSON do repositório foi reimportado pelo CLI, sem publicar, e os 8 fluxos bateram com os JSONs;
+  - o fim do lote, conferido pelo Claude em 26/10/2026:
+    - as 45 linhas de teste das recusadas saíram pelo Resumo, com o `diasRecusadas` em 0 só para isso; a fila já estava vazia;
+    - a varredura, só contando: nenhuma marca (`X-Crm-Chave`, `google_key`, `X-Api-Key` e os e-mails dos exemplos) nos logs de eventos do n8n nem no log do contêiner. No banco, só as definições dos fluxos têm o `google_key` e o `X-Api-Key`: o "Conferir a chave" e uma nota;
+    - o achado da varredura: as execuções da demonstração, do site e do Alertas, ficaram no banco, apagadas, com o e-mail do lead e o `X-Crm-Chave`, até a limpeza das apagadas, que as tirou 6 minutos depois. A manual do Resumo espera 1 hora (Armadilhas conhecidas). A especificação (3.8) e o README passaram a dizer isso;
+    - a suíte .NET, no contêiner, com 793 de 793, e a formatação; a do front, no `front.sh completo` depois do `globals`, com 260 de 260;
+    - nenhuma credencial de teste no n8n;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 572, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 8,4 s depois;
+  - decisão pendente, para quando o plano do n8n Cloud for escolhido: o horário do Reenvio. Hoje ele roda de hora em hora, das 8h às 20h, de segunda a sexta (`0 8-20 * * 1-5`), e cada rodada agendada conta como execução. Sem as repetições, uma queda curta do CRM no fim de semana espera a rodada de segunda às 8h;
+  - o fechamento, registrado no Lote 5B:
+    - validado por mim em 26/10/2026: o e-mail do lead 572 chegou às 09:00, no endereço da Adriana, com UF RS, origem Site e o link da ficha;
+    - depois do e-mail, o Claude conferiu o n8n e apagou a cópia `crm-dados-n8n-copia`;
+    - no push de `57791e5..fb3849f`, o `Testes` #8 ficou verde em 7 min 20 s, e o `Imagem de produção` #7, em 2 min 17 s, no `fb3849f`;
+    - o GitHub releu o lockfile às 09:19, com o `globals`. Os 7 alertas antigos fecharam sozinhos, e abriram 6, os mesmos do `npm audit`: os do Lote 5B.
+- Lote 5B (os alertas do npm de 26/10/2026), feito em 26/10/2026, logo depois do push do 2A:
+  - os alertas, com as gravidades do GitHub:
+    - altos: o #16, do `zod` 4.6.5, direto, que vai para o navegador, e o #19, do `undici` 8.11.2, que vem pelo `jsdom`;
+    - moderados: o #14 e o #15, do `@vitest/mocker` 5.0.2, que vem pelo `vitest`, e o #17 e o #18, do `undici`;
+    - o risco era baixo: a API é .NET e não usa o zod, e os outros só rodam nos testes;
+  - os commits:
+    - `487ba92`: o `zod` 4.6.6, de 11/10/2026, a corrigida mais antiga;
+    - `e611fad`: o `vitest` 5.0.3, de 30/09/2026, a mais antiga com o `@vitest/mocker` 5.0.3. Junto, vieram o `@vitest/spy` 5.0.3 e o `why-is-node-running` de volta à 3.2.1, que o `vitest` 5.0.3 fixa. O `undici` foi para a 8.12.3, de 19/10/2026, a mais nova da faixa do `jsdom` (`^8.10.2`), pelo `update` do roteiro. A corrigida mais antiga era a 8.12.2, e fixá-la pediria um `overrides`;
+  - o caso do `magic-string`:
+    - o `install -D vitest@5.0.3` puxava o `magic-string` da 1.4.2 para a 1.4.4, publicada no mesmo dia, 26/10/2026, e a regra dos 3 dias a barra. O npm resolve de novo as dependências do pacote instalado e pega a mais nova da faixa (`^1.2.3`);
+    - o `--prefer-dedupe` não segurou;
+    - num ensaio numa cópia do lockfile, o `magic-string@1.4.2` instalado junto e tirado do `package.json` logo depois segurou a 1.4.2. No repositório, o resultado saiu igual ao do ensaio, byte a byte;
+    - o README ganhou esse jeito, no roteiro "Um pacote do npm com alerta";
+  - conferido pelo Claude, pelo roteiro, nos dois commits:
+    - o `nativos-do-lock.mjs` só com as entradas esperadas, e as 50 nativas IGUAIS;
+    - o `front.sh completo` com 260 de 260. O `zod.test.ts` confere que os esquemas não usam o `new Function`. No commit do `vitest`, a suíte levou 202 s, com o Chrome ocupando a máquina;
+    - o dry-run no Windows só com as trocas esperadas, o install sem mudar o lockfile e, no fim, o `npm audit` em 0;
+  - a suíte .NET, no contêiner, com 793 de 793;
+  - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 633, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 7,8 s depois;
+  - o fechamento, registrado no Lote 1C:
+    - validado por mim: o e-mail do lead 633 chegou às 10:13, no endereço da Adriana. No navegador, a ficha 633 abriu certa, e o "Novo lead" em branco mostrou "Informe o nome." e "Informe o e-mail ou o telefone.";
+    - no push de `fb3849f..783c002`, o `Testes` #9 ficou verde em 5 min 38 s, e o `Imagem de produção` #8, em 2 min 20 s, no `783c002`;
+    - os 6 alertas fecharam com a releitura do lockfile: 0 abertos e 18 fechados.
+- Lote 1C (as portas só no próprio computador), feito em 26/10/2026:
+  - o motivo: o Caddy do `docker-compose.prod.yml` publicava as portas sem IP. Com o plano B ou um Compose descartável no ar, o Wi-Fi e a Radmin VPN chegavam nele, pela regra "Docker Desktop Backend" do firewall (Armadilhas conhecidas), e o 4A e o 4B sobem Compose descartáveis com o Caddy;
+  - os commits:
+    - `66e60db`: o teste das portas do `docker-compose.yml`, todas no `127.0.0.1`, com o `db`, a `api` e o `n8n` obrigados a ter portas, para o teste não passar vazio;
+    - `24761e6`: o `PORTAS_IP` nas três portas do Caddy, vazio no servidor e `127.0.0.1` no plano B e nos Compose descartáveis. Junto, o teste de que, em produção, só o Caddy publica portas, todas pelo `PORTAS_IP`, o `.env.example`, a seção 9, o README e a armadilha;
+  - conferido pelo Claude:
+    - o jeito de escrever, no Compose v5.6.1, com o Engine 29.9.2: o `${PORTAS_IP:-}:` também funcionava, mas, vazio, ele vira `:80:80`, que só passa porque o parser tolera. O `${PORTAS_IP:+${PORTAS_IP}:}` dá a sintaxe documentada nos dois casos;
+    - o `docker compose config`, com um `.env` fictício: sem a variável e com ela vazia, igual ao de antes, byte a byte; com o `127.0.0.1`, só os três `host_ip` a mais;
+    - num Compose descartável só com o Caddy (`-p crm-portas`, portas 8098 e 8469, rede `172.31.98.0/24`), sem a variável, o `com.docker.backend` escutou no `::`, e o Caddy respondeu pelo IP do Wi-Fi e pelo da Radmin. Com o `127.0.0.1`, ele escutou só no `127.0.0.1`, em TCP e UDP: o `https://localhost:8469` chegou, e os dois IPs da rede e o `::1` recusaram. No fim, o `down -v` não deixou nada;
+    - os dois testes, cada um com a porta errada de propósito (a do n8n sem o IP e a UDP do Caddy sem o prefixo), falharam só nela;
+    - a suíte .NET, no contêiner, com 795 de 795, e a formatação; a do front, no `front.sh completo`, com 260 de 260;
+    - durante a suíte .NET, o PostgreSQL dos testes, o Ryuk e o Caddy do `LogDoCaddyTests` ficaram publicados em `0.0.0.0` e `[::]`, e o `com.docker.backend` escutou no `::` (Armadilhas conhecidas);
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 694, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 8,5 s depois;
+  - o fechamento, registrado no Lote 2B:
+    - validado por mim: o plano B com o `PORTAS_IP=127.0.0.1` no `../crm-teste.env`, com o `ps` em `127.0.0.1:8088` e `127.0.0.1:8443`, em TCP e UDP, o `https://localhost:8443` abrindo no computador e o celular, no Wi-Fi, sem conectar; e o e-mail do lead 694 no celular;
+    - no push de `783c002..5221aa4`, o `Testes` #10 ficou verde em 5 min 58 s, e o `Imagem de produção` #9, em 2 min 34 s.
+- Lote 2B (n8n: o limite de envios do site), feito em 27/10/2026:
+  - antes do lote, em 26/10/2026, a pendência das portas na máquina fechou pelo caminho 1, por decisão minha: uma regra de bloqueio própria no firewall, com o `-Profile Any` e a `-Description` (README › Primeira vez). Eu a criei num PowerShell de administrador, e o `Get-NetFirewallRule` a confirmou: ativa, de entrada, Bloquear, perfil Any, com o programa e a descrição. Conferido:
+    - num Compose descartável só com o Caddy (`-p crm-portas`, portas 8098 e 8469), sem o `PORTAS_IP` e com `DOMINIO="localhost, 192.168.0.71, 172.31.98.10"`, para o pedido do celular entrar no log. Pelo IP, o navegador não manda o nome do servidor (SNI), e o Caddy escolhe o certificado pelo IP em que recebeu a conexão, que dentro do Docker é o do contêiner;
+    - o controle, sem a regra: o celular, no Wi-Fi, abriu o `https://192.168.0.71:8469/celular-controle` depois do aviso de certificado, com o 502. O log teve 4 pedidos com esse caminho, em HTTP/2, com o navegador do iPhone. O IP no log é o gateway da rede do descartável, também nos pedidos do computador: quem separa o do celular é o endereço, o caminho e o navegador;
+    - com a regra: "Website can't be reached" no celular, sem aviso de certificado, nenhum pedido novo no log e o `https://localhost:8469` com 502 no computador. O descartável saiu com o `down -v`;
+    - a suíte .NET inteira, no contêiner, com a regra: 795 de 795, em 1 min 58 s;
+    - a demonstração, com a regra: o lead 755, na Adriana, com o `lead.criado` entregue na primeira tentativa, 5,5 s depois;
+  - antes de mexer no n8n, a cópia do volume no `crm-dados-n8n-copia`, pelo roteiro do README, com "OK";
+  - os commits:
+    - `57ea848`: o campo isca no "Only Run If" do Webhook do site e o limite de envios, com a Data Table `crm_envios_site` (só o `criado_em`), o aviso na hora e o envio que segue para o CRM sem o limite quando a contagem falha;
+    - `b0f469f`: os envios do site no resumo diário, com o e-mail de toda segunda (`diaDoResumoSemanal`) e as linhas de mais de 31 dias apagadas;
+  - o que mudou em relação ao plano de 16/10, com o meu ok:
+    - o "É um robô?" fica, para o multipart (Armadilhas conhecidas);
+    - a posição de cada envio vem do id da linha dele, e o primeiro barrado de cada janela avisa o admin, sem repetir o aviso com o tráfego oscilando em volta do limite;
+    - o limite nunca perde um lead: com a gravação, a busca, a conta ou a recusa em falha, o envio vai ao CRM sem o limite, com a marca `site_sem_limite` e no máximo um aviso por dia;
+    - o Google fica sem o "Only Run If": a chave errada receberia 200, e o lead se perderia sem aviso;
+  - os achados, nas Armadilhas conhecidas: o "Only Run If" com o multipart; a saída de erro do nó de Data Table, que só recebe parte das falhas; o "Always Output Data" com a saída de erro, que roda os dois caminhos; o `$()` sem o índice da saída; e o MCP, que não volta sozinho quando o n8n reinicia;
+  - conferido pelo Claude no n8n local, pelos efeitos, com o `seq` da `execution_entity` e as Data Tables:
+    - o limite, no rascunho, com 8 linhas fictícias: a hora (3 na hora, com o limite de 2), o envio seguinte, sem aviso, a oscilação (o limite de 4 cruzado depois de bloqueios na janela, sem aviso), o dia (7 nas 24 horas, com o limite de 6) e a janela (sem as linhas de 25 horas na conta, o envio passou, e o CRM respondeu 400). Nenhum lead nem evento;
+    - a falha, no rascunho, com uma coluna que não existe ou uma data inválida no filtro: na gravação, na busca e na recusa do envio barrado, o envio chegou ao CRM (400), a marca `site_sem_limite` diz o passo, e só a primeira avisou;
+    - esses testes mostraram três defeitos, corrigidos antes do commit: o nó de Data Table engolia a falha da gravação; com a busca em erro, o envio ia duas vezes ao CRM; e o aviso do limite não saía, pelo `$()` sem o índice. Para ver os nós, o salvamento das execuções manuais ficou ligado só no site, com dados fictícios, durante esses testes;
+    - como a hora, o envio seguinte e a oscilação rodaram com o aviso quebrado, os testes do aviso foram refeitos com o código corrigido, no rascunho, a partir da linha da demonstração:
+      - a hora (2 na hora, com o limite de 1), com o e-mail;
+      - o envio seguinte (3), sem e-mail;
+      - a oscilação (4, com o limite de 3, depois de dois bloqueios pela hora), sem e-mail;
+      - o dia (5 nas 24 horas, com o limite de 4), com o e-mail;
+      - o dia cruzado de novo (6, com o limite de 5, depois do bloqueio pelo dia), sem e-mail;
+      - no fim, os valores voltaram, e a exportação bate com o JSON;
+    - o campo isca, publicado, pelo webhook: em JSON e como formulário, 200 com `{"message":"Webhook call received"}`, sem execução e sem linha; em multipart, `{"recebido":true}`, com uma execução, sem linha e sem lead; e o `site-sem-nome.json`, com uma linha e a `site_recusada`;
+    - o Resumo, à mão: a limpeza sem e-mail; o e-mail com os envios (3 ontem e 5 nos 30 dias), 1 barrado e 1 sem limite, com só a linha de 40 dias apagada; e o e-mail do dia semanal com as tabelas vazias;
+    - os 8 fluxos batem com os JSONs. A varredura, só contando, não achou nenhuma marca dos exemplos nas Data Tables, nas definições, nos logs de eventos nem no log do contêiner: elas só estão nas 9 execuções salvas na investigação (79 a 84 e 86 a 88) e nas apagadas, que a limpeza do n8n tira;
+    - a suíte .NET, no contêiner, com 801 de 801, e a formatação; a do front, no `front.sh completo`;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 816, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 6,1 s depois;
+  - validado por mim: os 5 e-mails de teste (o da falha do limite, o do limite pelo dia, no primeiro reteste, e os três do Resumo), nenhum outro, e o do lead 816 no celular. Apaguei as 9 execuções salvas na investigação;
+  - depois, o Claude conferiu o n8n (os 8 fluxos iguais aos JSONs, os 4 publicados e as 3 credenciais), contou as marcas de novo (nenhuma fora das execuções apagadas, que a limpeza do n8n tira) e apagou a cópia `crm-dados-n8n-copia`;
+  - o fechamento, registrado no Lote 3:
+    - validado por mim: os 2 e-mails dos retestes do aviso chegaram, e nenhum outro: às 09:39, pela hora ("2 envios na última hora (limite 1)"), e às 09:40, pelo dia ("5 nas últimas 24 horas (limite 4)");
+    - no push de `5221aa4..d9ab3fa`, o `Testes` #11 ficou verde em 5 min 45 s, no `d9ab3fa`. O `Imagem de produção` não rodou, porque nenhum arquivo dele mudou;
+    - a recontagem das marcas dos exemplos depois da limpeza das execuções apagadas: às 13:16 UTC, ainda havia 6 execuções apagadas no banco, 5 delas com a marca de um exemplo (as dos retestes), e nenhuma marca nas Data Tables, nas definições, nos logs de eventos, no log do contêiner nem em execução salva. Às 13:52 UTC (10:52 em Brasília), depois da limpeza do n8n, a recontagem deu zero.
+- Lote 3 (troca de chaves sem parar), feito em 03/11/2026:
+  - antes de mexer no n8n, em 27/10/2026, a cópia do volume no `crm-dados-n8n-copia`, pelo roteiro do README, com "OK". Em 03/11, os 8 fluxos ainda batiam com os JSONs, e a cópia continuava valendo;
+  - os commits:
+    - `38850a5`: o `Integracao__ChaveAnterior`. O CRM compara a chave recebida sempre com a atual e com a anterior, em tempo constante; sem a anterior, ausente ou vazia, a segunda comparação repete a atual e não conta. Cada uso da anterior e cada subida com ela preenchida vão para o log, sem a chave ("Uso da Integracao__ChaveAnterior" e "Troca da chave em andamento"), e a subida recusa a anterior curta, sem a atual ou igual a ela. O `ChaveIntegracaoTests` passa pelas três rotas da integração com o cabeçalho ausente, vazio, repetido e errado, com e sem a anterior, e o `LogDoCaddyTests` ganhou o `x-api-key` em minúsculas;
+    - `b3ca8b7`: o `DespachanteEventosTests` com o 401 e o 403 do n8n, que esperam a tentativa seguinte, sem a chave no log;
+    - `77fb4b9`: o `googleKeySha256Anterior` no `CRM - Entrada Google`, vazio fora da troca. A "A chave confere?" compara com o `googleKeySha256` ou com o `googleKeySha256Anterior || googleKeySha256`. O `FluxosN8nTests` confere essa forma e a lista dos 6 HTTP Request que chamam o CRM, todos com a `CRM - Chave de integração`;
+    - `8eb647b`: os testes de rota passam a olhar todos os endpoints, com o hub e o `/health`, que ganhou o `AllowAnonymous`, e a lista das 20 rotas que a atendente alcança. Quebrado de propósito: sem a política de admin na exportação de leads, só o teste novo falhou; sem o `AllowAnonymous` no `/health`, os 3 que olham todos os endpoints;
+    - `4f16d16`: o README › Trocar chaves e senhas: a integração em duas fases, a dos eventos conferida contra a chave nova, a do Google em quatro etapas e a chave que vazou;
+  - o teste dos blocos do README, num `.env` de mentira, com o `docker` trocado por um falso: 223 de 223 no Git Bash e 206 de 206 no Ubuntu 24.04 da imagem do SDK, com o `mawk`, o GNU sed 4.9 e o `.env` em 600. Ele achou o CR que o `sed` do Git Bash tira, o `clip < /dev/null`, que não limpa, e, pelo meu ponto, a conferência dos eventos que só olhava o formato (Armadilhas conhecidas);
+  - o ensaio em desenvolvimento, com as chaves de verdade e os comandos com chave rodados por mim:
+    - a integração: a fase 1 duas vezes (a segunda deu PAROU); o `site.json` entrou com a chave antiga, com um "Uso da"; depois da troca da credencial, entrou sem aviso; a contagem das chaves deu 0 nos logs da `api` (387 linhas) e do `n8n` (2.918); depois da fase 2, nenhuma linha da troca. A chave errada, a vazia e a ausente deram 401 nas três rotas antes, durante e depois da troca, e nada foi para as pendentes nem para as recusadas;
+    - o Google, com uma chave de desenvolvimento nova: durante a troca, a antiga e a nova deram 200; depois, só a nova. A errada, a vazia e o envio sem o campo deram 403 nas duas rodadas;
+    - os eventos: com a chave trocada só no n8n, o `lead.entrada_repetida` ficou pendente, com `HTTP 403`; depois do `restart`, saiu na tentativa seguinte;
+  - fora da lista aprovada: um POST com `{}` ao webhook do Google, para conferir a publicação, deu 403 e gravou uma linha `google_chave_errada` a mais. Apaguei as 7 linhas de teste. Desde então, qualquer envio, execução ou publicação fora da lista só com o meu ok antes (Como trabalhar);
+  - conferido pelo Claude:
+    - a suíte .NET, no contêiner, com 817 de 817, e a formatação. A do commit 1 levou 11 min, com a CPU tomada pelo Chrome; a do fim, 2 min 30 s;
+    - a do front, no `front.sh completo`, com 260 de 260, na segunda rodada. A primeira, com a CPU entre 56 e 83%, falhou por tempo num teste (pendência do Lote 4A);
+    - os 8 fluxos iguais aos JSONs. A varredura, só contando, não achou execução no banco nem marca nos logs de eventos e no do contêiner: as marcas só estão nas definições e no histórico dos fluxos;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 878, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 4,2 s depois;
+  - validado por mim: os 5 e-mails do lote, todos para a Adriana (09:45, 10:27 e 10:39 do ensaio da integração, 12:10 do dos eventos e 12:15 da demonstração), e nenhum de configuração nem do `CRM - Erros`;
+  - depois, o Claude conferiu o n8n (os 8 fluxos, os 4 publicados e as 3 credenciais) e apagou a cópia `crm-dados-n8n-copia`;
+  - o push e o CI entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -286,7 +525,7 @@ src/Crm.Api/Infra/           DbContext, migrations, auditoria, despachante de ev
 tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
-n8n/                         JSON dos 7 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
+n8n/                         JSON dos 8 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
 docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo da importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
@@ -294,7 +533,7 @@ docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef nu
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
 .claude/                     permissões do projeto e o comando /passo
-.github/                     o Dependabot (um PR por mês com as imagens e outro com o NuGet, sem o npm)
+.github/                     o CI (os workflows e, em scripts/, o front.sh e o resumo das 5 rodadas), a conferência dos binários nativos do lockfile do front (scripts/nativos-do-lock.mjs) e o Dependabot (um PR por mês com as imagens, outro com o NuGet e outro com as ações, sem o npm)
 .mcp.json                    servidor MCP do n8n Cloud (o do n8n local fica no ~/.claude.json, fora do Git)
 ```
 
@@ -314,13 +553,16 @@ cd web && npm test                                       # testes do front (vite
 dotnet format                                            # formata o C# (--verify-no-changes só confere)
 MSYS_NO_PATHCONV=1 docker compose -f docker-compose.testes.yml run --rm -e ArtifactsPath=/artefatos --entrypoint dotnet testes format Crm.sln --verify-no-changes   # o mesmo, pelo contêiner dos testes
 cd web && npm run lint && npm run format:check           # ESLint e Prettier do front
+sh .github/scripts/front.sh completo                     # o front como no CI, num contêiner Alpine, sem tocar no node_modules do Windows
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo:ro" -w /repo rhysd/actionlint:1.7.12   # confere os workflows do CI
+node .github/scripts/nativos-do-lock.mjs                 # o lockfile do front contra o do último commit: o que mudou e se os binários nativos ficaram iguais
 docker compose run --rm ef migrations add <NomeDescritivo>   # dotnet ef num contêiner (nesta máquina, o jeito que roda)
 dotnet tool restore                                      # uma vez por clone, para ter o dotnet ef no Windows
 dotnet ef migrations add <NomeDescritivo> --project src/Crm.Api
 docker compose run --rm --service-ports api --N8n:WebhookUrl=   # API sem mandar eventos ao n8n, com o api parado (no Windows: dotnet run --project src/Crm.Api -- --N8n:WebhookUrl=)
 docker compose run --rm -e Demo__Permitir=true api preparar-demonstracao   # APAGA os leads e grava a massa da demonstração, com o api parado (README › Demonstração)
 docker compose -f docker-compose.prod.yml up -d --build  # produção, no servidor (README › Publicação)
-docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC
+docker compose -p crm-local -f docker-compose.prod.yml --env-file <arquivo> up -d --build   # produção no próprio PC, com PORTAS_IP=127.0.0.1 no arquivo
 docker compose up -d n8n                                 # n8n local em http://localhost:5679 (README › n8n local)
 ```
 
@@ -378,6 +620,8 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Uma rota que aceita qualquer método (`MapFallback`, `MapFallbackToFile`) faz um método errado numa rota da API responder 404 em vez de 405. Por isso o `index.html` é servido fora do roteamento, como último recurso de um GET (`FrontExtensions.UsarFront`).
 - O `UseForwardedHeaders` com as listas de proxies vazias confia em qualquer um. Sem `Proxy__Ip`, o `ProxyReverso` desliga os cabeçalhos encaminhados (`ForwardedHeaders.None`).
 - O `TestServer` não tem IP de conexão. Para testar o IP de quem acessa, use `Server.SendAsync` e defina o `Connection.RemoteIpAddress` (`ProxyTests`).
+- O `TestServer` também não aplica o `[RequestSizeLimit]`: o corpo acima do limite passa. O teste do 413 (`IntegracaoLeadsTests`) sobe o Kestrel de verdade, com `UseKestrel(opcoes => opcoes.Listen(IPAddress.Loopback, 0))`. Sem o `Listen`, ele escuta no `[::]:8080` do `ASPNETCORE_HTTP_PORTS`, e o cliente não conecta.
+- O `UseExceptionHandler()` responde 500 a toda exceção que escapa, inclusive à `BadHttpRequestException` do corpo grande demais. O `StatusCodeSelector` (`Program.cs`) passa o código dela. O título do 413 em português vem do `ProblemDetailsPtBr`; o padrão é "Content Too Large", da RFC 9110.
 - A CSP do Caddy (`deploy/Caddyfile`) só aceita a própria origem, mais os estilos inline do sonner e do Radix, e não tem `'unsafe-eval'`. Um recurso externo novo (fonte, imagem, script) precisa entrar nela. O `connect-src` repete o domínio com `wss://`, para o WebSocket do tempo real no Safari antigo; com `DOMINIO=localhost` numa porta que não é a 443, quem cobre o WebSocket é o `'self'`, o que basta no Chrome.
 - O filtro do log do Caddy (`format filter`, no bloco global do `deploy/Caddyfile`) vale para o log padrão, onde caem o log de erro e o de todos os módulos. Um log de acesso (a diretiva `log` no site) teria o próprio formato, sem o filtro: se for ligado, ele precisa do mesmo filtro. O `LogDoCaddyTests` pega um vazamento no stderr, mas não num arquivo de log.
 - Com a API parada no Docker Desktop, o Caddy leva 3 s para responder 502, porque o nome `api` não resolve (`lookup api: i/o timeout`). No `LogDoCaddyTests`, o próprio Caddy responde pelo nome `api` na rede do teste, sem nada na 8080, e o 502 sai na hora (`connection refused`).
@@ -406,6 +650,8 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Com a API rodando no Windows (`dotnet run`), o build do Windows falha ao copiar o `Crm.Api.exe`, que fica travado. Pare a API ou use o contêiner dos testes, que compila num volume próprio. Para só conferir que compila, use `dotnet build Crm.sln --artifacts-path <pasta do scratchpad>`, que não escreve no `bin/`. A API do contêiner não trava nada no Windows: o build dela fica no volume `artefatos-api`.
 - Para gerar os tipos do front com a API do contêiner, rode `docker compose restart api`, para ela compilar o código novo, e depois o `npm run api:tipos`.
 - O serviço `api` e um `docker compose run ... api` (o `preparar-demonstracao`, a API sem o n8n) compilam no mesmo volume e usam a porta 5080: pare o `api` antes.
+- Com a API no ar e a configuração igual, o `docker compose up -d api` não faz nada: ela continua com o código e os pacotes que compilou ao subir. Para ela compilar de novo, como num PR do NuGet, use o `docker compose restart api` ou o `docker compose up -d --force-recreate api`, que recria só a API. Conferido em 20 e 21/10/2026: o mesmo contêiner, com a mesma hora de início, no `up -d api`, e o banco e o n8n no ar depois do `--force-recreate api`.
+- A `api` de desenvolvimento não tem `restart`, por decisão minha de 21/10/2026. Depois de atualizar ou reiniciar o Docker Desktop, o `db` e o `n8n` voltam sozinhos (`restart: unless-stopped`), e a `api` precisa do `docker compose up -d api` (README › Dia a dia). Com o `restart`, o código sem compilar faria a `api` recompilar em laço, a cada uns 30 s e com quase 2 CPUs, sem ninguém ver. Não ponha o `restart` nela sem pesar isso.
 - Para testar a API do contêiner sem tocar no banco de desenvolvimento, suba um PostgreSQL descartável na rede `crm-leads_default` e passe no `docker compose run`:
   - `-e ConnectionStrings__Crm=...` com o nome dele e `Admin__*` fictícios;
   - `-e DataProtection__Pasta=/tmp/chaves`, para as chaves não irem para o volume `chaves-sessao`;
@@ -441,21 +687,78 @@ docker compose up -d n8n                                 # n8n local em http://l
 - No PowerShell 5.1, as aspas duplas dentro de um argumento para um programa nativo se perdem ou partem o argumento em vários. Por isso, use `git commit -F` com a mensagem num arquivo do scratchpad e, para o contêiner, um script em arquivo copiado com `docker compose cp`.
   - Um `git commit -m` com aspas na mensagem sai sem elas ou falha com "pathspec did not match".
   - Se o commit falhar depois do `git add`, os arquivos ficam no índice e entram no commit seguinte: confira com `git show --stat`.
-- O gatilho Webhook do n8n guarda nos dados da execução tudo o que recebe, com os cabeçalhos e o corpo. Nas execuções com erro, que ficam salvas, ficam o `X-Crm-Chave` do Alertas e o `google_key` do Google.
+- O gatilho Webhook do n8n guarda nos dados da execução tudo o que recebe, com os cabeçalhos e o corpo: o lead, o `X-Crm-Chave` do Alertas e o `google_key` do Google. Por isso nenhum fluxo salva execução, desde o Lote 2A. Mesmo assim, a que não fica salva passa pelo banco: ela fica nele, apagada (`deletedAt`) e fora da API e da tela, até a limpeza das apagadas, a cada 15 minutos (`EXECUTIONS_DATA_PRUNE_HARD_DELETE_INTERVAL`). A de produção sai na primeira, porque o `deletedAt` dela vem 1 hora antes; a manual, só depois de 1 hora (`EXECUTIONS_DATA_HARD_DELETE_BUFFER`). Numa varredura, conte as marcas também nas apagadas e, se houver, conte de novo depois da limpeza.
 - Um HTTP Request do n8n com credencial nunca baixa a resposta como arquivo (formato "File"). Nesse modo, o n8n guarda no `contextData` da execução a requisição inteira, com o cabeçalho da credencial. Foi assim que o `X-Api-Key` vazou em 14/10/2026. Baixe como texto e refaça o binário no Code, como no relatório semanal.
+- As configurações de execução de um fluxo valem na hora, sem publicar de novo.
+- No n8n local, o filtro de data da Data Table compara texto: um "maior que" no mesmo dia não acha nada. Compare as datas num Code e apague pelo id, como no Resumo.
+- O Retry On Fail do n8n repete qualquer erro, sem escolher pelo código: no envio ao CRM, ele repetia o 400. Deixe a falha temporária para a fila. O MCP não apaga um campo do nó: o `maxTries` e o `waitBetweenTries` ficaram no "Enviar ao CRM" dos três fluxos de entrada, sem efeito sem o `retryOnFail`.
+- Abrir um fluxo no editor do n8n pode salvar sozinho uma versão normalizada, que faz o mesmo: sem os valores padrão dos parâmetros, com posições ajustadas e com o `binaryMode: separate`, que só muda algo no modo `combined`. O JSON exportado deixa de bater com o do repositório. Depois de abrir um fluxo no editor, compare a exportação; num fluxo sem publicar, o `n8n import:workflow` do JSON do repositório o volta.
+- O "Only Run If" do Webhook é avaliado antes de o nó ler um corpo `multipart/form-data`: nele, o `$json.body` chega vazio, e a condição passa (`Webhook.node.js` e `body-parser.js`, na 2.43.5). Por isso o campo isca do site fica no "Only Run If", para JSON e formulário, e também no "É um robô?", para o multipart. O envio barrado pelo "Only Run If" recebe 200 com `{"message":"Webhook call received"}`, sem execução.
+- No nó de Data Table, a saída de erro (`continueErrorOutput`) só recebe as falhas do tipo `NodeOperationError` ou `NodeApiError`, como a tabela que não existe. As outras, como uma coluna que não existe ou a validação de um valor, saem na saída normal, com o item de entrada e sem erro, como se a gravação tivesse dado certo (`DataTable/actions/router.js`, na 2.43.5). Depois de gravar, confira o `id` da linha devolvida, como o "Conferir o limite" e o "Gravou a recusa?" do site.
+  - Para testar a falha, use uma coluna que não existe. O MCP recusa no nó o nome de uma tabela que não existe, e renomear a tabela não derruba o fluxo na hora: o n8n guarda o id dela em memória.
+- Num nó com a saída de erro e o "Always Output Data", uma falha manda o erro para a saída de erro e um item vazio para a saída normal, e os dois caminhos rodam. No site, o envio iria duas vezes ao CRM. O "Conferir o limite" para o caminho normal quando a busca tem erro (`$('Buscar os envios recentes').all(1)`).
+- Num Code, o `$('Nó')` sem o índice da saída lê a que liga aquele nó ao atual. Se ele chega ao atual pela saída normal e pela de erro, ou só pela de erro, o `.first()` e o `.all()` podem ler a saída vazia: passe o índice (`.first(0)`, `.all(1)`).
 - No MCP do n8n:
   - o `create_workflow_from_code` não põe credencial nos HTTP Request: passe no nó o `{ id, name }` da credencial, que o `list_credentials` dá;
   - as notas ganham nomes aleatórios: renomeie para "Sobre o fluxo" com o `renameNode` do `update_workflow`;
   - as configurações do fluxo entram pelo `setWorkflowSettings` do `update_workflow`, e o fluxo de erro só aceita um fluxo publicado;
   - o `execute_workflow` não roda o gatilho de Lead Ads. Use o `test_workflow` com pin data, que fixa também os HTTP Request e os nós com credencial. Para levar o lead montado ao CRM, ponha-o na `crm_entradas_pendentes` (`add_data_table_rows`) e rode o Reenvio;
-  - chamadas na mesma mensagem rodam juntas: insira a linha na Data Table e só depois, em outra mensagem, execute o fluxo que a lê.
+  - chamadas na mesma mensagem rodam juntas: insira a linha na Data Table e só depois, em outra mensagem, execute o fluxo que a lê;
+  - quando o n8n reinicia, como na cópia do volume ou numa versão nova, o MCP cai e não volta sozinho, nem depois de o `/healthz` responder. O `/mcp` do Claude Code, que é com o usuário, o reconecta. Vale para o Lote 4A, que sobe o n8n na 2.43.7.
 - O `N8n__WebhookUrl` não aparece no `printenv` do contêiner da API, porque a própria API lê o `.env` (`ArquivoEnv`). Para saber se ela leu, procure no log da subida a linha "N8n__WebhookUrl não está configurada", que só aparece com a URL vazia.
 - Um e-mail mandado de uma conta do Gmail para um alias dela mesma, como o `+adriana`, chega como enviado, sem notificar o celular. Por isso, o remetente dos alertas é outra conta.
 - A auditoria do NuGet, com os avisos tratados como erro, derruba o build quando sai um alerta novo para um pacote. Foi o caso da CVE-2026-70159 do SignalR.Common, em 13/10/2026. Suba o pacote para a versão corrigida, no `Directory.Packages.props`.
 - Nos testes do front, o MSW usa o tratador registrado por último. O `comQuadro()` e o `comCadastros()` registram as campanhas padrão: registre as do teste depois deles.
-- O primeiro teste de um arquivo do front carrega a tela a frio. Com a suíte inteira, um `findBy` logo depois de abrir `/` pode passar de 1 s: dê a ele um `timeout` maior, como no primeiro teste do painel. A causa é investigada no Lote 4A: em 19/10/2026, com pouca memória livre, a suíte teve falhas de tempo em arquivos diferentes a cada rodada e passou inteira com `--maxWorkers=4`.
+- A suíte do front roda com no máximo 2 workers (`maxWorkers: '25%'`, no `web/vite.config.ts`), o que dá 1 no runner de 2 vCPUs do CI.
+  - Com o padrão do Vitest (todas as CPUs menos uma), os 7 workers disputavam os 4 núcleos, e a suíte falhava por tempo em toda rodada.
+  - Por que 2 e não 4: com a máquina mais ocupada, 4 workers falharam em 2 das 10 rodadas de 20/10/2026, e as falhas eram de lentidão geral, não de um teste específico.
+  - A medição só vale com a máquina sem carga pesada de fora. Em 20/10/2026, um vídeo no Chrome ocupou de 3 a 4 threads e derrubou rodadas, até no contêiner com 1 worker.
+  - Um `findBy` que só falha com a suíte inteira não ganha um `timeout` maior: meça antes onde vai o tempo.
+- Nos testes do front, uma consulta por papel (`*ByRole`) numa tela grande custa caro e, numa espera, se repete a cada mudança no DOM. Com a disputa, a consulta da opção da etapa na ficha ia de 11 para 91 ms, e o `getAllByRole('cell', { name })` numa tabela de 100 linhas respondia por 4,4 s de um teste de 5,1 s. Em tela grande, procure pelo rótulo (`getByLabelText`), pelo texto ou dentro de um pedaço da tela (`within`), como o `seletorDeEtapa()` da ficha.
+- Para encurtar nos testes do front um intervalo que espera o relógio de verdade, como o da consulta de andamento da importação, ponha a constante num módulo próprio e troque o valor por `vi.mock`, sem relógio falso (`importacao/andamento.ts`).
 - Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot.
 - Um `docker compose -p <descartável> -f docker-compose.prod.yml up --build` troca a imagem `crm-api`, a mesma do plano B. Para não mexer nela, dê outro nome à imagem por um override (`image:` dos serviços `api` e `migracoes`).
+- O Docker Desktop cria no firewall do Windows a regra de entrada "Docker Desktop Backend", em TCP e UDP, que libera o `com.docker.backend` no perfil Público, em qualquer porta e de qualquer origem. As duas redes desta máquina, o Wi-Fi e a Radmin VPN, estão nesse perfil. Uma porta publicada sem IP fica aberta para elas enquanto o contêiner está no ar: o `com.docker.backend` escuta no `::`, que aceita também o IPv4.
+  - Toda porta do `docker-compose.yml` fica no `127.0.0.1`, e o `PublicacaoTests` cobra isso.
+  - O Compose de produção no próprio computador sobe com o `PORTAS_IP=127.0.0.1`: o plano B, pelo `../crm-teste.env`, e todo Compose descartável. No servidor, ele fica vazio, e o Docker publica a 80 e a 443 no IPv4 e no IPv6; um `0.0.0.0` deixaria o IPv6 de fora.
+  - Com o `127.0.0.1`, o `localhost` chega pelo IPv4: o `::1` recusa, e o navegador e o `curl` passam para o `127.0.0.1`. Pelo IP (`https://127.0.0.1:8443`), o TLS falha, porque o certificado do Caddy é do nome `localhost`.
+  - O Testcontainers publica sem IP: o PostgreSQL dos testes, com a senha padrão `postgres`, o Ryuk, que apaga os contêineres dos rótulos que recebe pela porta dele, e o Caddy do `LogDoCaddyTests`. A regra própria, abaixo, fecha essas portas para a rede, e a suíte no contêiner continua passando com ela: o contêiner chega ao PostgreSQL pelo `host.docker.internal`, sem passar pelo firewall. Prender essas portas no `127.0.0.1` pelo código não serve: no CI, os testes chegam ao PostgreSQL pelo `host.docker.internal`, que no Linux é o gateway da rede.
+  - Desde 26/10/2026, a regra própria "Docker Desktop: sem acesso pela rede" (entrada, Bloquear, perfil Any, para o `com.docker.backend.exe`) fecha para a rede todas as portas que o Docker Desktop publica, inclusive as do Testcontainers e a do n8n do WSL. O bloqueio vence a permissão da regra do Docker. Confira-a depois de cada atualização do Docker Desktop (`Get-NetFirewallRule -DisplayName 'Docker Desktop: sem acesso pela rede'`, README › Primeira vez). O `PORTAS_IP` e o `127.0.0.1` do Compose ficam como segunda camada.
+  - Só outro aparelho prova a regra: o Windows não filtra o tráfego para ele mesmo, e um pedido do próprio computador pelo IP do Wi-Fi passa. No Docker Desktop, o log do Caddy mostra o gateway da rede como o IP de todo pedido: quem separa o do celular é o endereço, o caminho e o navegador. O Caddyfile só grava os erros do proxy, e o redirecionamento da porta HTTP não entra no log: para o pedido do celular aparecer, abra o HTTPS direto, num descartável com o IP no `DOMINIO`, com a API parada (o 502).
+- Os workflows do CI só leem o repositório, e o `WorkflowsTests` cobra isso em todo arquivo de `.github/workflows`:
+  - a permissão `contents: read`;
+  - toda ação de terceiros fixada pelo SHA, com a versão num comentário, que o Dependabot atualiza;
+  - todo checkout com `persist-credentials: false`;
+  - nada de `secrets`, `github.token` ou `pull_request_target`.
+- No GitHub Free, repositório privado não tem proteção de branch: o check vermelho não impede o merge. A conferência de um PR é manual (README › Versões fixadas).
+- O `front.sh` monta o `web/` só para leitura, com o `node_modules`, o `dist` e o `coverage` em volumes anônimos, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria as três pastas antes, o que no runner são pastas vazias.
+  - O `dist` e o `coverage` ficam escondidos desde 21/10/2026 (`436a72b`). Só com o `web/` montado, sem o `.git` e o `.gitignore` da raiz, o Tailwind procura classes também no `web/dist`. Com o build velho do Windows na pasta, o CSS do build no contêiner saía com 3,5 KB a mais; com os volumes, o build no contêiner é igual ao do Windows, arquivo por arquivo.
+  - A imagem de produção (o `.dockerignore` tira o `web/dist` e o `web/coverage`) e o CI (um checkout novo) não têm isso. Um contêiner novo que monte só o `web/` precisa do mesmo cuidado.
+- Um pacote do npm muda pelo roteiro do README (Versões fixadas › Um pacote do npm com alerta), e não por um `npm.cmd install <pacote>` direto no Windows, que baixaria um binário nativo novo antes de qualquer conferência. O Controle Inteligente de Aplicativos bloqueia um binário sem assinatura.
+  - O lockfile é escrito num contêiner, pelo npm da mesma versão do Windows (o 11.17.0, em 21/10/2026), com o `--package-lock-only`. O resultado é o mesmo, byte a byte, mas no Windows o `--package-lock-only` também regrava o `node_modules/.package-lock.json`.
+  - O roteiro termina com um `install` sem pacote: o `uninstall --package-lock-only` deixa marcas `devOptional` velhas, e o `install` sem pacote as recalcula.
+  - O `install` de um pacote resolve de novo as dependências dele e pode trazer a versão nova de uma que não precisava mudar, mesmo com o `--prefer-dedupe`. Segure a versão do lockfile: instale-a junto e tire-a do `package.json` logo em seguida, como o `magic-string` no Lote 5B (README).
+  - O `npm.cmd install --ignore-scripts` só vem depois de o `node .github/scripts/nativos-do-lock.mjs` dizer IGUAIS.
+  - O npm 11 avisa que o `msw` tem um script de instalação fora do `allowScripts`. Nada roda: no contêiner, o `--package-lock-only` não instala nada, e, no Windows, o `--ignore-scripts` não roda nenhum script.
+  - O lockfile tem as 6 `bundleDependencies` do `@tailwindcss/oxide-wasm32-wasi` (opcionais, `inBundle`, sem `os` nem `cpu`). O npm 11.17.0 as escreve com o `--package-lock-only`, e o `install` completo as mantém; o lockfile de antes, de 06/10/2026, não as tinha. Um lockfile que muda sem nenhum pacote mexido pede a conferência da versão do npm que o escreveu.
+- O CSS do shadcn fica em `web/src/shadcn.css`, copiado do `dist/tailwind.css` do pacote `shadcn` 4.21.0, com o aviso de licença MIT no cabeçalho. O pacote, que é a CLI, saiu do `package.json` em 21/10/2026 (`4d64e35`).
+  - Não formate o arquivo: ele fica no `.prettierignore`, igual ao original, para comparar com uma versão nova. Numa versão nova, troque tudo o que vem depois do comentário pelo `dist/tailwind.css` dela.
+  - Um componente novo vem pela CLI, num contêiner (README › Versões fixadas › Um componente novo do shadcn). Se ela trouxer de volta o pacote ou o `@import 'shadcn/tailwind.css'`, compare o CSS com o `web/src/shadcn.css` antes do commit.
+  - O `cn` não é a CLI: é o pacote da organização do shadcn que substitui o `clsx` e o `tailwind-merge`, e os componentes o importam. Ele fica.
+- No modo do Microsoft.Testing.Platform, o `dotnet test` cria a pasta dos resultados (`TestResults`) na pasta de trabalho. No contêiner dos testes, ela é o `/src`, só para leitura, e o `docker-compose.testes.yml` manda os resultados para o volume (`--results-directory /artefatos/TestResults`). Sem isso, num checkout limpo, como o do CI, a suíte falha antes de rodar, com o código 134.
+  - Aqui, a pasta do projeto tinha uma `TestResults` vazia desde 28/09/2026, que o `.gitignore` escondia, e o erro não aparecia. Ela foi apagada em 20/10/2026. Se voltar, como depois de um `dotnet test` no Windows, o erro volta a ficar escondido aqui.
+  - Uma mudança no contêiner dos testes ou no CI se confere num clone limpo, numa pasta temporária, com um projeto do Compose descartável (`-p`), que tem volumes novos, como o runner. No fim, o `down -v` desse projeto e o clone apagado.
+- Uma chave vazia tem o mesmo SHA-256 de um cabeçalho vazio. Uma chave que pode estar vazia nunca entra numa comparação:
+  - no CRM, sem a `Integracao__ChaveAnterior`, a segunda comparação repete a atual e não conta (`ChaveIntegracaoHandler`);
+  - no `CRM - Entrada Google`, a segunda condição compara com o `googleKeySha256Anterior || googleKeySha256`;
+  - a anterior chega ausente em desenvolvimento, porque o `ArquivoEnv` ignora o valor vazio, e vazia no Compose de produção. Os testes cobrem os dois casos.
+- No Git Bash, o `sed -i` abre o arquivo em modo texto e tira o CR de todas as linhas, mesmo das que ele não muda: use o `sed -b`, que no Linux é aceito sem efeito. O `grep` do Git Bash também tira o CR ao ler um arquivo de texto: para achar um CR, use o `grep -U`.
+- O `clip < /dev/null` não limpa a área de transferência: com a entrada vazia, ele só mostra a ajuda. O `Set-Clipboard -Value $null` limpa. Como ele não limpou uma vez, em 13 seguidas no teste dos blocos, o comando do README diz se a área de transferência ficou vazia, sem mostrar o que tinha.
+- Uma conferência depois de um `sed` compara com o valor que ele devia gravar, e não só com o formato: no bloco dos eventos, com o `sed` sem trocar nada e a chave de hoje em 48 caracteres hex, a conferência do formato dizia que deu certo. O valor chega ao `awk` pelo ambiente (`ENVIRON`), e não pela linha de comando, que aparece no `ps`.
+- O JSON que o CLI do n8n exporta vem minificado, e o Prettier mantém aberto todo objeto que chega aberto. Ao deixar só `id`, `name`, `nodes`, `connections` e `settings`, grave o JSON minificado (`JSON.stringify(objeto)`) e só então formate: com o `JSON.stringify(objeto, null, 2)`, o diff do fluxo do Google teve 262 linhas, e não 17.
+- O PowerShell 5.1 lê um `.ps1` sem BOM como Windows-1252, e um caractere de fora do ASCII pode virar aspas curvas, que ele aceita como aspas. Os scripts `.ps1` ficam só com ASCII.
+- Um arquivo que o `docker compose cp` põe no contêiner do n8n fica do root, e o `docker compose exec` roda como `node`. Para apagá-lo, use o `docker compose exec -u root n8n rm -f <arquivo>`.
+- O `docker compose restart` do Compose 5 pode terminar mostrando só o "Restarting", sem o "Started". Confira com o `docker compose ps` e o `/health`.
 
 ## n8n
 
@@ -467,7 +770,8 @@ docker compose up -d n8n                                 # n8n local em http://l
   - o nome começa por `CRM - `;
   - um nó Set "Configuração", logo depois do gatilho, guarda os endereços e os e-mails. Segredos ficam só nas credenciais `CRM - …`;
   - nada de `$env`, `$vars`, Execute Command, arquivos em disco ou nó da comunidade: o n8n Cloud não tem;
-  - nas configurações: `saveDataSuccessExecution: none`, o fuso America/Sao_Paulo e o `CRM - Erros` como fluxo de erro (menos nele mesmo);
+  - nas configurações, nenhuma execução salva (`saveDataSuccessExecution` e `saveDataErrorExecution` em `none`, `saveManualExecutions` e `saveExecutionProgress` em `false`), o fuso America/Sao_Paulo e o `CRM - Erros` como fluxo de erro (menos nele mesmo);
+  - nenhum Stop and Error, e o envio ao CRM sem o Retry On Fail. As falhas dele vão pela `destinoDaFalha`, com o mesmo texto nos quatro fluxos que enviam ao CRM;
   - a Data Table vai pelo nome (modo `name`), e não pelo id.
 - Depois de criar ou alterar um fluxo, exporte-o pelo CLI e salve o JSON em `n8n/<nome-do-fluxo>.json`. Deixe só `id`, `name`, `nodes`, `connections` e `settings` e formate com o Prettier do `web/` (README › n8n local).
 - Depois dos testes, apague as execuções de teste. Não leia pelo MCP o conteúdo de uma execução que possa ter uma chave, porque isso traria a chave para a conversa. Para saber se uma execução guarda um cabeçalho ou campo, rode no contêiner um script que leia o SQLite do n8n e só diga se a marca aparece. O módulo `sqlite3` está dentro do próprio n8n, em `/usr/local/lib/node_modules/n8n/node_modules/.pnpm/sqlite3@*/node_modules/sqlite3`, e o banco fica em `/home/node/.n8n/database.sqlite`.
@@ -482,14 +786,18 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
 - Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
   - 1: infraestrutura (as imagens com versão fixa e o Dependabot), fechado em 19/10/2026;
-  - a causa do teste instável do front, trazida do 4A em 19/10/2026;
-  - 1B: CI no GitHub Actions;
-  - 2A e 2B: n8n (avisos agrupados, execuções sem chave nem dado pessoal e o limite do site);
-  - 3: troca de chaves sem parar;
+  - a causa do teste instável do front, trazida do 4A em 19/10/2026 e fechada em 20/10/2026;
+  - 1B: CI no GitHub Actions, fechado em 21/10/2026;
+  - 5: dependências, antecipado para antes do 2A por causa de 3 alertas do vite e feito em 21/10/2026;
+  - 2A: n8n (avisos agrupados e execuções sem chave nem dado pessoal), feito em 26/10/2026;
+  - 5B: os alertas do npm de 26/10/2026 (o `zod`, o `undici` e o `@vitest/mocker`), logo depois do push do 2A, feito em 26/10/2026;
+  - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy, feito em 26/10/2026;
+  - 2B: n8n (o limite do site), feito em 27/10/2026;
+  - 3: troca de chaves sem parar, feito em 03/11/2026;
   - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
-  - 5: dependências;
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
+  - Desde 03/11/2026, qualquer envio (um webhook, um `site.json` a mais), execução de fluxo ou publicação fora da lista aprovada do lote só com o meu ok antes, mesmo que seja só para conferir. Para conferir sem enviar nada, use o export pelo CLI, o `/healthz`, o `docker compose ps` e as contagens.
 - Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.
 - A leitura do `.env` é bloqueada em `.claude/settings.json`. Se precisar de um valor de configuração, use o `.env.example` ou pergunte ao usuário.
@@ -498,5 +806,6 @@ docker compose up -d n8n                                 # n8n local em http://l
 - A suíte do .NET (pelo contêiner) e a do front rodam uma depois da outra, nunca ao mesmo tempo, nem uma em segundo plano enquanto a outra roda.
   - Juntas, elas deixam a máquina lenta, e os testes do front estouram o tempo de espera de 1 segundo do `findBy` e do `waitFor`, falhando até em telas que não mudaram.
   - Em 08/10/2026, rodando junto com a do .NET, a suíte do front teve 5 falhas, com arquivos levando até 34 s; sozinha, passou inteira.
+  - Antes de qualquer uma das duas, confira a carga da CPU. Acima do normal, avise antes de rodar, em vez de rodar e repetir (desde 03/11/2026).
 - Se algo mudar uma regra, atualize `docs/especificacao.md` no mesmo commit.
 - As decisões em aberto da seção 11 têm um padrão definido. Implemente o padrão e deixe configurável quando a especificação pedir.

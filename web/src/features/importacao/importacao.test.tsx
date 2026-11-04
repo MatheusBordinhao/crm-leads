@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { admin, atendente, comSessao, problema } from '@/test/api'
 import { comImportacao, importacao } from '@/test/importacao'
 import { comCadastros, comLista, comQuadro } from '@/test/leads'
@@ -8,6 +8,10 @@ import { comPainel } from '@/test/painel'
 import { renderizarApp } from '@/test/renderizar'
 import { servidor } from '@/test/servidor'
 import { MENSAGEM_TAMANHO } from './arquivo'
+
+// A tela consulta o andamento a cada 1 s; aqui, a cada 200 ms. Ainda dá para ver o andamento antes do fim, sem esperar
+// 1 s de verdade a cada consulta.
+vi.mock('./andamento', () => ({ INTERVALO_ANDAMENTO: 200 }))
 
 const arquivoDaMeta = () => new File(['id\tfull_name'], 'leads-meta.csv', { type: 'text/csv' })
 
@@ -30,14 +34,12 @@ describe('importação', () => {
     const previa = within(screen.getByRole('table', { name: 'Prévia do arquivo' }))
     expect(previa.getByRole('columnheader', { name: 'full_name' })).toBeInTheDocument()
     expect(previa.getByText('João Conceição')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'full_name' })).toHaveValue('nome')
-    expect(screen.getByRole('combobox', { name: 'qual_serviço_você_procura?' })).toHaveValue(
-      'resposta_extra',
-    )
+    expect(screen.getByLabelText('full_name')).toHaveValue('nome')
+    expect(screen.getByLabelText('qual_serviço_você_procura?')).toHaveValue('resposta_extra')
     expect(screen.getByText('Exemplo: João Conceição')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Origem' })).toHaveValue('meta_lead_ads')
-    expect(screen.getByRole('combobox', { name: 'Coluna de id externo' })).toHaveValue('0')
-    expect(screen.getByRole('combobox', { name: 'Distribuição' })).toHaveValue('')
+    expect(screen.getByLabelText('Origem')).toHaveValue('meta_lead_ads')
+    expect(screen.getByLabelText('Coluna de id externo')).toHaveValue('0')
+    expect(screen.getByLabelText('Distribuição')).toHaveValue('')
     expect(analisados).toEqual([
       { nomeArquivo: 'leads-meta.csv', conteudoBase64: btoa('id\tfull_name') },
     ])
@@ -50,14 +52,14 @@ describe('importação', () => {
     const { usuario, router } = await escolherArquivo()
 
     await usuario.selectOptions(
-      await screen.findByRole('combobox', { name: 'qual_serviço_você_procura?' }),
+      await screen.findByLabelText('qual_serviço_você_procura?'),
       'nao_importar',
     )
-    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Origem' }), 'planilha')
-    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Coluna de id externo' }), '')
-    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Campanha padrão' }), 'nova')
+    await usuario.selectOptions(screen.getByLabelText('Origem'), 'planilha')
+    await usuario.selectOptions(screen.getByLabelText('Coluna de id externo'), '')
+    await usuario.selectOptions(screen.getByLabelText('Campanha padrão'), 'nova')
     await usuario.type(screen.getByLabelText('Nome da campanha nova'), '  Feira de Gramado ')
-    const distribuicao = screen.getByRole('combobox', { name: 'Distribuição' })
+    const distribuicao = screen.getByLabelText('Distribuição')
     await within(distribuicao).findByRole('option', { name: 'Adriana' })
     await usuario.selectOptions(distribuicao, atendente.id)
     await usuario.click(screen.getByRole('button', { name: 'Importar 2 linhas' }))
@@ -84,7 +86,7 @@ describe('importação', () => {
     const { criados } = comImportacao()
     const { usuario } = await escolherArquivo()
 
-    const campanha = await screen.findByRole('combobox', { name: 'Campanha padrão' })
+    const campanha = await screen.findByLabelText('Campanha padrão')
     await within(campanha).findByRole('option', { name: 'Outubro | Serviço Y' })
     await usuario.selectOptions(campanha, 'Outubro | Serviço Y')
     await usuario.click(screen.getByRole('button', { name: 'Importar 2 linhas' }))
@@ -99,10 +101,10 @@ describe('importação', () => {
     comImportacao()
     const { usuario } = await escolherArquivo()
 
-    const campanha = await screen.findByRole('combobox', { name: 'Campanha padrão' })
+    const campanha = await screen.findByLabelText('Campanha padrão')
     await within(campanha).findByRole('option', { name: 'Outubro | Serviço Y' })
     await usuario.selectOptions(campanha, 'Outubro | Serviço Y')
-    await usuario.selectOptions(screen.getByRole('combobox', { name: 'Origem' }), 'planilha')
+    await usuario.selectOptions(screen.getByLabelText('Origem'), 'planilha')
 
     expect(campanha).toHaveValue('')
     expect(within(campanha).queryByRole('option', { name: 'Outubro | Serviço Y' })).toBeNull()
@@ -114,11 +116,8 @@ describe('importação', () => {
     const { criados } = comImportacao()
     const { usuario } = await escolherArquivo()
 
-    await usuario.selectOptions(
-      await screen.findByRole('combobox', { name: 'full_name' }),
-      'nao_importar',
-    )
-    await usuario.selectOptions(screen.getByRole('combobox', { name: 'email' }), 'telefone')
+    await usuario.selectOptions(await screen.findByLabelText('full_name'), 'nao_importar')
+    await usuario.selectOptions(screen.getByLabelText('email'), 'telefone')
     await usuario.click(screen.getByRole('button', { name: 'Importar 2 linhas' }))
 
     expect(await screen.findByText('Escolha a coluna do nome.')).toBeInTheDocument()
@@ -132,10 +131,7 @@ describe('importação', () => {
     const { criados } = comImportacao()
     const { usuario } = await escolherArquivo()
 
-    await usuario.selectOptions(
-      await screen.findByRole('combobox', { name: 'Campanha padrão' }),
-      'nova',
-    )
+    await usuario.selectOptions(await screen.findByLabelText('Campanha padrão'), 'nova')
     await usuario.click(screen.getByRole('button', { name: 'Importar 2 linhas' }))
 
     expect(await screen.findByText('Dê o nome da campanha nova.')).toBeInTheDocument()
@@ -189,7 +185,7 @@ describe('importação', () => {
     expect(andamento).toHaveAttribute('aria-valuenow', '2')
     expect(andamento).toHaveAttribute('aria-valuemax', '5')
     expect(screen.getByText('2 de 5 linhas')).toBeInTheDocument()
-    expect(await screen.findByText('Leads novos', {}, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByText('Leads novos')).toBeInTheDocument()
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
@@ -215,7 +211,7 @@ describe('importação', () => {
       '/leads?responsavel=sem',
     )
     const tabela = within(screen.getByRole('table', { name: 'Linhas com erro' }))
-    expect(tabela.getAllByRole('cell', { name: 'A linha não tem o nome.' })).toHaveLength(100)
+    expect(tabela.getAllByText('A linha não tem o nome.')).toHaveLength(100)
     expect(
       screen.getByText(/Aqui estão as 100 primeiras; o relatório traz todas/),
     ).toBeInTheDocument()

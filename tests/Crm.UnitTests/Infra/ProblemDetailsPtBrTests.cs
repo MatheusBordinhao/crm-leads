@@ -9,6 +9,7 @@ public class ProblemDetailsPtBrTests
     [InlineData(400, "One or more validation errors occurred.", "Requisição inválida")]
     [InlineData(500, "An error occurred while processing your request.", "Erro interno")]
     [InlineData(403, null, "Acesso negado")]
+    [InlineData(413, "Content Too Large", "Requisição grande demais")]
     public void Traduz_os_titulos_padrao(int status, string? tituloAtual, string esperado)
     {
         Assert.Equal(esperado, ProblemDetailsPtBr.TituloEmPortugues(status, tituloAtual));

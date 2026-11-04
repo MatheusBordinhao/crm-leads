@@ -1,0 +1,109 @@
+# A imagem de produção, quando muda o que entra nela ou nos Compose, como num PR de imagens do Dependabot
+# (README › Testes e qualidade › CI): o build, como no servidor, e o Compose de produção num projeto só do CI, com
+# dados fictícios. Pega o que só aparece ao rodar, como uma biblioteca que falta na imagem.
+name: Imagem de produção
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - docker-compose.prod.yml
+      - docker-compose.testes.yml
+      - Directory.Packages.props
+      - Directory.Build.props
+      - global.json
+      - dotnet-tools.json
+      - web/package.json
+      - web/package-lock.json
+      - deploy/Caddyfile
+      - .github/workflows/imagem.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yml
+      - docker-compose.prod.yml
+      - docker-compose.testes.yml
+      - Directory.Packages.props
+      - Directory.Build.props
+      - global.json
+      - dotnet-tools.json
+      - web/package.json
+      - web/package-lock.json
+      - deploy/Caddyfile
+      - .github/workflows/imagem.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: imagem-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  imagem:
+    name: Build e subida
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      COMPOSE_FILE: docker-compose.prod.yml
+      COMPOSE_PROJECT_NAME: crm-ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Sorteada a cada rodada, só para este Compose, que sai no fim: nenhum segredo de verdade.
+      - name: Configuração fictícia
+        run: |
+          {
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "DOMINIO=localhost"
+            echo "PORTA_HTTP=8080"
+            echo "PORTA_HTTPS=8443"
+            echo "Admin__Email=admin@exemplo.com"
+            echo "Admin__SenhaInicial=$(openssl rand -hex 16)"
+            echo "Integracao__Chave=$(openssl rand -hex 32)"
+            echo "BACKUP_PASTA=$RUNNER_TEMP/backups"
+          } > "$RUNNER_TEMP/ci.env"
+
+      - name: Build da imagem
+        run: docker compose --env-file "$RUNNER_TEMP/ci.env" build
+
+      # A API só sobe depois que as migrations terminam com 0 (service_completed_successfully).
+      - name: Subida, com as migrations
+        run: docker compose --env-file "$RUNNER_TEMP/ci.env" up -d
+
+      - name: As migrations terminaram com 0
+        run: |
+          saida=$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose --env-file "$RUNNER_TEMP/ci.env" ps -aq migracoes)")
+          echo "migrations: código $saida"
+          test "$saida" = 0
+
+      - name: A API responde pelo Caddy
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsSk https://localhost:8443/health; then exit 0; fi
+            sleep 2
+          done
+          echo "O /health não respondeu 200 pelo Caddy em 60 s." >&2
+          exit 1
+
+      - name: O runtime tem a correção da CVE-2026-70159
+        run: |
+          versao=$(docker compose --env-file "$RUNNER_TEMP/ci.env" exec -T api dotnet --list-runtimes \
+            | awk '$1 == "Microsoft.AspNetCore.App" { print $2 }' | sort -V | tail -n 1)
+          echo "ASP.NET Core $versao"
+          test "$(printf '%s\n' 10.0.13 "$versao" | sort -V | head -n 1)" = 10.0.13
+
+      # Os dados são fictícios, e o log do CRM nunca tem dado pessoal.
+      - name: Log, se algo falhou
+        if: failure()
+        run: docker compose --env-file "$RUNNER_TEMP/ci.env" logs --no-color --tail 200 migracoes api caddy
+
+      - name: Descida
+        if: always()
+        run: docker compose --env-file "$RUNNER_TEMP/ci.env" down -v

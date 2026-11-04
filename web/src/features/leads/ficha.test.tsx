@@ -66,10 +66,14 @@ function comRegistroDeInteracao() {
   return registros
 }
 
-/** A seleção de etapa, depois que as etapas carregaram. */
+/**
+ * A seleção de etapa, depois que as etapas carregaram. A opção é procurada só dentro da seleção: na ficha inteira, cada
+ * rodada da espera percorre a tela toda, e com a máquina ocupada a espera passava de 1 s.
+ */
 async function seletorDeEtapa() {
-  await screen.findByRole('option', { name: 'Perdido' })
-  return screen.getByLabelText('Mudar para')
+  const etapa = await screen.findByLabelText('Mudar para')
+  await within(etapa).findByRole('option', { name: 'Perdido' })
+  return etapa
 }
 
 // Os botões de contato são links de tel:, mailto: e wa.me, que o jsdom não sabe abrir.

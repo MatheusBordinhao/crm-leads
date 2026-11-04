@@ -2,3 +2,5 @@ dist
 coverage
 package-lock.json
 src/api/schema.d.ts
+# A cópia do CSS do shadcn fica igual ao original, para comparar com uma versão nova.
+src/shadcn.css
