@@ -25,7 +25,7 @@ services:
   # pasta das chaves da sessão, num volume, para o login não cair quando o contêiner reinicia. O código entra só para
   # leitura, e o build fica num volume.
   api:
-    image: mcr.microsoft.com/dotnet/sdk:10.0.402
+    image: mcr.microsoft.com/dotnet/sdk:10.0.403
     working_dir: /src
     # Compila e sobe a API. Num "docker compose run", o que vier depois do nome do serviço vai para ela, como o
     # preparar-demonstracao. Pare o api antes: os dois compilam no mesmo volume.
@@ -61,7 +61,7 @@ services:
   # volume (o ArtifactsPath, que o MSBuild lê do ambiente).
   ef:
     profiles: [ferramentas]
-    image: mcr.microsoft.com/dotnet/sdk:10.0.402
+    image: mcr.microsoft.com/dotnet/sdk:10.0.403
     working_dir: /src/src/Crm.Api
     # O dotnet ef lê o projeto antes de compilar e precisa do restore feito no volume.
     entrypoint: [sh, -c, 'dotnet tool restore > /dev/null && dotnet restore -v q && dotnet ef "$$@"', ef]
