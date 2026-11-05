@@ -34,9 +34,12 @@ describe('painel', () => {
     const { router } = renderizarApp('/')
 
     // Como 1º teste do arquivo, ele paga a subida fria: com a máquina lenta, só o redirecionamento levou até 0,8 s.
-    // Por isso, primeiro o caminho, numa espera que não consulta o DOM, e depois o título, pelo texto dentro do h1.
+    // Por isso, primeiro o caminho, numa espera que não consulta o DOM, e depois o título, pelo queryBy: uma tentativa
+    // que falha com o getBy ou o findBy formata a página inteira para montar o erro, o que atrasa a própria tela.
     await waitFor(() => expect(router.state.location.pathname).toBe('/painel'))
-    expect(await screen.findByText('Painel', { selector: 'h1' })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByText('Painel', { selector: 'h1' })).toBeInTheDocument(),
+    )
     expect(itensDoMenu()).toEqual([
       'Painel',
       'Funil',

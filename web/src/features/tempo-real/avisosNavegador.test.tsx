@@ -148,9 +148,12 @@ describe('notificação nativa do navegador', () => {
       sw.clicar(9)
     })
 
-    // O título pelo texto dentro do h1: até a lista de notificações voltar, o funil continua na tela, e a consulta por
-    // papel, repetida a cada mudança no DOM, pesava mais da metade da espera com a máquina lenta.
-    expect(await screen.findByText('Maria Souza', { selector: 'h1' })).toBeInTheDocument()
+    // Até a lista de notificações voltar, o funil continua na tela, e o teste confere o título a cada mudança no DOM.
+    // Pelo queryBy, a tentativa que falha não monta erro: com o getBy ou o findBy, a biblioteca formataria a página
+    // inteira a cada uma, e, com a máquina lenta, isso atrasava a própria ficha.
+    await waitFor(() =>
+      expect(screen.queryByText('Maria Souza', { selector: 'h1' })).toBeInTheDocument(),
+    )
     expect(router.state.location.pathname).toBe('/leads/1024')
     await waitFor(() => expect(marcadas).toEqual(['9']))
   })
