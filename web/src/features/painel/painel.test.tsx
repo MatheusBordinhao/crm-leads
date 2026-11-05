@@ -33,8 +33,10 @@ describe('painel', () => {
 
     const { router } = renderizarApp('/')
 
-    expect(await screen.findByRole('heading', { name: 'Painel', level: 1 })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/painel')
+    // Como 1º teste do arquivo, ele paga a subida fria: com a máquina lenta, só o redirecionamento levou até 0,8 s.
+    // Por isso, primeiro o caminho, numa espera que não consulta o DOM, e depois o título, pelo texto dentro do h1.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/painel'))
+    expect(await screen.findByText('Painel', { selector: 'h1' })).toBeInTheDocument()
     expect(itensDoMenu()).toEqual([
       'Painel',
       'Funil',
