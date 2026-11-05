@@ -148,7 +148,9 @@ describe('notificação nativa do navegador', () => {
       sw.clicar(9)
     })
 
-    expect(await screen.findByRole('heading', { name: 'Maria Souza' })).toBeInTheDocument()
+    // O título pelo texto dentro do h1: até a lista de notificações voltar, o funil continua na tela, e a consulta por
+    // papel, repetida a cada mudança no DOM, pesava mais da metade da espera com a máquina lenta.
+    expect(await screen.findByText('Maria Souza', { selector: 'h1' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/leads/1024')
     await waitFor(() => expect(marcadas).toEqual(['9']))
   })
