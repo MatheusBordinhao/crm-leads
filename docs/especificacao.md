@@ -429,7 +429,7 @@ Usa a mesma chave e o mesmo limite de requisições da entrada. Devolve o relat�
 - **Orçamento de execuções:** com 300 leads por mês, o consumo fica perto de 930 execuções: cerca de 300 de entrada, 300 de alerta, 290 de reenvio, 4 de relatório e 30 de resumo diário. Isso cabe no plano Starter, que tem 2.500 por mês. Um robô que passe pelo campo isca gasta uma execução por envio, e, com a cota esgotada, todos os fluxos param até ela renovar. Acima do limite do site, o envio não vira lead, e o Alertas não roda; só o CAPTCHA no formulário impede o gasto (seção 11).
 - **Execuções:** nenhuma fica salva (3.8). Para investigar uma falha, o salvamento das execuções com erro é ligado só no fluxo, por um tempo, e as execuções salvas são apagadas no fim (README › n8n local › Investigar uma falha no n8n). As configurações de execução valem na hora, sem publicar o fluxo de novo, e o fluxo de erro só dispara nas execuções de produção.
 - **Instâncias:**
-  - Desenvolvimento: desde 14/10/2026, um n8n Community (2.43.5) no Compose de desenvolvimento, com os 8 fluxos testados com dados de teste (README › n8n local). A instância de teste `matheusbordinhao.app.n8n.cloud` acabou em 06/10/2026.
+  - Desenvolvimento: desde 14/10/2026, um n8n Community no Compose de desenvolvimento, na 2.43.7 desde 04/11/2026, com os 8 fluxos testados com dados de teste (README › n8n local). A instância de teste `matheusbordinhao.app.n8n.cloud` acabou em 06/10/2026.
   - Produção: o n8n Cloud, numa conta da empresa, quando o pagamento sair (seção 11).
   - Os JSONs em `n8n/` levam os fluxos de uma instância para outra. No destino, são refeitos as credenciais, as Data Tables, os valores do nó "Configuração" e o fluxo de erro (README › n8n Cloud: importar os fluxos).
 

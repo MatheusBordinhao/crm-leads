@@ -23,7 +23,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - visibilidade: logada como Pietra, os leads da Adriana dão "Lead não encontrado", e o funil dela fica vazio, sem o filtro de responsável e sem o menu Configurações.
 - O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial`, `Integracao__Chave` e, desde 03/11/2026, a linha `Integracao__ChaveAnterior`, vazia fora da troca da chave.
 - O n8n Cloud de teste (`matheusbordinhao.app.n8n.cloud`) acabou em 06/10/2026. A produção vai ser o n8n Cloud, numa conta da empresa, quando o pagamento sair (decidido em 14/10/2026).
-- Desde 14/10/2026, o n8n de desenvolvimento é um n8n Community 2.43.5 no `docker-compose.yml` (serviço `n8n`, README › n8n local):
+- Desde 14/10/2026, o n8n de desenvolvimento é um n8n Community no `docker-compose.yml`, na 2.43.7 desde 04/11/2026 (antes, na 2.43.5) (serviço `n8n`, README › n8n local):
   - a interface fica em `http://localhost:5679`, porque a 5678 é de outro n8n desta máquina, um projeto do Compose no WSL (`/home/mathe/n8n`) que não é do CRM e não deve ser mexido;
   - dentro da rede do Compose, a API chama `http://n8n:5678`, e os fluxos chamam `http://api:5080`;
   - o `.env` tem `N8n__WebhookUrl=http://n8n:5678/webhook/crm-alertas`: com a API no ar, cada evento vira um e-mail de verdade;
@@ -226,18 +226,12 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - as etapas definitivas, com a Gama;
   - a instalação e a notificação num celular de verdade, que exigem o HTTPS do servidor;
   - a divisão do pacote por tela (rotas sob demanda), no Lote 4B, porque mexe no carregamento de todas as telas. O build ainda avisa que o pacote passa de 500 kB;
-  - no Lote 4A, os alvos de toque secundários ainda menores que 40 px no celular: os botões do cartão Privacidade (só do admin), o "Leads" de voltar da ficha, o "Buscar", com 38 px (o Enter também busca), e o fechar dos diálogos, que têm o Cancelar;
-  - no Lote 4A, o aviso "Avisos do navegador", que no celular fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
+  - no Lote 4A-2, os alvos de toque secundários ainda menores que 40 px no celular: os botões do cartão Privacidade (só do admin), o "Leads" de voltar da ficha, o "Buscar", com 38 px (o Enter também busca), e o fechar dos diálogos, que têm o Cancelar;
+  - no Lote 4A-2, o aviso "Avisos do navegador", que no celular fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
-  - no Lote 4A, o teste "a tela inicial do admin é o painel, o primeiro item do menu" (`painel.test.tsx`). Em 03/11/2026, com a CPU entre 56 e 83%, o título "Painel" não apareceu a tempo, e o teste falhou em 2,1 s; na rodada seguinte, com a máquina mais livre, passou. Medir onde vai o tempo e ver se ele precisa de mais espera, porque a máquina do CI é mais fraca;
-  - no Lote 4A, o PR #2 do Dependabot (Caddy 2.11.7 e n8n 2.43.7):
-    - ele não tem nenhuma rodada do CI, porque foi aberto antes de os workflows existirem na `master`. Antes da avaliação, um `@dependabot rebase` faz o CI rodar nele;
-    - como ele sobe o n8n, o volume `crm-leads_dados-n8n` é copiado e conferido antes, pelo roteiro do README (Versões fixadas › O n8n numa versão nova);
-    - o roteiro foi testado pelo Claude em 21/10/2026, com os mesmos comandos do README, em volumes de teste:
-      - a cópia e a volta deixaram os mesmos arquivos, donos, permissões e conteúdos;
-      - a conferência pegou um byte e um arquivo a mais;
-      - a volta com a cópia inexistente, vazia, sem o `config` ou com o banco vazio parou sem apagar nada.
+  - no Lote 4A-2, o teste "a tela inicial do admin é o painel, o primeiro item do menu" (`painel.test.tsx`). Em 03/11/2026, com a CPU entre 56 e 83%, o título "Painel" não apareceu a tempo, e o teste falhou em 2,1 s; na rodada seguinte, com a máquina mais livre, passou. Medir onde vai o tempo e ver se ele precisa de mais espera, porque a máquina do CI é mais fraca;
+  - no Lote 4A-2, junto com o do painel, o teste "com o service worker, a notificação sai por ele, só com o título, e o clique abre a ficha" (`avisosNavegador.test.tsx`). Em 03/11/2026, no `front.sh completo`, a ficha não apareceu a tempo depois do clique (1888 ms), com a suíte em 179 s; na rodada seguinte, com a CPU em 8%, a suíte levou 89 s, e o teste passou em 463 ms.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -487,7 +481,45 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 878, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 4,2 s depois;
   - validado por mim: os 5 e-mails do lote, todos para a Adriana (09:45, 10:27 e 10:39 do ensaio da integração, 12:10 do dos eventos e 12:15 da demonstração), e nenhum de configuração nem do `CRM - Erros`;
   - depois, o Claude conferiu o n8n (os 8 fluxos, os 4 publicados e as 3 credenciais) e apagou a cópia `crm-dados-n8n-copia`;
-  - o push e o CI entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 4A-1:
+    - no push de `d9ab3fa..79539d6`, o `Testes` #14 ficou verde em 6 min 41 s, e o `Imagem de produção` #12, em 2 min 26 s. O `Imagem de produção` rodou porque o `docker-compose.prod.yml` mudou;
+    - no Dependabot, 0 alertas abertos (18 fechados) e 0 de malware;
+    - em 01/11/2026, o Dependabot abriu o #4 (imagens) e o #5 (NuGet), avaliados no Lote 4A-1.
+- Lote 4A-1 (os PRs #4, #5 e #2 do Dependabot), feito de 03 a 05/11/2026:
+  - por decisão minha, o Lote 4A foi dividido em dois: o 4A-1, com os três PRs, e o 4A-2, com o front. O Dependabot veio antes, porque o #4 trazia correções de segurança e porque cada commit do front pediria outro rebase dos PRs;
+  - os PRs, nesta ordem:
+    - #4 (imagens, de 01/11/2026): o Node 22.23.4, o SDK 10.0.403 e o ASP.NET Core 10.0.14, só no `Dockerfile`. O `Testes` ficou vermelho só no `ImagensTests`, que exige o mesmo SDK nos quatro lugares (`["10.0.403", "10.0.402"]`, 800 de 801), e o Front passou no Node novo. O conserto: um ramo local com o merge da `master` (`6d27f66`) e o SDK nos Compose (`1d0722f`), com o meu push para o ramo do PR, depois da minha conferência. Squash em `80bf0bf`;
+    - #5 (NuGet, de 01/11/2026): os seis da Microsoft 10.0.14, o Scalar.AspNetCore 2.18.7 e o libphonenumber-csharp 9.0.42. O `@dependabot rebase` o refez com as mesmas versões e a árvore igual à da avaliação. Squash em `1e5663f`;
+    - #2 (imagens, de 19/10/2026): a Caddy 2.11.7 e o n8n 2.43.7. O `@dependabot rebase` falhou em silêncio duas vezes, em 01/11 e em 04/11/2026: o PR ficou no commit de 19/10, sem checks, com os avisos "Dependabot is rebasing this PR" acumulados e os jobs do dia verdes, sem mexer no ramo. O conserto foi o do #4: o merge da `master` num ramo local (`ed08d3a`) e o meu push. Squash em `1966d7c`, com a linha do merge da `master` no corpo;
+    - os títulos: o #4 entrou com três espaços no começo, e o #5, com o título do Dependabot ("Bump libphonenumber-csharp and 7 others"). Ficaram como estão, sem reescrever a `master`;
+  - a regra dos 3 dias: todas as versões passaram (a Caddy 2.11.7, de 03/10; o n8n 2.43.7, de 16/10; o Node 22.23.4, de 20/10; o .NET 10.0.14 e os pacotes da Microsoft, de 25/10; o libphonenumber, de 27/10; e o Scalar, de 30/10). O Dependabot espera 3 dias por padrão (o cooldown da documentação), mas não dá para contar com isso:
+    - nas imagens, ele avisa "Cooldown was not applied", porque o registro não informa a data;
+    - no NuGet, sem aviso nenhum, o #5 saiu em 01/11, às 22:01 UTC, com o Scalar 2.18.7 publicado em 30/10, às 19:20 UTC: com 2 dias e 3 horas;
+    - por decisão minha, a conferência da data passou a valer para todo PR do Dependabot (README › Como conferir um PR do Dependabot);
+  - o .NET 10.0.14 saiu fora do calendário, em 25/10/2026, para o Brotli (CVE-2026-111497, que o CRM não usa) e para duas correções que o 10.0.13 deixou incompletas: a CVE-2026-70197, no `SocketAsyncEventArgs` do runtime, e a CVE-2026-102870, no Blazor WebAssembly, que o CRM não usa. O Node 22.23.4 também é de segurança. O n8n 2.43.8 só tem uma correção de bug ("Turn off expression spans by default"), e nenhum aviso do GitHub afeta o 2.43.7: ficou o 2.43.7;
+  - por que o #4 veio sem os Compose:
+    - o job do `docker_compose` de 01/11/2026 foi "for caddy, n8nio/n8n", sem o `dotnet/sdk`, e o "Rebase update" do Dockerfile afetou o #2. A suspeita é o #2, o PR antigo do mesmo grupo (`imagens`), ainda aberto;
+    - a aba Dependabot do Dependency graph mostra uma linha por entrada do `dependabot.yml`, com o nome de um dos arquivos: o `docker-compose.prod.yml` vale pelos três Compose, e o `Directory.Build.props`, pelo NuGet;
+    - a configuração do Dependabot ficou como estava, por decisão minha. Se o PR de imagens de dezembro, sem nenhum PR do grupo aberto, vier de novo só com o `Dockerfile`, a suspeita cai: o conserto do mês é o mesmo (README › Como conferir um PR do Dependabot), e a configuração do grupo é revista, com o meu ok;
+  - a avaliação do #4 com o #5, num ramo local com os dois, igual à `master` depois dos dois merges:
+    - a `api` recriada no SDK 10.0.403, com o ASP.NET Core 10.0.14 e os pacotes do #5, sem aviso de build;
+    - a suíte .NET, no contêiner, com 817 de 817, e a formatação;
+    - o `front.sh completo`, no Node 22.23.4: na primeira rodada, o teste do service worker falhou por tempo (pendência do Lote 4A-2); na segunda, 260 de 260;
+    - a demonstração: o `site.json` criou o lead 939, na Adriana, com o `lead.criado` entregue na primeira tentativa, 6,1 s depois;
+    - validado por mim: o e-mail do lead 939 chegou em 03/11, às 13:49;
+  - os CIs, todos verdes: na `master` depois do #4, o `Testes` #16 e o `Imagem de produção` #14; no #5 refeito, o #17 e o #15; no #2, o `Testes` #19 (5 min 49 s de job; a lista mostrava 22 min 18 s, pela fila do GitHub) e o `Imagem de produção` #17;
+  - a avaliação do #2:
+    - a cópia do volume no `crm-dados-n8n-copia`, pelo roteiro do README, testado em volumes de teste em 21/10/2026, com "OK";
+    - o n8n na 2.43.7, sem erro nem migration no log, com os 8 fluxos iguais aos JSONs, os 4 publicados, as 3 credenciais e as 3 Data Tables;
+    - o Google sem a chave: 403 e a linha `google_chave_errada`, sem e-mail;
+    - o CRM fora do ar: o `site.json` foi para as pendentes, e o Reenvio à mão vinculou a entrada 1021 ao lead 939, com o `lead.entrada_repetida` entregue na primeira tentativa, 9,2 s depois. Validado por mim: o e-mail chegou em 04/11, às 14:24, no `+adriana`;
+    - o Google com a chave certa, num comando que eu rodei em 05/11: `HTTP 200 {}`. O banco mostrou o lead 940 e a entrada 1022 como lead de teste, porque o `google-teste.json` tem `is_test: true`, sem responsável e sem nenhum evento, com a fila vazia. Por isso, nenhum e-mail, como no Lote 3;
+    - a Caddy, num Compose de produção descartável (`-p crm-caddy`, portas 8099 e 8471, rede `172.31.99.0/24`, a imagem `crm-api-caddy`), com o Playwright 1.56.1 num contêiner: os cabeçalhos e os status iguais na 2.11.4 e na 2.11.7, em HTTP/1.1 e HTTP/2, em `/`, `/login`, `/api/auth/eu` e `/health`. Na 2.11.7, o handshake 101 do hub, a página e a API em h2, o `LeadsAlterados` em 1,0 s, a conexão parada 130 s sem cair, o segundo aviso em 0,3 s na mesma conexão e o console sem erros, sem violação da CSP e sem issues. O servidor manda um ping a cada 15 s (8 na parada), e por isso o tempo limite de 1 minuto sem tráfego, que veio na 2.11.6, não derruba o tempo real. No fim, o `down -v`, com a imagem e o volume do Playwright apagados;
+    - a suíte .NET no ramo do #2, com o `LogDoCaddyTests` na 2.11.7: 817 de 817;
+    - a demonstração final, no n8n 2.43.7: o lead 1001, na Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois. Validado por mim: o e-mail chegou em 05/11, às 08:15;
+  - o passo 7 do README nos três: a `master` igual à `origin/master` e à árvore avaliada, o ambiente recriado a partir dela, os ramos locais apagados e, no #2, o n8n conferido com a `master` (os 8 fluxos, os 4 publicados e as 3 credenciais) antes de apagar a cópia `crm-dados-n8n-copia`;
+  - o Docker Desktop reiniciou em 04 e em 05/11/2026: o `db` e o `n8n` voltaram sozinhos, e a `api`, pelo `docker compose up -d api`. O firewall continuou certo;
+  - o push deste registro e a linha `google_chave_errada` do teste, que eu apago na tela do n8n, entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -704,7 +736,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - as configurações do fluxo entram pelo `setWorkflowSettings` do `update_workflow`, e o fluxo de erro só aceita um fluxo publicado;
   - o `execute_workflow` não roda o gatilho de Lead Ads. Use o `test_workflow` com pin data, que fixa também os HTTP Request e os nós com credencial. Para levar o lead montado ao CRM, ponha-o na `crm_entradas_pendentes` (`add_data_table_rows`) e rode o Reenvio;
   - chamadas na mesma mensagem rodam juntas: insira a linha na Data Table e só depois, em outra mensagem, execute o fluxo que a lê;
-  - quando o n8n reinicia, como na cópia do volume ou numa versão nova, o MCP cai e não volta sozinho, nem depois de o `/healthz` responder. O `/mcp` do Claude Code, que é com o usuário, o reconecta. Vale para o Lote 4A, que sobe o n8n na 2.43.7.
+  - quando o n8n reinicia, como na cópia do volume ou numa versão nova, o MCP cai e não volta sozinho, nem depois de o `/healthz` responder. O `/mcp` do Claude Code, que é com o usuário, o reconecta. Aconteceu no Lote 4A-1, na cópia do volume e a cada reinício do Docker Desktop.
 - O `N8n__WebhookUrl` não aparece no `printenv` do contêiner da API, porque a própria API lê o `.env` (`ArquivoEnv`). Para saber se ela leu, procure no log da subida a linha "N8n__WebhookUrl não está configurada", que só aparece com a URL vazia.
 - Um e-mail mandado de uma conta do Gmail para um alias dela mesma, como o `+adriana`, chega como enviado, sem notificar o celular. Por isso, o remetente dos alertas é outra conta.
 - A auditoria do NuGet, com os avisos tratados como erro, derruba o build quando sai um alerta novo para um pacote. Foi o caso da CVE-2026-70159 do SignalR.Common, em 13/10/2026. Suba o pacote para a versão corrigida, no `Directory.Packages.props`.
@@ -716,7 +748,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - Um `findBy` que só falha com a suíte inteira não ganha um `timeout` maior: meça antes onde vai o tempo.
 - Nos testes do front, uma consulta por papel (`*ByRole`) numa tela grande custa caro e, numa espera, se repete a cada mudança no DOM. Com a disputa, a consulta da opção da etapa na ficha ia de 11 para 91 ms, e o `getAllByRole('cell', { name })` numa tabela de 100 linhas respondia por 4,4 s de um teste de 5,1 s. Em tela grande, procure pelo rótulo (`getByLabelText`), pelo texto ou dentro de um pedaço da tela (`within`), como o `seletorDeEtapa()` da ficha.
 - Para encurtar nos testes do front um intervalo que espera o relógio de verdade, como o da consulta de andamento da importação, ponha a constante num módulo próprio e troque o valor por `vi.mock`, sem relógio falso (`importacao/andamento.ts`).
-- Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot.
+- Toda imagem do `Dockerfile` e dos Compose tem versão exata, e o `ImagensTests` cobra o formato de cada uma: uma imagem nova precisa entrar nele. O SDK do .NET aparece em quatro lugares e sobe junto nos quatro, como no PR mensal do Dependabot. Em 01/11/2026, com o #2 do mesmo grupo aberto, o PR de imagens (#4) subiu o SDK só no `Dockerfile`, e o `ImagensTests` ficou vermelho: o conserto está no README (Como conferir um PR do Dependabot).
 - Um `docker compose -p <descartável> -f docker-compose.prod.yml up --build` troca a imagem `crm-api`, a mesma do plano B. Para não mexer nela, dê outro nome à imagem por um override (`image:` dos serviços `api` e `migracoes`).
 - O Docker Desktop cria no firewall do Windows a regra de entrada "Docker Desktop Backend", em TCP e UDP, que libera o `com.docker.backend` no perfil Público, em qualquer porta e de qualquer origem. As duas redes desta máquina, o Wi-Fi e a Radmin VPN, estão nesse perfil. Uma porta publicada sem IP fica aberta para elas enquanto o contêiner está no ar: o `com.docker.backend` escuta no `::`, que aceita também o IPv4.
   - Toda porta do `docker-compose.yml` fica no `127.0.0.1`, e o `PublicacaoTests` cobra isso.
@@ -794,7 +826,9 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 1C: as portas só no próprio computador, decidido em 21/10/2026 para logo depois do 2A e antes do 2B, porque o 4A e o 4B sobem Compose descartáveis com o Caddy, feito em 26/10/2026;
   - 2B: n8n (o limite do site), feito em 27/10/2026;
   - 3: troca de chaves sem parar, feito em 03/11/2026;
-  - 4A e 4B: front (celular, a Caddy 2.11.7 e as rotas sob demanda);
+  - 4A-1: os PRs do Dependabot (o #4 e o #5, com o .NET 10.0.14 e o Node 22.23.4, e o #2, com a Caddy 2.11.7 e o n8n 2.43.7), feito em 05/11/2026;
+  - 4A-2: front (os alvos de toque no celular, o aviso do navegador, o Passo 7 pela tela e os testes do painel e do service worker);
+  - 4B: front (as rotas sob demanda);
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
   - Desde 03/11/2026, qualquer envio (um webhook, um `site.json` a mais), execução de fluxo ou publicação fora da lista aprovada do lote só com o meu ok antes, mesmo que seja só para conferir. Para conferir sem enviar nada, use o export pelo CLI, o `/healthz`, o `docker compose ps` e as contagens.

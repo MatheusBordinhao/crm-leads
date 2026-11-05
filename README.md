@@ -300,7 +300,7 @@ O n8n envia os leads para `POST /api/integracoes/leads` (seção 4.2 da especifi
 
 ### n8n local
 
-O [docker-compose.yml](docker-compose.yml) tem um n8n Community (2.43.5) só para desenvolvimento, para montar e testar os fluxos de [n8n/](n8n/) com dados de teste até o n8n Cloud de produção (veja "n8n Cloud: importar os fluxos", em Publicação).
+O [docker-compose.yml](docker-compose.yml) tem um n8n Community (2.43.7) só para desenvolvimento, para montar e testar os fluxos de [n8n/](n8n/) com dados de teste até o n8n Cloud de produção (veja "n8n Cloud: importar os fluxos", em Publicação).
 
 ```powershell
 docker compose up -d n8n         # http://localhost:5679
@@ -839,20 +839,30 @@ O `ImagensTests` cobra a versão exata de cada imagem, o mesmo SDK nos quatro lu
 2. O check vale para o que vai entrar:
    - se a `master` andou depois do último rebase do PR só com arquivos `.md`, ele continua valendo;
    - com qualquer outro arquivo, comente `@dependabot rebase` no PR e espere o check de novo;
-   - um PR sem nenhum check, como um aberto antes de os workflows existirem, também ganha os checks com o rebase.
-3. Num PR de imagens:
-   - a versão nova saiu há pelo menos 3 dias. Nesses PRs, o Dependabot avisa que não aplicou a espera de 3 dias, porque o registro não informa a data de publicação: confira a data no Docker Hub ou no registro da Microsoft;
-   - o runtime que a imagem nova do SDK traz é o mesmo da imagem `aspnet` do PR:
+   - um PR sem nenhum check, como um aberto antes de os workflows existirem, também ganha os checks com o rebase;
+   - se o rebase não refizer o PR, traga a `master` para o branch dele por merge, num branch local, e dê o push para o branch do PR, sem `--force`. Foi o caso do #2: o `@dependabot rebase` falhou em silêncio em 01/11 e em 04/11/2026, e o PR ficou no commit antigo, sem checks. Antes do push, confira o branch local contra o do PR (`git log --oneline origin/<branch do PR>..pr-<número>` e `git diff master pr-<número>`). O squash do merge do PR apaga esse merge. Depois do push, o Dependabot não refaz mais o PR: faça o merge dele antes dos outros abertos.
+
+     ```powershell
+     git fetch origin
+     git switch -c pr-<número> origin/<branch do PR>
+     git merge --no-edit origin/master
+     git push origin pr-<número>:<branch do PR>
+     ```
+
+3. As versões:
+   - em todo PR, a versão nova saiu há pelo menos 3 dias. O Dependabot espera 3 dias por padrão, mas não dá para contar com isso. Nas imagens, ele avisa "Cooldown was not applied", porque o registro não informa a data de publicação. No NuGet, sem aviso, o #5 de 01/11/2026 trouxe o Scalar.AspNetCore 2.18.7 com 2 dias e 3 horas. Confira a data no Docker Hub, no registro da Microsoft, na nuget.org ou nas versões da ação;
+   - num PR de imagens, o runtime que a imagem nova do SDK traz é o mesmo da imagem `aspnet` do PR:
 
      ```powershell
      (docker buildx imagetools inspect mcr.microsoft.com/dotnet/sdk:<versão> --format '{{json .Image}}') -split ',' | Select-String -Pattern '"DOTNET_VERSION=' | Select-Object -First 1
      ```
 
-4. Traga o branch do PR para a pasta do projeto (`git fetch origin` e `git switch <branch do PR>`) e suba o ambiente de desenvolvimento com ele:
+   - num PR de imagens, o SDK sobe nos quatro lugares. Se ele subir só no `Dockerfile`, o `ImagensTests` fica vermelho, como no #4, em 01/11/2026: no branch local do item 2, suba o SDK nos Compose num commit, antes do push.
+4. Traga o branch do PR para a pasta do projeto (`git fetch origin` e `git switch <branch do PR>`, ou o branch local do item 2) e suba o ambiente de desenvolvimento com ele:
    - num PR do NuGet, `docker compose up -d --force-recreate api`, que recria só a API, e ela compila com os pacotes novos. Com a API no ar e a configuração igual, o `docker compose up -d api` não faz nada, e ela continua com os pacotes antigos;
    - num PR de imagens, `docker compose up -d`, que recria só os serviços cuja imagem mudou (o `ef`, que tem perfil, fica de fora). Se o PR sobe o n8n, antes copie e confira o volume dele (veja "O n8n numa versão nova", abaixo).
 5. Confira a demonstração (veja "O alerta no celular", em Demonstração). Quando o PR sobe o n8n, repita também os testes de "n8n local", em Dia a dia: o envio do site, o do Google com a chave certa e sem ela, e o CRM fora do ar com o reenvio. A versão do n8n local também deve acompanhar a do n8n Cloud, onde os fluxos vão rodar.
-6. Só então faça o merge, pelo "Squash and merge": a `master` fica sem merge commits. Troque o título do Dependabot, em inglês, por um em português, como "Pacotes do NuGet: FluentValidation 12.2.0 e outros 11 (#3)", e mantenha o corpo dele, que lista as versões.
+6. Só então faça o merge, pelo "Squash and merge": a `master` fica sem merge commits. Troque o título do Dependabot, em inglês, por um em português, como "Pacotes do NuGet: FluentValidation 12.2.0 e outros 11 (#3)", e mantenha o corpo dele, que lista as versões. Confira o título antes de confirmar: em 04/11/2026, o #4 entrou com espaços no começo, e o #5, com o título do Dependabot.
 7. Depois do merge, a pasta do projeto volta para a `master`:
    1. `git switch master` e `git pull --ff-only`. O `git status` mostra a `master` igual à `origin/master`, sem nada à frente nem atrás.
    2. Suba o ambiente com a `master`: num PR do NuGet, recrie a API (`docker compose up -d --force-recreate api`); num PR de imagens, o `docker compose up -d` recria os serviços que mudaram.
