@@ -70,9 +70,16 @@ function DialogContent({
   )
 }
 
+// O espaço à direita é o do botão de fechar, que fica por cima do cabeçalho, a 8 px da borda: com 40 px no celular,
+// ele avança 32 px além do p-4 do diálogo; com 28 px no computador, 20 px. Sem esse espaço, um título longo passa por
+// baixo do botão.
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="dialog-header" className={cn('flex flex-col gap-2', className)} {...props} />
+    <div
+      data-slot="dialog-header"
+      className={cn('flex flex-col gap-2 pr-8 md:pr-5', className)}
+      {...props}
+    />
   )
 }
 

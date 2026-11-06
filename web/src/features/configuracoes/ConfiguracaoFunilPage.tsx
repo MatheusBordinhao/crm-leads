@@ -225,7 +225,10 @@ function MotivosDePerda() {
         <ul aria-label="Motivos de perda" className="flex flex-col divide-y rounded-lg border">
           {motivos.map((motivo) => (
             <li key={motivo.id} className="flex items-center gap-2 px-3 py-2">
-              <span className="min-w-0 flex-1 break-words">{motivo.nome}</span>
+              {/* O nome é o rótulo do interruptor: tocar nele liga e desliga o motivo, como nos outros interruptores. */}
+              <label htmlFor={`motivo-${motivo.id}-ativo`} className="min-w-0 flex-1 break-words">
+                {motivo.nome}
+              </label>
               <Button
                 variant="ghost"
                 size="icon"
@@ -235,6 +238,7 @@ function MotivosDePerda() {
                 <PencilIcon />
               </Button>
               <Switch
+                id={`motivo-${motivo.id}-ativo`}
                 checked={motivo.ativo}
                 aria-label={`Ativo: ${motivo.nome}`}
                 // Sempre sobra um motivo ativo para escolher.

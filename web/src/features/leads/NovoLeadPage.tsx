@@ -84,7 +84,7 @@ export function NovoLeadPage() {
     <section className="flex max-w-3xl flex-col gap-4">
       <Link
         to="/leads"
-        className="flex items-center gap-1 self-start text-sm text-muted-foreground hover:underline"
+        className="flex h-10 items-center gap-1 self-start text-sm text-muted-foreground hover:underline md:h-auto"
       >
         <ArrowLeftIcon className="size-4" aria-hidden />
         Leads
