@@ -213,8 +213,19 @@ function Filtros({ params, mudar }: { params: URLSearchParams; mudar: Mudar }) {
   )
 }
 
-/** O registro afetado: os leads e as importações abrem a tela deles. */
-function Sobre({ registro, nomes }: { registro: RegistroAuditoriaResponse; nomes: Nomes }) {
+/**
+ * O registro afetado: os leads e as importações abrem a tela deles. No cartão do celular, o link fica
+ * sozinho na linha e recebe a altura de 40 px (`classeDoLink`), como os outros links soltos.
+ */
+function Sobre({
+  registro,
+  nomes,
+  classeDoLink,
+}: {
+  registro: RegistroAuditoriaResponse
+  nomes: Nomes
+  classeDoLink?: string
+}) {
   const { entidade, entidadeId } = registro
   if (!entidade) {
     return <span className="text-muted-foreground">—</span>
@@ -227,7 +238,7 @@ function Sobre({ registro, nomes }: { registro: RegistroAuditoriaResponse; nomes
         ? `/importacao/${entidadeId}`
         : null
   return destino ? (
-    <Link to={destino} className="hover:underline">
+    <Link to={destino} className={cn('hover:underline', classeDoLink)}>
       {descricao}
     </Link>
   ) : (
@@ -296,7 +307,11 @@ function CartoesAuditoria({ registros, nomes }: PropsLista) {
                 </div>
                 {registro.entidade && (
                   <div className="min-w-0 break-words">
-                    <Sobre registro={registro} nomes={nomes} />
+                    <Sobre
+                      registro={registro}
+                      nomes={nomes}
+                      classeDoLink="inline-flex h-10 items-center"
+                    />
                   </div>
                 )}
                 {detalhes && <div className="break-words text-muted-foreground">{detalhes}</div>}
