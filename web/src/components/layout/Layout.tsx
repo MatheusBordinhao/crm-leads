@@ -57,6 +57,10 @@ export function Layout() {
         </header>
         <main className="flex-1 p-4 md:p-6">
           <Outlet />
+          {/* O espaço dos avisos, que saem embaixo em todas as larguras: o maior, o "Avisos do
+              navegador" em 360 px, ocupa 127 px com a margem. Sem ele, com a página rolada até o fim, o
+              aviso cobria o último botão, que a rolagem não tira de baixo dele. */}
+          <div aria-hidden className="h-32" />
         </main>
       </div>
       <TempoReal />
