@@ -135,7 +135,8 @@ function Filtros({
           value={texto}
           onChange={(evento) => setTexto(evento.target.value)}
         />
-        <Button type="submit" variant="secondary">
+        {/* No celular, só o ícone aparece: o min-w-10 dá os 40 px de largura do toque. */}
+        <Button type="submit" variant="secondary" className="min-w-10">
           <SearchIcon aria-hidden />
           <span className="sr-only md:not-sr-only">Buscar</span>
         </Button>
