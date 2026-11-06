@@ -37,6 +37,9 @@ function DialogOverlay({
   )
 }
 
+// No celular (abaixo do md), os avisos saem embaixo e ocupam até 127 px, o espaço que a área principal deixa no fim
+// (Layout). O diálogo fica centrado na área acima desses 128 px, com altura máxima da tela menos 144 px (os 128 e 8 px
+// em cima e embaixo), e rola por dentro se passar disso: o aviso não cobre os botões dele. No computador, nada muda.
 function DialogContent({
   className,
   children,
@@ -51,7 +54,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm max-md:top-[calc(50%-4rem)] max-md:max-h-[calc(100svh-9rem)] max-md:overflow-y-auto data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
           className,
         )}
         {...props}
