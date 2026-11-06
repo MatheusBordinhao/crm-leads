@@ -18,7 +18,8 @@ export function Provedores({
     <QueryClientProvider client={queryClient}>
       <ContextoTempoReal value={criarConexao}>
         {children}
-        <Toaster position="top-center" richColors />
+        {/* No celular (até 600 px, no sonner), os avisos ficam abaixo do cabeçalho de 56 px, sem cobrir o menu e o sino. */}
+        <Toaster position="top-center" richColors mobileOffset={{ top: 64 }} />
       </ContextoTempoReal>
     </QueryClientProvider>
   )
