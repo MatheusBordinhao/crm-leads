@@ -1,7 +1,20 @@
-import { Navigate, Outlet, useLocation } from 'react-router'
+import { Navigate, Outlet, useLocation, type NavigateProps } from 'react-router'
 import { Carregando } from '@/components/Carregando'
 import { Button } from '@/components/ui/button'
 import { useEu } from './sessao'
+
+/**
+ * Redireciona e mostra o Carregando enquanto a tela de destino carrega: as telas são sob demanda (rotas.tsx), e o
+ * roteador só troca de tela depois de baixar o arquivo dela. Com o Navigate sozinho, a área ficaria vazia até lá.
+ */
+function Redirecionar(props: NavigateProps) {
+  return (
+    <>
+      <Navigate {...props} />
+      <Carregando />
+    </>
+  )
+}
 
 /** Exige sessão. Com a senha provisória, qualquer rota leva à troca de senha. */
 export function RotaProtegida() {
@@ -22,10 +35,10 @@ export function RotaProtegida() {
     )
   }
   if (!eu) {
-    return <Navigate to="/login" state={{ voltarPara: pathname }} replace />
+    return <Redirecionar to="/login" state={{ voltarPara: pathname }} replace />
   }
   if (eu.trocarSenha && pathname !== '/trocar-senha') {
-    return <Navigate to="/trocar-senha" replace />
+    return <Redirecionar to="/trocar-senha" replace />
   }
   return <Outlet />
 }
@@ -33,11 +46,11 @@ export function RotaProtegida() {
 /** A tela inicial de cada perfil: o painel para o admin e o funil, onde ela trabalha, para a atendente. */
 export function TelaInicial() {
   const { data: eu } = useEu()
-  return <Navigate to={eu?.perfil === 'Admin' ? '/painel' : '/funil'} replace />
+  return <Redirecionar to={eu?.perfil === 'Admin' ? '/painel' : '/funil'} replace />
 }
 
 /** Só para admin. A atendente volta ao início (a API também responde 403). */
 export function RotaAdmin() {
   const { data: eu } = useEu()
-  return eu?.perfil === 'Admin' ? <Outlet /> : <Navigate to="/" replace />
+  return eu?.perfil === 'Admin' ? <Outlet /> : <Redirecionar to="/" replace />
 }

@@ -1,53 +1,135 @@
+import type { ComponentType } from 'react'
 import type { RouteObject } from 'react-router'
+import { Carregando } from '@/components/Carregando'
+import { ErroDaTela } from '@/components/ErroDaTela'
 import { Layout } from '@/components/layout/Layout'
 import { NaoEncontradaPage } from '@/components/NaoEncontradaPage'
-import { LoginPage } from '@/features/acesso/LoginPage'
 import { RotaAdmin, RotaProtegida, TelaInicial } from '@/features/acesso/RotasProtegidas'
-import { TrocarSenhaPage } from '@/features/acesso/TrocarSenhaPage'
-import { AuditoriaPage } from '@/features/auditoria/AuditoriaPage'
-import { CampanhasPage } from '@/features/configuracoes/CampanhasPage'
-import { ConfiguracaoFunilPage } from '@/features/configuracoes/ConfiguracaoFunilPage'
-import { FunilPage } from '@/features/funil/FunilPage'
-import { ImportacaoPage } from '@/features/importacao/ImportacaoPage'
-import { ResultadoImportacaoPage } from '@/features/importacao/ResultadoImportacaoPage'
-import { LeadPage } from '@/features/leads/LeadPage'
-import { LeadsPage } from '@/features/leads/LeadsPage'
-import { NovoLeadPage } from '@/features/leads/NovoLeadPage'
-import { PainelPage } from '@/features/painel/PainelPage'
-import { RelatorioPage } from '@/features/relatorio/RelatorioPage'
-import { UsuariosPage } from '@/features/usuarios/UsuariosPage'
+import { ErroAoCarregarTela } from '@/lib/recarga'
 
-/** Rotas da aplicação. O main.tsx usa um roteador do navegador, e os testes, um em memória. */
+/**
+ * Uma tela carregada sob demanda: o arquivo dela só é baixado quando ela abre pela primeira vez (Passo 11, Lote 4B).
+ * - O `lazy` fica na forma de função. Na forma de objeto (`lazy: { Component }`), numa rota sem loader, o React Router
+ *   8.4 engole a falha do import: a rota fica sem componente, e a tela, em branco, sem passar pelo ErrorBoundary.
+ * - Na primeira carga da página, o HydrateFallback mostra o Carregando no lugar da tela, com o layout em volta.
+ * - Se o arquivo não carrega, o ErroDaTela cuida.
+ */
+export function tela(carregar: () => Promise<ComponentType>) {
+  return {
+    lazy: async () => {
+      try {
+        return { Component: await carregar() }
+      } catch (causa) {
+        throw new ErroAoCarregarTela(causa)
+      }
+    },
+    HydrateFallback: Carregando,
+    ErrorBoundary: ErroDaTela,
+  } satisfies RouteObject
+}
+
+/**
+ * Rotas da aplicação. O main.tsx usa um roteador do navegador, e os testes, um em memória. Toda tela entra pelo
+ * `tela()`; ficam no pacote principal só as rotas que envolvem as telas e a página não encontrada.
+ */
 export const rotas: RouteObject[] = [
-  { path: '/login', element: <LoginPage /> },
   {
-    element: <RotaProtegida />,
+    // Sem caminho nem tela: o React Router dá à primeira rota o ErrorBoundary padrão. Um erro que não é de carga,
+    // relançado pelo ErroDaTela, sobe até ela, como antes das telas sob demanda, também no login.
     children: [
-      { path: '/trocar-senha', element: <TrocarSenhaPage /> },
       {
-        element: <Layout />,
+        path: '/login',
+        ...tela(() => import('@/features/acesso/LoginPage').then((m) => m.LoginPage)),
+      },
+      {
+        element: <RotaProtegida />,
         children: [
-          { path: '/', element: <TelaInicial /> },
-          { path: '/painel', element: <PainelPage /> },
-          { path: '/funil', element: <FunilPage /> },
-          { path: '/leads', element: <LeadsPage /> },
-          { path: '/leads/novo', element: <NovoLeadPage /> },
-          { path: '/leads/:id', element: <LeadPage /> },
           {
-            element: <RotaAdmin />,
+            path: '/trocar-senha',
+            ...tela(() =>
+              import('@/features/acesso/TrocarSenhaPage').then((m) => m.TrocarSenhaPage),
+            ),
+          },
+          {
+            element: <Layout />,
             children: [
-              { path: '/relatorio', element: <RelatorioPage /> },
-              { path: '/importacao', element: <ImportacaoPage /> },
-              { path: '/importacao/:id', element: <ResultadoImportacaoPage /> },
-              { path: '/auditoria', element: <AuditoriaPage /> },
-              { path: '/configuracoes/usuarios', element: <UsuariosPage /> },
-              { path: '/configuracoes/funil', element: <ConfiguracaoFunilPage /> },
-              { path: '/configuracoes/campanhas', element: <CampanhasPage /> },
+              { path: '/', element: <TelaInicial /> },
+              {
+                path: '/painel',
+                ...tela(() => import('@/features/painel/PainelPage').then((m) => m.PainelPage)),
+              },
+              {
+                path: '/funil',
+                ...tela(() => import('@/features/funil/FunilPage').then((m) => m.FunilPage)),
+              },
+              {
+                path: '/leads',
+                ...tela(() => import('@/features/leads/LeadsPage').then((m) => m.LeadsPage)),
+              },
+              {
+                path: '/leads/novo',
+                ...tela(() => import('@/features/leads/NovoLeadPage').then((m) => m.NovoLeadPage)),
+              },
+              {
+                path: '/leads/:id',
+                ...tela(() => import('@/features/leads/LeadPage').then((m) => m.LeadPage)),
+              },
+              {
+                element: <RotaAdmin />,
+                children: [
+                  {
+                    path: '/relatorio',
+                    ...tela(() =>
+                      import('@/features/relatorio/RelatorioPage').then((m) => m.RelatorioPage),
+                    ),
+                  },
+                  {
+                    path: '/importacao',
+                    ...tela(() =>
+                      import('@/features/importacao/ImportacaoPage').then((m) => m.ImportacaoPage),
+                    ),
+                  },
+                  {
+                    path: '/importacao/:id',
+                    ...tela(() =>
+                      import('@/features/importacao/ResultadoImportacaoPage').then(
+                        (m) => m.ResultadoImportacaoPage,
+                      ),
+                    ),
+                  },
+                  {
+                    path: '/auditoria',
+                    ...tela(() =>
+                      import('@/features/auditoria/AuditoriaPage').then((m) => m.AuditoriaPage),
+                    ),
+                  },
+                  {
+                    path: '/configuracoes/usuarios',
+                    ...tela(() =>
+                      import('@/features/usuarios/UsuariosPage').then((m) => m.UsuariosPage),
+                    ),
+                  },
+                  {
+                    path: '/configuracoes/funil',
+                    ...tela(() =>
+                      import('@/features/configuracoes/ConfiguracaoFunilPage').then(
+                        (m) => m.ConfiguracaoFunilPage,
+                      ),
+                    ),
+                  },
+                  {
+                    path: '/configuracoes/campanhas',
+                    ...tela(() =>
+                      import('@/features/configuracoes/CampanhasPage').then((m) => m.CampanhasPage),
+                    ),
+                  },
+                ],
+              },
             ],
           },
         ],
       },
+      { path: '*', element: <NaoEncontradaPage /> },
     ],
   },
-  { path: '*', element: <NaoEncontradaPage /> },
 ]
