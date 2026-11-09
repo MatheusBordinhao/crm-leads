@@ -603,11 +603,13 @@ Em 13/10/2026, com a demonstração marcada para 15/10/2026, o Passo 11 foi adia
 
 - as etapas definitivas, que dependem da Gama;
 - a instalação e a notificação no celular, que exigem o HTTPS do servidor;
-- a divisão do pacote por tela, que fica para depois da reunião.
+- a divisão do pacote por tela, que ficou para depois da reunião e saiu em 09/11/2026 (Lote 4B).
 
 Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o pagamento sair (seção 11). Até lá, um n8n local, no Compose de desenvolvimento, roda os 8 fluxos da seção 4.5 com dados de teste: o Passo 6 foi adiantado nele, com os fluxos dos Passos 4 e 9. Ficam para a terceira fase levar os fluxos ao n8n Cloud e o que depende do servidor, do app da Meta e da Gama. Os critérios de aceite dos Passos 7 a 10 não dependem do n8n.
 
 Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o trabalho segue com tudo o que não depende da empresa, e fica para a terceira fase o que precisa de servidor, domínio, n8n Cloud, e-mail da empresa, Meta, Google Ads ou da Gama. A demonstração é conferida no fim de cada etapa desse trabalho, e, quando a reunião for marcada, tudo congela até ela. O que tinha ficado para depois da reunião entra nesse trabalho: a divisão do pacote por tela (Passo 11) e, no Passo 6, os e-mails do `CRM - Erros` em massa e as execuções do n8n com chave.
+
+Em 09/11/2026, esse trabalho terminou. O que falta depende da empresa, da Gama ou das pessoas, e a lista está no README (Publicação › O que depende da empresa).
 
 ### Passos
 
@@ -767,7 +769,7 @@ Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o 
     - antes de qualquer tela, o `index.html` baixa 599,56 kB (189,63 kB com gzip), em 5 arquivos. A primeira carga do login tem 727,34 kB, a do funil, 789,43 kB, e a do painel, 619,64 kB: de 12% a 31% a menos;
     - com o CRM aberto durante uma publicação nova, a tela cujo arquivo antigo sumiu recarrega a página uma vez, já na versão nova. Se falhar de novo em menos de um minuto, mostra o erro com o botão de recarregar, sem recarga em laço.
   - **Pendente, para decidir depois:** o login baixa o layout de quem já entrou, sem usá-lo, como o SignalR do tempo real e os menus e a gaveta do Radix (cerca de 138 kB).
-- README de operação: publicar, fazer e restaurar backup, trocar as chaves. **Feito em 13/10/2026:** com o que depende do servidor e do domínio marcado, a troca de cada chave e senha com o efeito dela, o plano B da demonstração e o pedido do titular (LGPD), com o que fica fora do CRM.
+- README de operação: publicar, fazer e restaurar backup, trocar as chaves. **Feito em 13/10/2026:** com o que depende do servidor e do domínio marcado, a troca de cada chave e senha com o efeito dela, o plano B da demonstração e o pedido do titular (LGPD), com o que fica fora do CRM. **Completado em 09/11/2026 (Lote 6):** a volta de uma atualização que deu errado, ensaiada num Compose descartável, a cota do n8n nos cuidados e a lista do que depende da empresa.
 - Roteiro de treinamento de uma página para Adriana e Pietra. **Feito em 13/10/2026:** [docs/guia-das-atendentes.md](guia-das-atendentes.md), conferido por um roteiro do Playwright que fez o caminho do guia como uma atendente nova, no computador e em 360 px.
 - Aceite: as atendentes conseguem, sozinhas, receber um lead, registrar o contato e levá-lo até Ganho ou Perdido. **Pendente:** a validação com a Adriana e a Pietra, usando o guia.
 
