@@ -5,14 +5,15 @@ import { ErroDaTela } from '@/components/ErroDaTela'
 import { Layout } from '@/components/layout/Layout'
 import { NaoEncontradaPage } from '@/components/NaoEncontradaPage'
 import { RotaAdmin, RotaProtegida, TelaInicial } from '@/features/acesso/RotasProtegidas'
-import { ErroAoCarregarTela } from '@/lib/recarga'
+import { ErroAoCarregarTela, marcarRecarga, podeRecarregarSozinha } from '@/lib/recarga'
 
 /**
  * Uma tela carregada sob demanda: o arquivo dela só é baixado quando ela abre pela primeira vez (Passo 11, Lote 4B).
  * - O `lazy` fica na forma de função. Na forma de objeto (`lazy: { Component }`), numa rota sem loader, o React Router
  *   8.4 engole a falha do import: a rota fica sem componente, e a tela, em branco, sem passar pelo ErrorBoundary.
  * - Na primeira carga da página, o HydrateFallback mostra o Carregando no lugar da tela, com o layout em volta.
- * - Se o arquivo não carrega, o ErroDaTela cuida.
+ * - Se o arquivo não carrega, o ErroDaTela cuida: a página recarrega sozinha uma vez, já na versão nova, ou mostra o
+ *   erro com o botão de recarregar (lib/recarga.ts).
  */
 export function tela(carregar: () => Promise<ComponentType>) {
   return {
@@ -20,7 +21,9 @@ export function tela(carregar: () => Promise<ComponentType>) {
       try {
         return { Component: await carregar() }
       } catch (causa) {
-        throw new ErroAoCarregarTela(causa)
+        // A decisão de recarregar sai aqui, uma vez por falha (o roteador guarda a promessa do lazy), e não na
+        // renderização do ErroDaTela: sem recarga no último minuto nesta aba, e só com a marca gravada.
+        throw new ErroAoCarregarTela(causa, podeRecarregarSozinha() && marcarRecarga())
       }
     },
     HydrateFallback: Carregando,

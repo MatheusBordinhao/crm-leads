@@ -812,6 +812,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 O serviço `migracoes` aplica as migrations novas antes de a API subir. As sessões continuam valendo, porque as chaves que protegem o cookie ficam no volume `chaves-sessao`.
 
+Quem está com o CRM aberto continua na versão anterior até recarregar a página. Cada tela é um arquivo próprio, baixado na primeira vez que ela abre. Se a pessoa abrir uma tela cujo arquivo antigo já saiu do servidor, a página recarrega sozinha uma vez, já na versão nova e na tela pedida. Se falhar de novo em menos de um minuto, como sem conexão, a tela mostra "Não foi possível abrir esta tela", com o botão "Recarregar a página", sem recarregar em laço.
+
 ### Versões fixadas
 
 Toda imagem tem a versão exata, e não uma tag que muda sozinha, como `10.0`, `2` ou `17`. Assim, o servidor, este computador e os testes rodam a mesma versão. O número fica só nos arquivos, e não aqui, para o PR mensal do Dependabot não deixar esta tabela velha.

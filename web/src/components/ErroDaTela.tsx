@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useRouteError } from 'react-router'
+import { Carregando } from '@/components/Carregando'
 import { Button } from '@/components/ui/button'
 import { ErroAoCarregarTela, recarregarPagina } from '@/lib/recarga'
 
@@ -12,10 +14,19 @@ export function ErroDaTela() {
   if (!(erro instanceof ErroAoCarregarTela)) {
     throw erro
   }
-  return <FalhaAoCarregar />
+  return erro.recarregarSozinha ? <Recarregando /> : <FalhaAoCarregar />
 }
 
-/** No lugar da tela, com o menu em volta. */
+/**
+ * A página recarrega já no endereço da tela, porque o roteador fica nele com o erro, e abre na versão nova. Até lá, o
+ * Carregando fica no lugar da tela, sem piscar o erro.
+ */
+function Recarregando() {
+  useEffect(() => recarregarPagina(), [])
+  return <Carregando />
+}
+
+/** Com uma recarga automática há menos de um minuto: o erro no lugar da tela, com o menu em volta. */
 function FalhaAoCarregar() {
   return (
     <div role="alert" className="flex flex-col items-center gap-3 p-8 text-center">
