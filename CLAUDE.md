@@ -225,14 +225,19 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 - Do Passo 11, fica pendente:
   - as etapas definitivas, com a Gama;
   - a instalação e a notificação num celular de verdade, que exigem o HTTPS do servidor;
-  - a divisão do pacote por tela (rotas sob demanda), no Lote 4B, porque mexe no carregamento de todas as telas. O build ainda avisa que o pacote passa de 500 kB;
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
   - a suíte do front inteira no limite com a máquina lenta:
     - em 05/11/2026, no contêiner com `--cpus=1` e 2 workers, depois da correção dos dois testes do Lote 4A-2, outros testes falharam por tempo: 4, 6 e 3 por rodada, em 3 rodadas (antes da correção, 6, 0 e 6). O redirecionamento frio do 1º teste do painel chegou a 713 ms;
     - em 06/11/2026, no `front.sh completo` do `f55967b`, o "ao sair, desconecta" (`tempoReal.test.tsx`) falhou por tempo, com a suíte em 183 s e a CPU ocupada. Com a máquina livre, passou;
     - em 07/11/2026, na 2ª das 5 rodadas do `front.sh suite`, o "desativar pede para onde vão os leads, e a etapa pode voltar" (`configuracaoFunil.test.tsx`) estourou os 5 s do teste, com 5.253 ms (650 ms na 1ª rodada). Só esse arquivo ficou lento, 4,5 vezes, com os 8 testes dele, e nenhum outro passou de 1,2 vez. A carga não estava sendo gravada, e não deu para saber se foi a máquina. As 5 rodadas, refeitas do zero com a carga gravada, passaram;
+    - em 09/11/2026, no `front.sh completo` do Lote 4B, antes da correção do `renderizarApp`, o "a atendente não tem o item no menu e, pelo endereço, volta ao funil" (`campanhas.test.tsx`), o 1º do arquivo, com dois redirecionamentos, estourou a espera de 1 s do `findBy` (1.718 ms). No contêiner com `--cpus=1`, o arquivo sozinho 5 vezes, a mediana dele foi de 1.023 ms antes do 4B, 1.190 ms com o `lazy` nos testes e 1.003 ms com as telas já carregadas: ele já ficava perto de 1 s antes. Com a correção, passou nas 5 rodadas, de 645 a 731 ms;
     - a formatação da página a cada tentativa que falha (Armadilhas conhecidas) provavelmente explica essas falhas. A saída pelo `getElementError` no `setup.ts` fica para decidir depois.
+  - a primeira carga do login, o primeiro acesso de quem ainda não entrou, medida no Lote 4B pelo manifesto e pelo sourcemap do build:
+    - o `index.html` baixa 5 arquivos (599,56 kB, 189,63 kB com gzip), e o login soma 7 (127,78 kB), quase todo o zod e o react-hook-form do formulário;
+    - nenhuma tela tem código pesado nos 5: o código do app no pacote principal soma 26,5 kB;
+    - mas eles levam o layout de quem já entrou, que o login não usa: o SignalR do tempo real (55,0 kB), o Radix com o Floating UI, da gaveta e dos menus (70,7 kB), e as dependências da gaveta (11,9 kB);
+    - fica para decidirmos se o layout ou o SignalR passam a carregar sob demanda.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -563,7 +568,48 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a suíte .NET, no contêiner, com 817 de 817, em 168 s com o build, e a formatação. A de 07/11/2026 parou às 12:04, com os testes de unidade já passados, quando o Docker perdeu a conexão com o contêiner (`unexpected EOF`), e rodou inteira em 09/11/2026;
   - validado por mim em 07/11/2026, em desenvolvimento, no Edge, na visão de dispositivo, em 400 px: o menu, a ficha (Privacidade e o "Leads" de voltar), um diálogo, a lista, o novo lead, a auditoria, o relatório e o painel, com o espaço no fim das páginas. O aviso não apareceu, por causa da visão de dispositivo (Armadilhas conhecidas), e vale a conferência do roteiro;
   - o Windows ligou de novo quatro vezes: em 07/11/2026, às 11:08, depois de uma atualização, às 13:31 e às 20:14, e em 09/11/2026, às 08:36. A cada vez, o `db` e o `n8n` voltaram sozinhos, e a `api`, pelo `docker compose up -d api`. A regra do firewall continuou ativa, e o Docker, no Engine 29.9.2;
-  - a demonstração, em 09/11/2026: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1062, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 4,1 s depois.
+  - a demonstração, em 09/11/2026: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1062, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 4,1 s depois;
+  - o fechamento, registrado no Lote 4B:
+    - validado por mim: o e-mail do lead 1062 chegou em 09/11/2026, às 08:47;
+    - no push de `52ef7d1..e664e8f`, o `Testes` #21 ficou verde em 5 min 52 s, no `e664e8f`. O `Imagem de produção` não rodou, porque o `web/src` e os `.md` não estão nos caminhos dele;
+    - os 5 volumes anônimos antigos, de 29/09 a 09/10/2026, foram apagados em 09/11/2026, com o meu ok, depois da conferência de que nenhum contêiner os usava. Ficaram os 3 com nome (`crm-leads_artefatos-ef`, `crm-testes_artefatos` e `crm-testes_nuget`) e os 4 anônimos presos a contêineres parados (o searxng e o sandbox do n8n do WSL e o `backup` do plano B);
+    - a imagem do Playwright 1.56.1 e o volume `crm-playwright` ficaram para o Lote 4B, que os reaproveitou e os apagou no fim.
+- Lote 4B (front: as rotas sob demanda), feito em 09/11/2026:
+  - os commits:
+    - `466d400`: cada tela entra nas rotas pelo `tela()` (`web/src/rotas.tsx`), com o `lazy` do React Router, e o arquivo dela só é baixado quando ela abre pela primeira vez. São as 14 telas; ficam no pacote principal só as rotas que envolvem as telas (`RotaProtegida`, `Layout`, `RotaAdmin` e `TelaInicial`) e a página não encontrada. Na primeira carga, o `Carregando` aparece no lugar da tela (`HydrateFallback`), com o layout em volta, e os redirecionamentos do `RotasProtegidas.tsx` também o mostram (`Redirecionar`). A tela que não carrega mostra o `ErroDaTela`, no endereço dela e com o menu. Os outros erros sobem para o `ErrorBoundary` padrão do React Router, como antes, por uma rota raiz sem caminho e sem tela;
+    - `13e60b2`: o `renderizarApp` com as telas já carregadas (`comAsTelasCarregadas`, em `web/src/test/telas.ts`), pelo meu ajuste (veja abaixo);
+    - `26294e2`: a tela que não carrega recarrega a página uma vez, já na versão nova e no endereço dela, com o `Carregando` até lá. A trava (`web/src/lib/recarga.ts`) deixa uma recarga automática por minuto em cada aba, pela hora no `sessionStorage` (`crm:recarga-da-tela`); depois disso, ou sem o `sessionStorage`, aparece "Não foi possível abrir esta tela", com o botão "Recarregar a página". O README › Atualizar diz o que acontece com quem está com o CRM aberto numa publicação nova;
+  - o que mudou em relação ao plano mestre, lido no código antes de começar:
+    - o `lazy` na forma de função. Na forma de objeto (`lazy: { Component }`), numa rota sem loader, o React Router 8.4 engole a falha do import, e a tela fica em branco. Com o código quebrado de propósito, o teste da tela que não carrega falhou;
+    - a recarga sai do `ErrorBoundary` da rota, e não do `vite:preloadError`: o roteador já fica no endereço novo com o erro, e a recarga abre a tela clicada. Pelo `vite:preloadError`, ela abriria a tela anterior;
+    - o carregamento das telas nos testes fica no `renderizar.tsx`, e não no `setup.ts`, onde os 13 arquivos de unidade carregariam as telas à toa;
+  - os meus ajustes de 06/11/2026:
+    - os três testes em que o aviso sai antes da navegação (`novoLead.test.tsx:89` e `:116` e `privacidade.test.tsx:171`) passaram sem mudança;
+    - um teste quebrado porque a tela chega um instante depois se corrige no `renderizar.tsx`, e não teste por teste. Foi o do `campanhas.test.tsx`, que estourou o `findBy` (Pendências novas). Com as telas já carregadas no `renderizarApp`, ele voltou ao tempo de antes, sem mudar nenhum tempo de espera, e o caminho sob demanda continua testado no `rotas.test.tsx`;
+    - o 404 do arquivo apagado não leva o cache de 1 ano do `/assets` (veja a conferência abaixo);
+    - a imagem e o volume do Playwright, deixados pelo 4A-2, foram reaproveitados e apagados no fim;
+  - o pacote, pelo build no contêiner, com o manifesto e o sourcemap:
+    - antes, um arquivo só de JavaScript, com 901,58 kB (274,04 kB com gzip). O pacote principal ficou com 443,29 kB (136,91 kB), e o aviso dos 500 kB do build sumiu;
+    - o `index.html` baixa 5 arquivos, com 599,56 kB (189,63 kB com gzip): o principal (o react-dom com 203,3 kB, o Radix com o Floating UI com 70,7 kB, o SignalR com 55,0 kB, o sonner com 33,6 kB e o react-router com 22,3 kB), o `cliente` (74,3 kB: o `cn`, o núcleo do React Query, o react e o openapi-fetch), o `hooks` (71,8 kB, o resto do react-router), o `useMutation` (5,7 kB) e o `dist` (4,5 kB);
+    - a primeira carga do login tem 727,34 kB (229,42 kB com gzip), 19% a menos; a do funil, 789,43 kB (251,33 kB), 12% a menos; e a do painel, 619,64 kB (197,67 kB), 31% a menos. Somados, os 49 arquivos JS têm 920,32 kB (299,65 kB com gzip);
+  - conferido pelo Claude:
+    - a linha de partida no `e664e8f`: o `front.sh completo` com 260 de 260, a suíte em 113,9 s;
+    - o `front.sh completo` depois do commit 1, com 263 de 263, e depois dos dois seguintes, juntos, com 269 de 269 e a suíte em 120,7 s;
+    - as 5 rodadas do `front.sh suite`, como o CI (`--cpuset-cpus=0,1 --memory=7g`), das 09:51 às 10:07, com a carga gravada a cada 10 s: 269 de 269 em cada uma. A suíte, de 167,0 a 172,4 s (no 4A-2, de 154,6 a 170,2 s, com 260 testes); o teste do painel, de 523 a 868 ms; o do service worker, de 174 a 600 ms; e o das campanhas, de 645 a 731 ms. A carga teve mediana de 30% e pico de 99%, com o Chrome e o Defender;
+    - a suíte .NET, no contêiner, com 817 de 817, em 177 s, e a formatação;
+    - num Compose de produção descartável (`-p crm-rotas`, portas 8101 e 8475, rede `172.31.101.0/24`, a imagem `crm-api-rotas`, sem o `backup` e sem o n8n), com o Playwright 1.56.1 num contêiner:
+      - as 54 visitas, como admin, atendente e sem sessão, em 360 e 1280 px, pelo Caddy, abriram a tela certa, com os redirecionamentos (a atendente no `/relatorio` foi para o funil). No console, só o 401 do login e o 404 do lead não encontrado, sem violação da CSP e sem nenhum issue do DevTools;
+      - pelo menu, sem recarregar a página, cada clique baixou só os arquivos da tela, e a volta ao Painel, nenhum;
+      - o PWA, pelo `http://localhost:8080`: o manifesto, o service worker no controle, a notificação de um lead novo só com o título e o clique no service worker, que abriu a ficha, com o `LeadPage` baixado na hora, e a marcou como lida;
+      - uma publicação nova com a tela aberta: com o admin no painel da v1, a `api` passou para uma v2 com uma marca no título do Relatório. O clique em Relatório pediu o arquivo antigo, que deu 404, e a página recarregou uma vez só, já em `/relatorio`, na v2;
+      - a trava: com o arquivo da Auditoria apagado dentro do contêiner, o clique fez uma recarga e mostrou o botão, sem segunda recarga, em 360 e 1280 px, à vista e sem o "Avisos do navegador" por cima;
+      - o 404 do arquivo apagado: antes, ele respondia com `public, max-age=31536000, immutable`; apagado, o 404 sai pelo `UseStatusCodePages` (`application/problem+json`), sem `Cache-Control`, sem `Expires` e sem `Last-Modified` nem `ETag`. O 404 da publicação nova também saiu sem `Cache-Control`;
+      - no fim, o `down -v`, com as imagens `crm-api-rotas` (v1 e v2) apagadas;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1123, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 6,0 s depois;
+  - validado por mim em 09/11/2026, depois da demonstração: o e-mail do lead 1123 chegou às 10:25, e o link abriu a ficha, já sob demanda; o login e as telas do menu abriram certo, como admin e como atendente. O PWA eu não validei: vale a conferência do roteiro;
+  - a sessão do Claude Code reiniciou com o `npm run dev` em segundo plano, e o `node` do Vite ficou no ar na 5173: o Claude conferiu a porta e o processo, o `vite.js` do projeto, e o encerrou;
+  - a imagem do Playwright 1.56.1 e o volume `crm-playwright` saíram no fim do lote, sem nenhum contêiner que os usasse;
+  - o push deste registro e o CI entram no registro do próximo lote.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -587,7 +633,7 @@ O CRM guarda os dados e aplica as regras. O n8n só conecta sistemas externos e 
 
 - API: ASP.NET Core (.NET 10) com controllers, EF Core 10 + Npgsql (nomes em snake_case), ASP.NET Core Identity com cookie, SignalR, FluentValidation, libphonenumber-csharp, OpenAPI + Scalar em desenvolvimento
 - Banco: PostgreSQL 17
-- Web: React + TypeScript + Vite, React Router, TanStack Query, React Hook Form + Zod, Tailwind + shadcn/ui, dnd-kit, @microsoft/signalr. Os gráficos do painel são barras em HTML e CSS, sem biblioteca; o Recharts só entra quando um gráfico precisar dele, como uma linha por dia. O PWA é feito à mão, sem o vite-plugin-pwa: o manifesto, os ícones e o service worker ficam em `web/public`, e o service worker não guarda cache
+- Web: React + TypeScript + Vite, React Router (com as telas carregadas sob demanda, pelo `tela()` de `web/src/rotas.tsx`), TanStack Query, React Hook Form + Zod, Tailwind + shadcn/ui, dnd-kit, @microsoft/signalr. Os gráficos do painel são barras em HTML e CSS, sem biblioteca; o Recharts só entra quando um gráfico precisar dele, como uma linha por dia. O PWA é feito à mão, sem o vite-plugin-pwa: o manifesto, os ícones e o service worker ficam em `web/public`, e o service worker não guarda cache
 - Testes: xUnit, WebApplicationFactory + Testcontainers (PostgreSQL), Vitest
 - Deploy: Docker Compose com a API servindo o build do React, PostgreSQL e Caddy (HTTPS)
 - Pré-requisitos: .NET 10 SDK, Node 22 ou mais recente, Docker
@@ -760,14 +806,23 @@ docker compose up -d n8n                                 # n8n local em http://l
   - o fim da área principal tem um espaço de 128 px (`h-32`, no `Layout.tsx`), a altura do maior aviso, o "Avisos do navegador" em 360×640, com a margem. Um aviso mais alto pede um espaço maior, e um botão fixo no rodapé ficaria por baixo dos avisos;
   - abaixo do `md`, o diálogo fica na área acima desse espaço e rola por dentro (as classes `max-md:` do `DialogContent`);
   - na visão de dispositivo do navegador, em desenvolvimento, o "Avisos do navegador" não aparece: o user agent de celular sem service worker conta como sem notificação (`avisosSuportados`, em `web/src/features/tempo-real/avisosNavegador.ts`). Para ver o aviso, use só a largura, sem trocar o user agent, ou o `npm run preview`, com o service worker.
-- No Windows, parar o `npm run dev` pelo `TaskStop` deixa o `node` do Vite no ar, escutando na 5173. Confira a porta (`Get-NetTCPConnection -LocalPort 5173 -State Listen`), confira que o processo é o `vite.js` do projeto e encerre-o.
+- No Windows, parar o `npm run dev` pelo `TaskStop` deixa o `node` do Vite no ar, escutando na 5173. O mesmo acontece quando a sessão do Claude Code reinicia com ele em segundo plano (Lote 4B). Confira a porta (`Get-NetTCPConnection -LocalPort 5173 -State Listen`), confira que o processo é o `vite.js` do projeto e encerre-o.
+- As telas do front são carregadas sob demanda (Lote 4B). Uma tela nova entra nas rotas pelo `tela()` (`web/src/rotas.tsx`), que dá o `lazy`, o `Carregando` e o `ErroDaTela`, e o `rotas.test.tsx` tem a lista das rotas que ficam no pacote principal (`/` e `*`):
+  - o `lazy` fica na forma de função (`lazy: async () => ({ Component })`). Na forma de objeto (`lazy: { Component }`), numa rota sem loader, o React Router 8.4 engole a falha do import (o `callLoaderOrAction` só espera a promessa do loader), e a tela fica em branco, sem passar pelo `ErrorBoundary`;
+  - o `ErroDaTela` relança o erro que não é de carga, e ele sobe ao `ErrorBoundary` padrão que o React Router dá à primeira rota. Por isso as rotas ficam dentro de uma rota raiz sem caminho e sem tela: sem ela, o erro relançado no login escaparia do React Router e derrubaria o app;
+  - a recarga da versão nova sai do `ErroDaTela`, e não do `vite:preloadError`: quando uma tela não carrega numa navegação, o roteador já fica no endereço novo, com o erro, e a recarga abre a tela clicada. A decisão sai do `tela()`, uma vez por falha. Um `import()` fora das rotas não tem essa recarga;
+  - um `Navigate` para uma tela sob demanda deixa a área vazia até o arquivo dela chegar, porque o roteador só troca de tela depois de baixá-lo. Os redirecionamentos do `RotasProtegidas.tsx` usam o `Redirecionar`, que mostra o `Carregando` junto;
+  - nos testes do front, o `renderizarApp` monta o roteador com as telas já carregadas (`comAsTelasCarregadas`, num `await` no topo do `renderizar.tsx`), como quando o `rotas.tsx` as importava direto. Com o `lazy`, cada navegação esperava o import, mesmo em cache, e o teste das campanhas estourou o `findBy`. O caminho sob demanda é testado no `rotas.test.tsx`, com rotas do próprio teste;
+  - o 404 de um arquivo que não existe em `/assets` sai pelo `UseStatusCodePages`, sem `Cache-Control`: o cache de 1 ano só é posto no `OnPrepareResponse` do `UseStaticFiles`, quando o arquivo é servido. Numa volta de versão, o navegador não guarda o 404.
+- Para saber o que cada arquivo do build do front tem, faça o build num contêiner, como o do `front.sh`, com `--manifest --sourcemap`. O manifesto (`.vite/manifest.json`) dá o que o `index.html` e cada tela baixam (os `imports`), e o `source-map-js`, que já vem no `node_modules` do front (pelo `postcss`), dá os bytes de cada pacote, sem instalar nada (Lote 4B).
 - Para revisar as telas no celular ou seguir um roteiro pela tela, use o Playwright num contêiner Linux, nada no Windows:
   - a imagem é a `mcr.microsoft.com/playwright`, com o pacote `playwright` da mesma versão instalado num volume do Docker;
   - o contêiner fica ligado à rede da API de um Compose de produção descartável (`--network container:<api>`, `http://localhost:8080`, onde o cookie `Secure` vale) ou à do Caddy (`https://localhost`, com `ignoreHTTPSErrors`), para a CSP;
   - a faixa da rede do Compose descartável não pode colidir com a do `crm-local` (`172.30.0.0/24`): use `REDE_SUBNET` e `CADDY_IP`;
   - a notificação só funciona com o Chromium completo (`chromium.launch({ channel: 'chromium' })`), porque o "headless shell" padrão nega a permissão;
   - depois de um clique num link `tel:` ou `mailto:`, o Chromium sem janela deixa a página sem receber os cliques seguintes. Nos roteiros, impeça a navegação do link (`addInitScript`), como o `naoNavegar` dos testes do front;
-  - o arraste pelo teclado com as setas apertadas sem pausa anda menos colunas: use pausas ou o mouse.
+  - o arraste pelo teclado com as setas apertadas sem pausa anda menos colunas: use pausas ou o mouse;
+  - uma sessão guardada (`storageState`) leva o `localStorage` de quando foi gravada, como o `crm:avisos-do-navegador` já respondido: para o aviso aparecer, apague a chave num `addInitScript`.
 - No PowerShell 5.1, as aspas duplas dentro de um argumento para um programa nativo se perdem ou partem o argumento em vários. Por isso, use `git commit -F` com a mensagem num arquivo do scratchpad e, para o contêiner, um script em arquivo copiado com `docker compose cp`.
   - Um `git commit -m` com aspas na mensagem sai sem elas ou falha com "pathspec did not match".
   - Se o commit falhar depois do `git add`, os arquivos ficam no índice e entram no commit seguinte: confira com `git show --stat`.
@@ -821,7 +876,7 @@ docker compose up -d n8n                                 # n8n local em http://l
 - No GitHub Free, repositório privado não tem proteção de branch: o check vermelho não impede o merge. A conferência de um PR é manual (README › Versões fixadas).
 - O `front.sh` monta o `web/` só para leitura, com o `node_modules`, o `dist` e o `coverage` em volumes anônimos, e o build sai em `/tmp/dist`, dentro do contêiner. O Docker não cria um ponto de montagem dentro de uma montagem só de leitura: por isso o script cria as três pastas antes, o que no runner são pastas vazias.
   - O `dist` e o `coverage` ficam escondidos desde 21/10/2026 (`436a72b`). Só com o `web/` montado, sem o `.git` e o `.gitignore` da raiz, o Tailwind procura classes também no `web/dist`. Com o build velho do Windows na pasta, o CSS do build no contêiner saía com 3,5 KB a mais; com os volumes, o build no contêiner é igual ao do Windows, arquivo por arquivo.
-  - A imagem de produção (o `.dockerignore` tira o `web/dist` e o `web/coverage`) e o CI (um checkout novo) não têm isso. Um contêiner novo que monte só o `web/` precisa do mesmo cuidado.
+  - A imagem de produção (o `.dockerignore` tira o `web/dist` e o `web/coverage`) e o CI (um checkout novo) não têm isso. Um contêiner novo que monte só o `web/` precisa do mesmo cuidado, também numa cópia por `git archive`, como a do `e664e8f` na medida do Lote 4B.
 - Um pacote do npm muda pelo roteiro do README (Versões fixadas › Um pacote do npm com alerta), e não por um `npm.cmd install <pacote>` direto no Windows, que baixaria um binário nativo novo antes de qualquer conferência. O Controle Inteligente de Aplicativos bloqueia um binário sem assinatura.
   - O lockfile é escrito num contêiner, pelo npm da mesma versão do Windows (o 11.17.0, em 21/10/2026), com o `--package-lock-only`. O resultado é o mesmo, byte a byte, mas no Windows o `--package-lock-only` também regrava o `node_modules/.package-lock.json`.
   - O roteiro termina com um `install` sem pacote: o `uninstall --package-lock-only` deixa marcas `devOptional` velhas, e o `install` sem pacote as recalcula.
@@ -870,7 +925,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   1. Passos 7 e 8, tudo local. A demonstração para o chefe vem logo depois do 8.
   2. Depois, os Passos 9 e 10, enquanto o servidor não chega.
   3. Com o servidor: a publicação que falta do Passo 5, o Passo 6 e o Passo 11.
-- Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade, e para o Lote 4B, a divisão do pacote por tela. As etapas definitivas esperam a Gama.
+- Em 13/10/2026, o Passo 11 foi adiantado e feito. Fica para a terceira fase só o que depende do servidor, como o celular de verdade. A divisão do pacote por tela foi feita no Lote 4B, em 09/11/2026. As etapas definitivas esperam a Gama.
 - Em 14/10/2026, o Passo 6 foi adiantado no n8n local, com a tela de campanhas. Fica para a terceira fase o que depende do n8n Cloud, do app da Meta, do Google Ads e da Gama.
 - Em 16/10/2026, com a reunião sem data, o trabalho passou a seguir um plano de lotes, aprovado em 19/10/2026, com tudo o que não depende da empresa:
   - 1: infraestrutura (as imagens com versão fixa e o Dependabot), fechado em 19/10/2026;
@@ -884,7 +939,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 3: troca de chaves sem parar, feito em 03/11/2026;
   - 4A-1: os PRs do Dependabot (o #4 e o #5, com o .NET 10.0.14 e o Node 22.23.4, e o #2, com a Caddy 2.11.7 e o n8n 2.43.7), feito em 05/11/2026;
   - 4A-2: front (os alvos de toque no celular, os avisos embaixo, o Passo 7 pela tela e os testes do painel e do service worker), feito em 09/11/2026;
-  - 4B: front (as rotas sob demanda);
+  - 4B: front (as rotas sob demanda), feito em 09/11/2026;
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
   - Desde 03/11/2026, qualquer envio (um webhook, um `site.json` a mais), execução de fluxo ou publicação fora da lista aprovada do lote só com o meu ok antes, mesmo que seja só para conferir. Para conferir sem enviar nada, use o export pelo CLI, o `/healthz`, o `docker compose ps` e as contagens.
