@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { CampanhaResponse } from '@/api/cliente'
@@ -62,8 +62,11 @@ describe('campanhas', () => {
 
     const { router } = renderizarApp('/configuracoes/campanhas')
 
-    expect(await screen.findByRole('heading', { name: 'Funil' })).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/funil')
+    // Como 1º teste do arquivo, ele paga a subida fria, com dois redirecionamentos. Por isso, primeiro o caminho, numa
+    // espera que não consulta o DOM, e depois o título, pelo texto dentro do h1: a consulta por papel no funil custa
+    // mais a cada tentativa, como em "a tela inicial do admin é o painel".
+    await waitFor(() => expect(router.state.location.pathname).toBe('/funil'))
+    await waitFor(() => expect(screen.queryByText('Funil', { selector: 'h1' })).toBeInTheDocument())
     const menu = screen.getByRole('navigation', { name: 'Menu principal' })
     expect(within(menu).queryByRole('link', { name: 'Campanhas' })).not.toBeInTheDocument()
   })
