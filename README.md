@@ -646,7 +646,7 @@ Três workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em 
   ```
 
 - **Minutos:** o repositório é privado, e o GitHub Free dá 2.000 minutos por mês, com cada job arredondado para o minuto de cima. Nas três primeiras rodadas verdes, em 20/10/2026, o `Testes` levou 4 min 37 s, 6 min 58 s e 6 min 47 s, conforme a máquina do runner: de 5 a 7 minutos cobrados, o que dá mais de 250 rodadas por mês. O `Imagem de produção` leva de 2 a 3 minutos, o que dá 3 minutos cobrados, e roda poucas vezes por mês. As 5 rodadas do front terminaram em 2 min 40 s, o que dá até 3 minutos cobrados por rodada, 15 por disparo. Sem forma de pagamento cadastrada, o Actions para quando a cota acaba, sem cobrança.
-- **O check vermelho não impede o merge:** no GitHub Free, repositório privado não tem proteção de branch. A conferência antes do merge é manual (veja "Versões fixadas").
+- **O check vermelho não impede o merge:** no GitHub Free, repositório privado não tem proteção de branch. A conferência antes do merge é manual (veja "Versões fixadas"). Na conta da empresa, a `master` ganha a proteção (veja "O que depende da empresa", em Publicação).
 
 ## Banco de dados
 
@@ -699,7 +699,7 @@ O [docker-compose.prod.yml](docker-compose.prod.yml) sobe tudo num servidor com 
 
 Nesta seção, **[servidor]** marca o que depende do servidor, e **[domínio]**, o que depende do domínio. Nenhum dos dois existe ainda.
 
-### O que está pronto e o que falta
+### O que está pronto
 
 Pronto e testado no Compose de produção no próprio computador (veja "Plano B" em Demonstração):
 
@@ -713,15 +713,39 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 - as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas");
 - o build da imagem e a subida do Compose com dados fictícios, também no CI, a cada mudança nas imagens ou nos pacotes (veja "CI no GitHub Actions").
 
-Falta:
+### O que depende da empresa
 
-- **[servidor]** a máquina, com o Docker e as portas 80 e 443 abertas, e a pasta dos backups (`BACKUP_PASTA`);
-- **[servidor]** o destino da cópia criptografada dos backups e o cron dela (veja "Backup");
-- **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
-- **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
-- **[domínio]** o PWA e a notificação no celular, que exigem HTTPS;
-- **junto:** o n8n Cloud de produção, com os fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos");
-- **com o site:** o CAPTCHA no formulário, de quem fizer o site (seção 11 da especificação). O campo isca e o limite de envios protegem o CRM e as atendentes, mas um robô que preencha tudo certo gasta uma execução do n8n por envio, e, com a cota esgotada, todos os fluxos param.
+O resto depende do servidor e do domínio, do n8n Cloud pago, do e-mail da empresa, dos acessos da Meta e do Google Ads e de decisões da Gama, do chefe e das pessoas:
+
+- **Servidor e domínio:**
+  - **[servidor]** a máquina, com o Docker e as portas 80 e 443 abertas, e a pasta dos backups (`BACKUP_PASTA`);
+  - **[servidor]** o destino da cópia criptografada dos backups e o cron dela (veja "Backup");
+  - **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
+  - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
+  - **[domínio]** o PWA e a notificação num celular de verdade, que exigem HTTPS.
+- **n8n Cloud, numa conta da empresa:**
+  - os 8 fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais, as 3 Data Tables e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos");
+  - o horário do `CRM - Reenvio de pendentes`, pelo plano contratado: cada rodada agendada conta como execução (veja "Cuidados");
+  - conferir lá as configurações de execução, que o envio barrado pelo campo isca não conta no plano e por quanto tempo o plano guarda uma execução "crashed";
+  - apontar o `.mcp.json` para o MCP do n8n Cloud e remover o local.
+- **E-mail da empresa:**
+  - a credencial SMTP de produção e o remetente dos alertas, do resumo diário e do relatório;
+  - com ela no ar, revogar a senha de app da `testecrmfs@gmail.com` (Conta do Google › Segurança › Senhas de app), que está na credencial `CRM - E-mail` do n8n local.
+- **Meta:**
+  - o app em modo Live, que exige a URL da política de privacidade, a verificação da empresa e o acesso avançado;
+  - a credencial `CRM - Meta Lead Ads`, a página e o formulário, e um lead da Ferramenta de Teste;
+  - um CSV exportado de verdade, para conferir a importação.
+- **Google Ads:** o "Enviar dados de teste" de verdade e a chave de produção, que a Gama cola no formulário (passo 5 de "n8n Cloud: importar os fluxos").
+- **Gama e chefe:**
+  - as etapas definitivas do funil;
+  - o e-mail da Gama para o relatório semanal;
+  - quem faz o site, com o CAPTCHA no formulário (seção 11 da especificação). O campo isca e o limite de envios protegem o CRM e as atendentes, mas um robô que preencha tudo certo gasta uma execução do n8n por envio, e, com a cota esgotada, todos os fluxos param;
+  - a URL da política de privacidade;
+  - o prazo para anonimizar os leads perdidos e as outras decisões da seção 11 da especificação.
+- **Pessoas:**
+  - a validação com a Adriana e a Pietra, pelo [guia das atendentes](docs/guia-das-atendentes.md), que é o aceite do Passo 11 e pode ser no ambiente local;
+  - a data da reunião com o chefe.
+- **GitHub:** quando o repositório for para a conta da empresa, proteger a `master` com uma regra que bloqueie o force push e a exclusão. Em repositório privado, isso exige um plano com regras de branch, que o GitHub Free não tem (veja "CI no GitHub Actions").
 
 ### O que o servidor precisa
 
@@ -768,7 +792,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    - `CRM - Chave de integração` e `CRM - Chave dos eventos`: o `Integracao__Chave` e o `N8n__WebhookChave` do `.env` do servidor;
    - `CRM - E-mail`: o SMTP do e-mail da empresa;
    - `CRM - Meta Lead Ads`: com o app da Meta em modo Live (seção 4.5 da especificação).
-2. **[n8n Cloud]** Crie as Data Tables `crm_entradas_pendentes`, `crm_entradas_recusadas` e `crm_envios_site`, com as mesmas colunas, no projeto dos fluxos.
+2. **[n8n Cloud]** Crie as Data Tables `crm_entradas_pendentes`, `crm_entradas_recusadas` e `crm_envios_site`, com as colunas de "n8n local", em Dia a dia, no projeto dos fluxos.
 3. **[n8n Cloud]** Importe pela tela (Workflows › Import from File), primeiro o `crm-erros.json`, depois os outros. A importação dá ids novos aos fluxos.
 4. Em cada fluxo, troque os valores do nó "Configuração":
 
@@ -799,7 +823,7 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
    ```
 
    Depois que a chave chegar à Gama, limpe a área de transferência com o comando de "Trocar chaves e senhas" e, com o histórico ligado (Win+V), apague o item da chave.
-6. **[n8n Cloud]** Publique o `CRM - Erros`, depois os outros. A Meta só pode ser publicada com o app Live.
+6. **[n8n Cloud]** Publique o `CRM - Erros`, depois os outros. A Meta só pode ser publicada com o app Live. Antes de publicar o `CRM - Reenvio de pendentes`, decida o horário dele pelo plano contratado (veja "Cuidados").
 7. **[servidor]** No `.env` do servidor, ponha `N8n__WebhookUrl=https://<instância>.app.n8n.cloud/webhook/crm-alertas` e rode `docker compose -f docker-compose.prod.yml up -d api`.
 8. A Gama cola no formulário de lead do Google Ads a URL do `crm-entrada-google` e a chave. O formulário do site manda os campos da seção 4.5 da especificação para a URL do `crm-entrada-site`, em JSON ou como formulário, e não como multipart: no multipart, o envio do robô gasta uma execução.
 9. Confira:
@@ -1159,6 +1183,10 @@ Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
 ### Cuidados
 
 - Nunca rode `docker compose -f docker-compose.prod.yml down -v` no servidor: o `-v` apaga os volumes, com o banco e as chaves das sessões.
+- A cota do n8n Cloud: no Starter, são 2.500 execuções por mês, e as agendadas também contam.
+  - Fixas: o `CRM - Reenvio de pendentes` (`0 8-20 * * 1-5`, cerca de 290 por mês), o `CRM - Resumo diário` (`0 8 * * *`, cerca de 30) e o `CRM - Relatório semanal Gama` (`0 8 * * 1`, 4 ou 5).
+  - Cada lead que entra pela integração gasta uma execução da entrada e uma do `CRM - Alertas`, pelo `lead.criado`. Um `lead.reatribuido` ou um `lead.entrada_repetida` gastam mais uma cada: são os tipos do `N8n__Eventos`.
+  - Com 300 leads por mês, o consumo fica perto de 930 (seção 4.5 da especificação). Com a cota esgotada, todos os fluxos param até ela renovar: acompanhe o contador de execuções da conta, sobretudo no primeiro mês.
 - Logs, sem dados pessoais: `docker compose -f docker-compose.prod.yml logs -f api`. Cada contêiner guarda até 5 arquivos de 10 MB.
 - O log do Caddy (`docker compose -f docker-compose.prod.yml logs caddy`) mostra as falhas do proxy, como um 502 com a API reiniciando. Ele grava a URL sem a query string, que pode levar a busca da lista, e o `Referer`, o `X-Api-Key`, o `Cookie` e o `Authorization` como `REDACTED`; o filtro fica no bloco global do [deploy/Caddyfile](deploy/Caddyfile). Para conferir no servidor, na primeira publicação, porque a API fica parada por alguns segundos:
 
