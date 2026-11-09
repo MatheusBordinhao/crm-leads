@@ -10,7 +10,7 @@ Este guia mostra o caminho de um lead no CRM, da chegada até Ganho ou Perdido. 
 
 ## 2. Ative os avisos do navegador
 
-Depois de entrar, aparece **Avisos do navegador**: clique em **Ativar** e, quando o navegador perguntar, em **Permitir**. Assim, o computador avisa de um lead novo mesmo com o CRM atrás de outra janela. Se você clicou em **Agora não**, ative pelo sino, no canto de cima: **Ativar avisos do navegador**.
+Depois de entrar, aparece embaixo, no meio da tela, o aviso **Avisos do navegador**: clique em **Ativar** e, quando o navegador perguntar, em **Permitir**. Assim, o computador avisa de um lead novo mesmo com o CRM atrás de outra janela. Se você clicou em **Agora não**, ative pelo sino, no canto de cima: **Ativar avisos do navegador**.
 
 Deixe o CRM aberto durante o expediente: com ele fechado, o aviso não chega.
 
@@ -48,5 +48,6 @@ Se um lead pedir uma cópia dos dados dele ou para apagar os dados, não apague 
 ## Se algo der errado
 
 - **Lead não encontrado**: o lead passou para outra pessoa.
+- "Não foi possível abrir esta tela": confira a internet e clique em **Recarregar a página**.
 - **E-mail ou senha incorretos.** cinco vezes seguidas bloqueia o login por 15 minutos. Esqueceu a senha? Peça ao Matheus para redefini-la: ele passa uma senha provisória.
 - Um cliente chegou por outro caminho, como uma ligação ou uma indicação? Em **Leads**, clique em **Novo lead**, preencha e clique em **Cadastrar lead**.
