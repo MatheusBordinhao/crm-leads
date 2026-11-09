@@ -709,6 +709,7 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 - o IP de quem acessa, atrás do Caddy;
 - o log do Caddy, que grava as falhas do proxy sem a query string, o `Referer` e o `X-Api-Key` (veja "Cuidados");
 - o backup e o teste da restauração;
+- a volta de uma atualização que deu errado, com e sem migration nova (veja "Se a atualização der errado");
 - a importação e o PWA no build de produção;
 - as imagens com versão fixa, com o Dependabot avisando das novas, e a rotação de log em todo serviço, cobrada por um teste (veja "Versões fixadas");
 - o build da imagem e a subida do Compose com dados fictícios, também no CI, a cada mudança nas imagens ou nos pacotes (veja "CI no GitHub Actions").
@@ -834,7 +835,10 @@ A produção vai ser o n8n Cloud, numa conta da empresa. Os JSONs de [n8n/](n8n/
 
 ### Atualizar
 
+Antes de mudar, anote o commit de agora, que é para onde voltar se der errado, e tire um backup:
+
 ```bash
+git rev-parse --short HEAD                                                         # anote: o commit de antes
 docker compose -f docker-compose.prod.yml exec backup sh /backup/backup.sh agora   # um backup antes de mudar
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
@@ -843,6 +847,45 @@ docker compose -f docker-compose.prod.yml up -d --build
 O serviço `migracoes` aplica as migrations novas antes de a API subir. As sessões continuam valendo, porque as chaves que protegem o cookie ficam no volume `chaves-sessao`.
 
 Quem está com o CRM aberto continua na versão anterior até recarregar a página. Cada tela é um arquivo próprio, baixado na primeira vez que ela abre. Se a pessoa abrir uma tela cujo arquivo antigo já saiu do servidor, a página recarrega sozinha uma vez, já na versão nova e na tela pedida. Se falhar de novo em menos de um minuto, como sem conexão, a tela mostra "Não foi possível abrir esta tela", com o botão "Recarregar a página", sem recarregar em laço.
+
+### Se a atualização der errado
+
+Se as migrations falharem, se a API não subir ou se uma tela quebrar, volte ao commit anotado em "Atualizar". O caminho depende de a atualização ter trazido uma migration nova:
+
+```bash
+anterior=<o commit anotado>
+git diff --stat "$anterior" HEAD -- src/Crm.Api/Infra/Dados/Migrations   # vazio: nenhuma migration nova
+```
+
+**Sem migration nova,** o banco continua no formato do commit anterior. Volte o código e suba de novo; nada se perde:
+
+```bash
+git switch --detach "$anterior"
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+**Com migration nova,** o banco pode já estar no formato novo, que o código anterior não conhece. Volte o código e restaure o backup tirado antes da atualização:
+
+```bash
+git switch --detach "$anterior"
+docker compose -f docker-compose.prod.yml stop api
+docker compose -f docker-compose.prod.yml exec backup sh -c 'dropdb crm && createdb crm && pg_restore --no-owner --exit-on-error --dbname=crm /backups/crm-AAAA-MM-DD-HHMMSS.dump'
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- O backup é o de logo antes da atualização: o nome do arquivo tem a data e a hora (`ls -t` na pasta dos backups mostra o mais recente primeiro). Um backup diário das 03:00 que saiu depois da atualização já tem a migration nova.
+- O que entrou no CRM depois desse backup se perde. Como em "Restaurar de verdade", a auditoria volta junto: antes de restaurar, anote as anonimizações e as exclusões de leads de teste feitas depois do backup, e refaça-as depois.
+- O `up -d --build` refaz a imagem do commit anterior, e o serviço `migracoes` não tem o que aplicar.
+
+**Os fluxos do n8n.** Se a atualização também mudou fluxos de [n8n/](n8n/) já importados no n8n Cloud, volte cada um ao JSON do commit anterior, que está no repositório:
+
+```bash
+git show "$anterior":n8n/crm-entrada-site.json > crm-entrada-site.json   # um por fluxo que mudou
+```
+
+Importe-o como na primeira vez (passos 3 e 4 de "n8n Cloud: importar os fluxos"). Ele entra como um fluxo novo, com id novo: refaça nele o que é da instância, despublique o fluxo da versão nova, publique o importado e arquive o outro. Se for o `CRM - Erros`, aponte para ele o Error Workflow dos outros. O histórico de versões do n8n Cloud, que mantém o id, é a segunda opção, se o plano contratado tiver: no Starter, ele pode não existir ou durar pouco.
+
+Com a correção publicada, volte para a `master` (`git switch master`) e siga "Atualizar".
 
 ### Versões fixadas
 
