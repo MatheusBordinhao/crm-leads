@@ -104,7 +104,7 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - notificação nativa: com os avisos do navegador ativados e a janela da Adriana minimizada, o "teste2" (lead 15) gerou a notificação do Windows "Administrador cadastrou um lead para você", sem o nome do lead, e o clique abriu a ficha;
   - troca de responsável: o admin passou o "teste2" da Adriana para a Pietra. Na Adriana, ele sumiu da lista, a ficha aberta parou de mostrar os dados, e o sino voltou para 5, sem a notificação dele; na Pietra, ele apareceu na lista, e o sino contou 1;
   - rodízio com as duas: com o rodízio da Pietra ligado, o "teste3" foi para a Pietra e o "teste4" para a Adriana; no fim, a Pietra via só os 2 leads dela, e a Adriana não via nenhum dos dois.
-- Do Passo 7, o quadro parado durante o arraste e a ficha que guarda o que foi digitado não foram conferidos pela tela: ficam cobertos só pelos testes automáticos. A notificação nativa só foi conferida na Adriana, porque o Chrome bloqueia as notificações do navegador na janela anônima.
+- Do Passo 7, o quadro parado durante o arraste e a ficha que guarda o que foi digitado foram conferidos pela tela no Lote 4A-2, com o Playwright e duas sessões. A notificação nativa só foi conferida na Adriana, porque o Chrome bloqueia as notificações do navegador na janela anônima.
 - Passo 8 implementado em 06/10/2026 e conferido pelo Claude. Por decisão minha:
   - as barras do painel são em HTML e CSS, e o Recharts saiu do Stack;
   - o painel mostra também os ganhos e a conversão por origem e por campanha;
@@ -226,12 +226,13 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   - as etapas definitivas, com a Gama;
   - a instalação e a notificação num celular de verdade, que exigem o HTTPS do servidor;
   - a divisão do pacote por tela (rotas sob demanda), no Lote 4B, porque mexe no carregamento de todas as telas. O build ainda avisa que o pacote passa de 500 kB;
-  - no Lote 4A-2, os alvos de toque secundários ainda menores que 40 px no celular: os botões do cartão Privacidade (só do admin), o "Leads" de voltar da ficha, o "Buscar", com 38 px (o Enter também busca), e o fechar dos diálogos, que têm o Cancelar;
-  - no Lote 4A-2, o aviso "Avisos do navegador", que no celular fica no topo e cobre o menu e o sino até a pessoa responder. O guia manda responder logo depois de entrar;
   - a validação com a Adriana e a Pietra, usando o guia: o aceite do Passo 11.
 - Pendências novas, sem implementar ainda:
-  - no Lote 4A-2, o teste "a tela inicial do admin é o painel, o primeiro item do menu" (`painel.test.tsx`). Em 03/11/2026, com a CPU entre 56 e 83%, o título "Painel" não apareceu a tempo, e o teste falhou em 2,1 s; na rodada seguinte, com a máquina mais livre, passou. Medir onde vai o tempo e ver se ele precisa de mais espera, porque a máquina do CI é mais fraca;
-  - no Lote 4A-2, junto com o do painel, o teste "com o service worker, a notificação sai por ele, só com o título, e o clique abre a ficha" (`avisosNavegador.test.tsx`). Em 03/11/2026, no `front.sh completo`, a ficha não apareceu a tempo depois do clique (1888 ms), com a suíte em 179 s; na rodada seguinte, com a CPU em 8%, a suíte levou 89 s, e o teste passou em 463 ms.
+  - a suíte do front inteira no limite com a máquina lenta:
+    - em 05/11/2026, no contêiner com `--cpus=1` e 2 workers, depois da correção dos dois testes do Lote 4A-2, outros testes falharam por tempo: 4, 6 e 3 por rodada, em 3 rodadas (antes da correção, 6, 0 e 6). O redirecionamento frio do 1º teste do painel chegou a 713 ms;
+    - em 06/11/2026, no `front.sh completo` do `f55967b`, o "ao sair, desconecta" (`tempoReal.test.tsx`) falhou por tempo, com a suíte em 183 s e a CPU ocupada. Com a máquina livre, passou;
+    - em 07/11/2026, na 2ª das 5 rodadas do `front.sh suite`, o "desativar pede para onde vão os leads, e a etapa pode voltar" (`configuracaoFunil.test.tsx`) estourou os 5 s do teste, com 5.253 ms (650 ms na 1ª rodada). Só esse arquivo ficou lento, 4,5 vezes, com os 8 testes dele, e nenhum outro passou de 1,2 vez. A carga não estava sendo gravada, e não deu para saber se foi a máquina. As 5 rodadas, refeitas do zero com a carga gravada, passaram;
+    - a formatação da página a cada tentativa que falha (Armadilhas conhecidas) provavelmente explica essas falhas. A saída pelo `getElementError` no `setup.ts` fica para decidir depois.
 - Lote 1 (infraestrutura), feito em 19/10/2026:
   - toda imagem tem a versão exata (README › Versões fixadas):
     - o SDK 10.0.402, que traz o runtime 10.0.13 com a correção da CVE-2026-70159, no build de produção, na API de desenvolvimento, no `dotnet ef` e nos testes;
@@ -519,7 +520,50 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
     - a demonstração final, no n8n 2.43.7: o lead 1001, na Adriana, com o `lead.criado` entregue na primeira tentativa, 9,8 s depois. Validado por mim: o e-mail chegou em 05/11, às 08:15;
   - o passo 7 do README nos três: a `master` igual à `origin/master` e à árvore avaliada, o ambiente recriado a partir dela, os ramos locais apagados e, no #2, o n8n conferido com a `master` (os 8 fluxos, os 4 publicados e as 3 credenciais) antes de apagar a cópia `crm-dados-n8n-copia`;
   - o Docker Desktop reiniciou em 04 e em 05/11/2026: o `db` e o `n8n` voltaram sozinhos, e a `api`, pelo `docker compose up -d api`. O firewall continuou certo;
-  - o push deste registro e a linha `google_chave_errada` do teste, que eu apago na tela do n8n, entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 4A-2:
+    - no push de `1966d7c..52ef7d1`, só de `.md`, nenhum workflow rodou;
+    - o CI da `master` depois do merge do #2 ficou verde: o `Testes` #20, em 6 min 54 s, e o `Imagem de produção` #18, em 2 min 51 s;
+    - nenhum PR aberto (5 fechados) e, no Dependabot, 0 alertas abertos (18 fechados) e 0 de malware;
+    - a linha `google_chave_errada` do teste do Google sem a chave, apagada por mim na tela do n8n em 05/11/2026: as recusadas ficaram vazias.
+- Lote 4A-2 (front: os alvos de toque, os avisos, o Passo 7 pela tela e os testes do painel e do service worker), feito de 05 a 09/11/2026:
+  - os dois testes que falhavam por tempo com a máquina lenta, medidos antes de mudar, num arquivo temporário, no contêiner do Node com `--cpus=1`. Nenhum tempo de espera mudou, e as lições estão nas Armadilhas conhecidas:
+    - o do service worker (`93fd8c5`): depois do clique na notificação, o funil fica na tela até a lista de notificações voltar, e a consulta por papel do título, repetida a cada mudança no DOM, rodava sobre ele, com 45 a 88% da espera. Ele passou a procurar o título pelo texto;
+    - o do painel (`4555988`): como 1º teste do arquivo, ele paga a subida fria. O redirecionamento levou de 400 a 771 ms, e as consultas pesavam só de 25 a 41% da espera. Ele espera primeiro o caminho `/painel`, numa espera que não consulta o DOM, e depois o título;
+    - na prova, o painel ainda passou de 800 ms na espera do título. A causa era a formatação da página a cada tentativa que falha de um `getBy` ou de um `findBy` (o `prettyDOM` do `getElementError`): de 10 a 23 ms de mediana, e até 207 ms, contra 0,1 a 0,5 ms do `queryBy`. Os dois esperam o título com o `waitFor` e o `queryBy` (`6259d22`);
+    - a prova final, com `--cpus=1`: o arquivo sozinho 10 vezes e a suíte 3 vezes, com 2 workers. Os dois passaram em todas, com o título em no máximo 407 ms e o redirecionamento em no máximo 713 ms. Na suíte lenta, outros testes falharam por tempo (Pendências novas);
+  - os alvos de toque com 40 px no celular. No computador, nada mudou:
+    - `0f78a59`: no `Button`, o `sm` com `h-10 md:h-7` e o `icon-sm` com `size-10 md:size-7`. Isso pega os botões do cartão Privacidade, o fechar do `Dialog` e do `Sheet`, o "Ver a versão atual" e o "Recarregar" da ficha, o "Desativar" e o "Reativar" das etapas, o botão da linha do tempo e os dois botões com cara de link ("Ver na auditoria" e "Ver todos os registros"). O Buscar da lista e do funil ganhou o `min-w-10` (tinha 38 px), e o "Leads" de voltar da ficha, o `h-10 md:h-auto`;
+    - `7ee1bd3`, pelas minhas decisões depois da conferência: o cabeçalho dos diálogos com o espaço do fechar (`pr-8 md:pr-5`), porque, em 360 px, o de 40 px pegava o título do "Excluir o lead de teste…", e, em 1280 px, o de 28 px já pegava o do "Anonimizar…"; os "voltar" do novo lead e do resultado da importação com `h-10 md:h-auto`; e o nome de cada motivo de perda como o rótulo do interruptor dele;
+    - `077b040`: o link do registro nos cartões da auditoria ("Lead 5", "Importação 1"), que no celular fica sozinho numa linha, com 40 px de altura. A tabela do computador não mudou;
+    - por decisão minha, ficam abaixo de 40 px só os links dentro do texto (o "Ver os leads sem responsável" e o lead do "Só os registros do lead N") e os controles com rótulo clicável (os interruptores e os rádios). A especificação tem a exceção;
+  - os avisos do sonner, dos quais o maior é o "Avisos do navegador". O caminho, a cada passo por decisão minha:
+    - antes, no topo, a 16 px, ele cobria o menu e o sino no celular até a pessoa responder;
+    - `c5c43f1`: abaixo do cabeçalho no celular, com o `mobileOffset={{ top: 64 }}`. Na conferência, ele ficava por cima da gaveta do menu aberta, cobrindo "Funil" e "Leads", e, de 601 a 767 px, onde o sonner usa a posição do computador, cobria o sino, que em 601 px nem recebia o clique;
+    - `f55967b`: embaixo abaixo do `md` e em cima a partir dele, por um hook do `matchMedia`. Na reconferência, em 768 e 1280 px, ele ficava sobre a faixa do cabeçalho e, em 768 px, sobre o título da página;
+    - `cf4a86f`: embaixo, no centro, em todas as larguras, e o hook saiu;
+    - a checagem nova, em 360×640, 412×800, 768×800 e 1280×800, nas telas e nos 8 diálogos, na posição normal e com a página rolada até o fim: o aviso por cima de um clicável que a rolagem tira de baixo dele ficou aceito. No fim da página, ele cobria o último clicável de 30 telas, como o "Cadastrar lead" e o Cancelar do novo lead, o cartão Privacidade e o "Ver na lista" do funil;
+    - `37a5016`: a área principal ganhou um espaço fixo no fim, em todas as larguras, da altura do maior aviso medido com a margem dele, 127 px em 360×640 (110 de altura e 16 de margem). O espaço tem 128 px (`h-32`), e o padding continua depois dele;
+    - com o espaço, nenhuma tela ficou coberta, mas, abaixo do `md`, o aviso cobria botões de diálogos: em 360×640, o Cancelar do "Anonimizar", do "Registrar interação" e do "Motivo da perda" e o Cancelar e o "Criar usuário" do "Novo usuário", mesmo rolado até o fim; em 412×800, o Cancelar do "Novo usuário". Das três opções (os diálogos acima da faixa dos avisos, os avisos por baixo dos diálogos ou o limite conhecido), escolhi a primeira: por baixo, os avisos esconderiam um erro que sai com o diálogo aberto, como o "Não foi possível copiar" da senha provisória;
+    - `a0c9028`: abaixo do `md`, o diálogo fica centrado na área acima dos 128 px (`max-md:top-[calc(50%-4rem)]`), com altura máxima da tela menos 144 px (`max-md:max-h-[calc(100svh-9rem)]`), e rola por dentro se passar disso. No computador, nada mudou;
+  - a conferência pela tela, pelo Claude, num Compose de produção descartável (`-p crm-front`, portas 8100 e 8473, rede `172.31.100.0/24`, a imagem `crm-api-front`, sem o `backup` e sem o n8n), com o Playwright 1.56.1 num contêiner, como admin e atendente. A conferência e a reconferência tiveram 77 telas, em 360, 412, 601, 700, 767, 768 e 1280 px, e a checagem do aviso, três rodadas, cada uma depois de reconstruir o descartável. Na última, depois do `a0c9028`, sem nenhum erro:
+    - nenhuma tela com clicável coberto no fim e nenhum diálogo coberto. Em 360×640, a caixa dos diálogos termina no máximo em y=504, e o aviso começa em 514;
+    - em 360×640, os 6 diálogos curtos não rolam por dentro: o anonimizar (453 px), o motivo da perda (436), o redefinir senha (374), o desativar etapa (349), o renomear (272) e o excluir (249). Só o "Novo usuário" e o "Registrar interação" rolam por dentro, com 496 px;
+    - fora as exceções, nenhum alvo abaixo de 40 px, nenhuma rolagem lateral e só as reticências de propósito. O fechar não cobre o título em nenhum dos 29 casos, com os 8 diálogos e o menu;
+    - a gaveta do admin com o aviso, em 360×640 e 412×800, sem item coberto. Em 360×640, o último item termina em y=513, e o aviso começa em 514: a folga de 1 px fica como limite conhecido;
+    - o Passo 7, com duas sessões: o quadro fica parado durante o arraste da atendente, com o mouse e pausas, quando o admin cria um lead para ela, e, ao soltar, o cartão fica na etapa nova, e o lead novo aparece. Na ficha, o texto digitado fica, aparece "Outra pessoa alterou os dados deste lead", e salvar dá o conflito, com o "Recarregar" à vista e sem aviso por cima, em 360, 768 e 1280 px;
+    - no console, só o 401 do `/login`, o 404 dos leads não encontrados e o 409 dos 3 conflitos;
+    - no fim, o `down -v` e a imagem `crm-api-front` apagada. A imagem do Playwright e o volume `crm-playwright` ficam para o Lote 4B, que os reaproveita e os apaga no fim;
+  - a correção do registro do 4A-1: a imagem do Playwright 1.56.1, que ele dá como apagada, continuava na máquina desde 13/10/2026. O resto que ele dá como apagado foi conferido em 05/11 e não existe mais;
+  - o `front.sh completo` passou depois de cada commit de código (depois dos três dos testes, juntos), com 260 de 260. No do `f55967b`, o "ao sair, desconecta" falhou por tempo, com a suíte em 183 s e a CPU ocupada; com a máquina livre, passou;
+  - as suítes, pelo Claude, com a CPU conferida antes de cada uma:
+    - as 5 rodadas do `front.sh suite`, como o CI (`--cpuset-cpus=0,1 --memory=7g`), no sábado, 07/11/2026:
+      - na primeira tentativa, a 1ª rodada passou (a suíte em 161,8 s, o painel em 652 ms e o service worker em 195 ms), e a 2ª falhou por tempo no `configuracaoFunil.test.tsx` (Pendências novas);
+      - por decisão minha, elas recomeçaram do zero, das 11:45 às 12:00, com a carga da máquina gravada a cada 10 s, e passaram, com 260 de 260 em cada uma. A suíte, o teste do painel e o do service worker, rodada a rodada: 154,6 s, 773 e 212 ms; 158,3 s, 578 e 206 ms; 170,2 s, 1.297 e 207 ms; 167,6 s, 630 e 217 ms; e 155,9 s, 883 e 188 ms. Com o `npm ci`, cada rodada levou de 178 a 192 s;
+      - a carga teve mediana de 21% e pico de 91%, com o Chrome, o Code e o Defender;
+    - a suíte .NET, no contêiner, com 817 de 817, em 168 s com o build, e a formatação. A de 07/11/2026 parou às 12:04, com os testes de unidade já passados, quando o Docker perdeu a conexão com o contêiner (`unexpected EOF`), e rodou inteira em 09/11/2026;
+  - validado por mim em 07/11/2026, em desenvolvimento, no Edge, na visão de dispositivo, em 400 px: o menu, a ficha (Privacidade e o "Leads" de voltar), um diálogo, a lista, o novo lead, a auditoria, o relatório e o painel, com o espaço no fim das páginas. O aviso não apareceu, por causa da visão de dispositivo (Armadilhas conhecidas), e vale a conferência do roteiro;
+  - o Windows ligou de novo quatro vezes: em 07/11/2026, às 11:08, depois de uma atualização, às 13:31 e às 20:14, e em 09/11/2026, às 08:36. A cada vez, o `db` e o `n8n` voltaram sozinhos, e a `api`, pelo `docker compose up -d api`. A regra do firewall continuou ativa, e o Docker, no Engine 29.9.2;
+  - a demonstração, em 09/11/2026: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1062, que foi para a Adriana, com o `lead.criado` entregue na primeira tentativa, 4,1 s depois.
 - O e-mail do lead com acento, como `testenotificação@exemplo.com`, achado na validação de 13/10/2026, foi corrigido no mesmo dia.
   - A API (`Emails.Formato`) e a tela (`FORMATO_EMAIL`, em `web/src/features/leads/esquema.ts`) conferem o mesmo formato: antes do @, só ASCII (letras, números e os símbolos do RFC 5322, com pontos só entre eles); o domínio, em rótulos de letras, números e hífen.
   - Antes, os dois só pediam algo@algo.algo sem espaços.
@@ -708,7 +752,15 @@ docker compose up -d n8n                                 # n8n local em http://l
 - Os testes do front leem os arquivos de `web/public` por import com `?raw` e `?inline` (o `sw.js` roda num `self` falso, pelo `new Function`). O `tsconfig.app.json` não tem os tipos do Node: não use `node:fs` nos testes.
 - Os PNGs do PWA saem de `web/icones/gerar.sh`, num contêiner Alpine (`rsvg-convert`, README › Instalar como app). Não edite os PNGs à mão: mude o SVG e gere de novo.
 - O Npgsql 10 tenta a criptografia GSS (Kerberos) antes da senha, e a imagem Linux da API não tem a biblioteca do Kerberos. A connection string sai da `DadosExtensions.SemGss` com o GSS desligado; sem isso, volta o `Cannot load library libgssapi_krb5.so.2`.
-- No celular (abaixo do `md`), o botão, o campo e a seleção têm 40 px de altura (`h-10 md:h-8` no `Button`, no `Input` e na `Selecao`). Não passe uma altura própria a eles sem conferir as duas larguras.
+- No celular (abaixo do `md`), todo alvo de toque tem 40 px:
+  - o botão, o campo e a seleção, com `h-10 md:h-8` no `Button`, no `Input` e na `Selecao`, e os tamanhos menores do `Button`: o `sm` (`h-10 md:h-7`) e o `icon-sm` (`size-10 md:size-7`). Não passe uma altura própria a eles sem conferir as duas larguras;
+  - o link solto, fora de frase e de tabela, como o "Leads" de voltar da ficha (`h-10 md:h-auto`) e o link do registro nos cartões da auditoria;
+  - ficam abaixo de 40 px só os links dentro do texto e os controles com rótulo clicável, como os interruptores e os rádios (especificação, Passo 11).
+- Os avisos do sonner saem embaixo, no centro, em todas as larguras (`Provedores.tsx`), por cima de tudo, até da gaveta do menu e dos diálogos:
+  - o fim da área principal tem um espaço de 128 px (`h-32`, no `Layout.tsx`), a altura do maior aviso, o "Avisos do navegador" em 360×640, com a margem. Um aviso mais alto pede um espaço maior, e um botão fixo no rodapé ficaria por baixo dos avisos;
+  - abaixo do `md`, o diálogo fica na área acima desse espaço e rola por dentro (as classes `max-md:` do `DialogContent`);
+  - na visão de dispositivo do navegador, em desenvolvimento, o "Avisos do navegador" não aparece: o user agent de celular sem service worker conta como sem notificação (`avisosSuportados`, em `web/src/features/tempo-real/avisosNavegador.ts`). Para ver o aviso, use só a largura, sem trocar o user agent, ou o `npm run preview`, com o service worker.
+- No Windows, parar o `npm run dev` pelo `TaskStop` deixa o `node` do Vite no ar, escutando na 5173. Confira a porta (`Get-NetTCPConnection -LocalPort 5173 -State Listen`), confira que o processo é o `vite.js` do projeto e encerre-o.
 - Para revisar as telas no celular ou seguir um roteiro pela tela, use o Playwright num contêiner Linux, nada no Windows:
   - a imagem é a `mcr.microsoft.com/playwright`, com o pacote `playwright` da mesma versão instalado num volume do Docker;
   - o contêiner fica ligado à rede da API de um Compose de produção descartável (`--network container:<api>`, `http://localhost:8080`, onde o cookie `Secure` vale) ou à do Caddy (`https://localhost`, com `ignoreHTTPSErrors`), para a CSP;
@@ -831,7 +883,7 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 2B: n8n (o limite do site), feito em 27/10/2026;
   - 3: troca de chaves sem parar, feito em 03/11/2026;
   - 4A-1: os PRs do Dependabot (o #4 e o #5, com o .NET 10.0.14 e o Node 22.23.4, e o #2, com a Caddy 2.11.7 e o n8n 2.43.7), feito em 05/11/2026;
-  - 4A-2: front (os alvos de toque no celular, o aviso do navegador, o Passo 7 pela tela e os testes do painel e do service worker);
+  - 4A-2: front (os alvos de toque no celular, os avisos embaixo, o Passo 7 pela tela e os testes do painel e do service worker), feito em 09/11/2026;
   - 4B: front (as rotas sob demanda);
   - 6: documentação.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
