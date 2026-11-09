@@ -8,13 +8,14 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
 
 - Admins: Matheus e o chefe. Atendentes: Adriana e Pietra.
 - Em 05/10/2026, a ordem do projeto mudou: a empresa só libera o servidor e o domínio depois de ver o sistema funcionando numa demonstração para o chefe, que vem logo depois do Passo 8. A ordem nova está em "Como trabalhar" e na seção 10 da especificação.
-- A reunião da demonstração com o chefe, marcada para 15/10/2026, ficou sem data. Desde 16/10/2026, até ela ser marcada, terminamos tudo o que não depende de recurso da empresa, em lotes pequenos (veja "Como trabalhar"). Paramos quando só sobrar o que precisa de servidor, domínio, n8n Cloud pago, e-mail da empresa, acessos da Meta e do Google Ads, decisões da Gama ou das pessoas.
+- A reunião da demonstração com o chefe, marcada para 15/10/2026, ficou sem data. Desde 16/10/2026, até ela ser marcada, terminamos tudo o que não depende de recurso da empresa, em lotes pequenos (veja "Como trabalhar"). Paramos quando só sobrar o que precisa de servidor, domínio, n8n Cloud pago, e-mail da empresa, acessos da Meta e do Google Ads, decisões da Gama ou das pessoas. Esse trabalho terminou em 09/11/2026, com o Lote 6: o que falta está no README, em Publicação › O que depende da empresa.
 - No fim de cada lote, a demonstração continua funcionando: o `preparar-demonstracao`, um lead pelo rodízio (o `site.json`, pelo n8n local) e o e-mail de alerta no celular, que eu confiro.
 - Quando a reunião for marcada, paramos e congelamos: termine o commit em andamento ou desfaça o que não foi commitado, rode as suítes, reconstrua o plano B e rode a massa da demonstração nos dois ambientes. Depois disso, nada muda até a reunião: o código do CRM e do n8n, o Compose, os testes, os JSONs de `n8n/` e a documentação.
 - Ainda não há servidor, domínio, n8n de produção, app da Meta liberado nem acesso ao Google Ads. Quando um passo depender disso, deixe tudo pronto, teste com dados simulados e liste o que falta.
 - Os usuários de teste usam aliases com "+" de matheusbordinhao11@gmail.com, como matheusbordinhao11+adriana@gmail.com.
 - Chaves e senhas nunca vêm pelo chat: diga o comando e eu rodo no terminal.
 - O banco de desenvolvimento já tem o admin, a Adriana e a Pietra (aliases +adriana e +pietra), e o `.env` tem `Admin__Email`, `Admin__SenhaInicial`, `Integracao__Chave` e, desde 03/11/2026, a linha `Integracao__ChaveAnterior`, vazia fora da troca da chave.
+- No banco de desenvolvimento, a Adriana e a Pietra estão no rodízio, como precisam estar na demonstração, e a massa do `preparar-demonstracao` (60 leads) deixa a Adriana como a próxima da vez. Para voltar a esse estado, é só rodar o comando de novo (README › Demonstração).
 - O n8n Cloud de teste (`matheusbordinhao.app.n8n.cloud`) acabou em 06/10/2026. A produção vai ser o n8n Cloud, numa conta da empresa, quando o pagamento sair (decidido em 14/10/2026).
 - Desde 14/10/2026, o n8n de desenvolvimento é um n8n Community no `docker-compose.yml`, na 2.43.7 desde 04/11/2026 (antes, na 2.43.5) (serviço `n8n`, README › n8n local):
   - a interface fica em `http://localhost:5679`, porque a 5678 é de outro n8n desta máquina, um projeto do Compose no WSL (`/home/mathe/n8n`) que não é do CRM e não deve ser mexido;
@@ -37,6 +38,18 @@ A fonte da verdade é [docs/especificacao.md](docs/especificacao.md). Ela traz a
   | `CRM - Entrada Meta` | `GqSyYXbHtcv6vvsh` | não publicado: depende do app da Meta em modo Live |
 
   Os JSONs de `n8n/` são os exportados deles.
+- O Controle Inteligente de Aplicativos do Windows desta máquina bloqueia DLLs do projeto sem assinatura, como o `Testcontainers.dll` e o `EFCore.NamingConventions.dll`. Por isso, a API de desenvolvimento, o `dotnet ef` e os testes .NET rodam em contêiner (`docker-compose.yml` e `docker-compose.testes.yml`, README › Dia a dia), e o `dotnet build`, o `dotnet format` e o front continuam no Windows, porque só leem as DLLs. Em 09/11/2026, a suíte .NET tinha 817 testes, e a do front, 272.
+- Os passos e os lotes, com o registro de cada um em [docs/registro.md](docs/registro.md):
+  - Passos 0 a 4: feitos e validados por mim em 30/09/2026;
+  - Passo 5: feito e validado por mim em 02/10/2026, menos a publicação no servidor;
+  - Passo 6: adiantado no n8n local em 14/10/2026, menos o que depende do n8n Cloud, da Meta, do Google Ads e da Gama;
+  - Passos 7 a 10: feitos e validados por mim de 06 a 12/10/2026;
+  - Passo 11: adiantado em 13/10/2026, com a divisão do pacote por tela no Lote 4B. Faltam as etapas definitivas, o celular de verdade e a validação com a Adriana e a Pietra, que é o aceite dele;
+  - os lotes de 16/10 a 09/11/2026: o 1, o do teste instável do front, o 1B, o 5, o 2A, o 5B, o 1C, o 2B, o 3, o 4A-1, o 4A-2, o 4B e o 6.
+- Para decidir depois (as medidas estão no registro):
+  - a primeira carga do login, que baixa o layout de quem já entrou sem usá-lo: o SignalR, o Radix com o Floating UI e as dependências da gaveta, cerca de 138 kB. O caminho seria o layout sob demanda (Lote 4B);
+  - o guia das atendentes ocupa 2 páginas A4 com 11 pt e só cabe numa com 9 pt (Lote 6): encurtar o texto em cerca de um terço ou imprimir em frente e verso;
+  - o `CRM - Alertas` só responde ao CRM depois de mandar o e-mail, e a entrega já levava de 4 a 10 s, perto dos 10 s do `N8n:TempoLimiteSegundos`. Na demonstração do Lote 6, a primeira tentativa esgotou o tempo, e o evento saiu na segunda: se o n8n mandou o e-mail depois de o CRM desistir, a responsável recebe dois. Os caminhos seriam responder ao CRM antes do e-mail ou um tempo limite maior.
 - Depois do congelamento e antes da reunião, reconstrua o plano B (`crm-local`) com o código congelado: `docker compose -p crm-local -f docker-compose.prod.yml --env-file ../crm-teste.env up -d --build` (README › Demonstração › Plano B). O plano B não tem o n8n: nele, não sai e-mail de alerta.
 - Para a demonstração do e-mail no celular, deixe no ar a API e o n8n (`docker compose up -d api n8n`), com o `CRM - Erros` e o `CRM - Alertas` publicados, e rode o `preparar-demonstracao`, que deixa a Adriana como a próxima da vez (README › Demonstração › O alerta no celular).
 
@@ -68,7 +81,7 @@ tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
 n8n/                         JSON dos 8 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
 deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
-docs/                        especificação, guia de uso do Claude Code e CSVs de exemplo da importação (exemplos/)
+docs/                        especificação, registro dos passos e dos lotes, guias das atendentes e do Claude Code e CSVs de exemplo da importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
 docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef num contêiner Linux, e o n8n local
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
@@ -360,8 +373,9 @@ docker compose up -d n8n                                 # n8n local em http://l
   - 4A-1: os PRs do Dependabot (o #4 e o #5, com o .NET 10.0.14 e o Node 22.23.4, e o #2, com a Caddy 2.11.7 e o n8n 2.43.7), feito em 05/11/2026;
   - 4A-2: front (os alvos de toque no celular, os avisos embaixo, o Passo 7 pela tela e os testes do painel e do service worker), feito em 09/11/2026;
   - 4B: front (as rotas sob demanda), feito em 09/11/2026;
-  - 6: documentação.
+  - 6: documentação (o README de operação, os guias, a especificação, os registros em `docs/registro.md` e os testes do front no limite), feito em 09/11/2026.
   - Cada lote só começa com o meu ok e fecha com a demonstração conferida.
+  - O registro de cada lote vai para o `docs/registro.md`, e a "Situação atual" ganha só a linha dele. Assim, este arquivo, que toda conversa carrega, fica com o estado de hoje.
   - Desde 03/11/2026, qualquer envio (um webhook, um `site.json` a mais), execução de fluxo ou publicação fora da lista aprovada do lote só com o meu ok antes, mesmo que seja só para conferir. Para conferir sem enviar nada, use o export pelo CLI, o `/healthz`, o `docker compose ps` e as contagens.
 - Um passo só termina quando os critérios de aceite passam.
 - O usuário inicia cada passo com `/passo N`. O procedimento completo está em `.claude/skills/passo/SKILL.md`.

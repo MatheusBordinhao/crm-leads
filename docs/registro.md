@@ -584,7 +584,44 @@ O que falta está no [README](../README.md), em Publicação › O que depende d
   - validado por mim em 09/11/2026, depois da demonstração: o e-mail do lead 1123 chegou às 10:25, e o link abriu a ficha, já sob demanda; o login e as telas do menu abriram certo, como admin e como atendente. O PWA eu não validei: vale a conferência do roteiro;
   - a sessão do Claude Code reiniciou com o `npm run dev` em segundo plano, e o `node` do Vite ficou no ar na 5173: o Claude conferiu a porta e o processo, o `vite.js` do projeto, e o encerrou;
   - a imagem do Playwright 1.56.1 e o volume `crm-playwright` saíram no fim do lote, sem nenhum contêiner que os usasse;
-  - o push deste registro e o CI entram no registro do próximo lote.
+  - o fechamento, registrado no Lote 6: no push de `e664e8f..0bc538e`, o `Testes` #22 ficou verde em 6 min 54 s, no `0bc538e`. O `Imagem de produção` não rodou, porque o lote mexeu só no `web/src`, no README, no CLAUDE.md e na especificação, que não estão nos caminhos dele.
+- Lote 6 (documentação), feito em 09/11/2026:
+  - o plano da seção 3, conferido contra o código, mudou em quatro pontos: os `sed -i` que gravam no `.env` eram cinco, e não dois, e só o `-b` não bastava (com o `.*`, o CR da linha trocada se perderia); o lembrete de proteger a `master` não estava escrito em lugar nenhum; o guia das atendentes não falava dos avisos embaixo nem da tela que não abre; e o `docs/guia-claude-code.md` ainda apontava para o n8n Cloud de teste;
+  - por decisão minha: entraram a saída pelo `getElementError` e o teste das campanhas, a primeira carga do login ficou para depois, os registros saíram do CLAUDE.md, e a volta de uma atualização passou por um ensaio. As paradas das medidas, calibradas por mim: a mediana do `campanhas.test.tsx` mais de 10% acima da linha de partida, o total de falhas das 3 rodadas com `--cpus=1` subindo 4 ou mais, ou uma falha nas 5 rodadas como o CI;
+  - os commits, numa ordem diferente da do plano, para cada commit do README ficar com um assunto só, sem o `git add -p`:
+    - `f88979f`: os cinco `sed -i` com o `-b` e o padrão do Lote 3, que devolve o CR da linha trocada;
+    - `5af605e`: o `getElementError` do `setup.ts`, com o `esperas.test.tsx`;
+    - `e2b9efb`: o teste das campanhas espera o caminho e depois o título, pelo texto dentro do `h1`;
+    - `ea95b3f`: a cota do n8n nos Cuidados e "O que depende da empresa", com a `master` protegida na conta da empresa;
+    - `62f3a60`: o guia do Claude Code, com o n8n local;
+    - `28fb1d3`: os registros dos passos e dos lotes para este arquivo, sem reescrever nada, conferidos linha a linha;
+    - `9666785`: o guia das atendentes, com os avisos embaixo e a tela que não abre;
+    - `a12b9f1`: "Se a atualização der errado", depois do ensaio;
+    - `8569a7f`: a especificação;
+    - o último, com este registro e a "Situação atual" curta;
+  - conferido pelo Claude:
+    - os blocos do `sed`, num `.env` de mentira em LF e em CRLF: 10 de 10 no Git Bash e no Ubuntu 24.04 da imagem do SDK, com a permissão 600. Os controles falharam nos 5 casos em CRLF: o `sed` sem o `-b` (no Git Bash, o CR saiu de todas as linhas) e o `-b` com o `.*` (o CR saiu da linha trocada);
+    - o `esperas.test.tsx`: com o `setup.ts` de antes, só o caso da tentativa de dentro do `waitFor` falhou;
+    - as medidas, com a CPU conferida antes de cada uma e a carga gravada:
+      - a linha de partida no `0bc538e`, com `--cpus=1` e 2 workers: 0 falhas nas 3 rodadas (269 de 269), com a suíte de 215,4 a 232,0 s e a carga com mediana de 33%. As de 05/11/2026, com 4, 6 e 3 falhas, eram de antes do 4B;
+      - o `campanhas.test.tsx` sozinho, 5 vezes com `--cpus=1`, no "volta ao funil": mediana de 1.003 ms no 4B, no mesmo código; 952 ms depois do `getElementError`; e 1.054 ms depois do teste novo, 5% acima, com a 5ª rodada lenta em todos os testes do arquivo. O tempo do teste não mede a folga nova: o redirecionamento e a tela, que dividiam uma espera de 1 s, têm uma cada;
+      - depois dos dois commits, com `--cpus=1`: 0 falhas nas 3 rodadas (272 de 272), com a suíte de 189,8 a 211,6 s, cerca de 10% mais rápida, e a carga com mediana de 37%;
+      - o `front.sh completo`, com 272 de 272 e a suíte em 110,9 s;
+      - as 5 rodadas do `front.sh suite`, como o CI: 272 de 272 em cada uma, com a suíte de 141,8 a 154,0 s (no 4B, de 167,0 a 172,4 s, com 269 testes), o painel de 524 a 671 ms, o service worker de 173 a 193 ms e as campanhas de 561 a 783 ms. A carga teve mediana de 24% e pico de 74%;
+      - com isso, a suíte do front no limite saiu das pendências. Se uma falha por tempo voltar, a medida começa por aqui;
+    - o ensaio de "Se a atualização der errado", num Compose de produção descartável (`-p crm-volta`, portas 8102 e 8477, rede `172.31.102.0/24`, a imagem `crm-api-volta`, sem o n8n), num clone temporário, com um `.env` sorteado no scratchpad e uma migration de mentira só no clone:
+      - antes de subir, o `config` com os 4 volumes com o prefixo `crm-volta_`, nenhum `name:` fixo e o backup dentro do clone;
+      - sem migration nova: a v2 com uma marca no título e a volta pelo commit anterior, sem restaurar. O título e o histórico das migrations voltaram, e os 2 leads ficaram;
+      - com migration nova: o backup, a v2 com a coluna nova e a volta com a restauração. A migration e a coluna saíram, o histórico voltou ao da v1, e o lead de depois do backup se perdeu, como a seção avisa. O login e o `/health` responderam nos dois casos;
+      - o 1º lead respondeu 200, e não 201: a primeira tentativa do caso A tinha parado depois do envio, num defeito do script (o caminho do arquivo da resposta para o curl do Windows), e o segundo envio foi "já recebido";
+      - o banco não foi recriado em nenhum `up -d --build`;
+      - no fim, o `ps -a` e o `volume ls`, o `down -v`, as imagens apagadas, a `crm-api` do plano B e o `backups/` do repositório sem mudança, e o clone apagado, com o backup;
+      - o caminho do n8n não entrou no ensaio, porque mexeria nos fluxos do n8n local;
+    - o guia numa página A4: no PDF do Edge sem janela, a partir do HTML do `marked` 18.1.3, com o A4 no CSS, ele ocupa 2 páginas com 11 pt e margens de 15 mm e com 12 pt e 20 mm, e só cabe numa com 9 pt e 12 mm. A versão de antes do lote também ocupava 2. Fica para decidir (Situação atual);
+    - os links entre os documentos: nenhum caminho relativo quebrado, e as referências a seções do README apontam para títulos que existem;
+    - a suíte .NET, no contêiner, com 817 de 817, em 198 s, e a formatação;
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1184, que foi para a Adriana. O `lead.criado` esgotou os 10 s na primeira tentativa, com o n8n no ar, e saiu na segunda, às 13:11:53, 83 s depois do lead. O "Responder ao CRM" do `CRM - Alertas` vem depois do "Enviar o e-mail" (Situação atual);
+  - o fechamento entra no registro do próximo lote.
 
 ## A correção de 13/10/2026
 
