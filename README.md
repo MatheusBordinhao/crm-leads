@@ -50,10 +50,13 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    ```bash
    senha=$(openssl rand -hex 8)
-   sed -i -e "s/^Admin__Email=.*/Admin__Email=voce@exemplo.com/" \
-          -e "s/^Admin__SenhaInicial=.*/Admin__SenhaInicial=$senha/" .env
+   cr=$(printf '\r')
+   sed -b -i -e "s/^Admin__Email=[^$cr]*\($cr*\)\$/Admin__Email=voce@exemplo.com\1/" \
+             -e "s/^Admin__SenhaInicial=[^$cr]*\($cr*\)\$/Admin__SenhaInicial=$senha\1/" .env
    echo "Senha inicial do admin: $senha"
    ```
+
+   Nos comandos do Bash, o `sed -b` e o `cr` mantêm o fim de cada linha do `.env`, LF ou CRLF, e só o valor muda. Sem o `-b`, o `sed` do Git Bash tira o CR de todas as linhas; com o `-b` e o `.*`, ele levaria o CR da linha trocada.
 
    O admin é criado quando a API sobe e ainda não há nenhum. Depois disso, mudar essas variáveis não tem efeito: os outros usuários são criados na tela de usuários.
 
@@ -71,7 +74,8 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
    Bash:
 
    ```bash
-   sed -i "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" .env
+   cr=$(printf '\r')
+   sed -b -i "s/^Integracao__Chave=[^$cr]*\($cr*\)\$/Integracao__Chave=$(openssl rand -hex 24)\1/" .env
    ```
 
    A mesma chave vai para a credencial Header Auth do n8n no Passo 6. Para trocá-la, rode o comando de novo e atualize a credencial.
@@ -92,7 +96,8 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
    ```bash
    chave=$(openssl rand -hex 24)
-   sed -i "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$chave/" .env
+   cr=$(printf '\r')
+   sed -b -i "s/^N8n__WebhookChave=[^$cr]*\($cr*\)\$/N8n__WebhookChave=$chave\1/" .env
    echo "$chave"
    ```
 
@@ -733,13 +738,14 @@ Tudo no servidor **[servidor]**, com o domínio já apontando para ele **[domín
 
    ```bash
    cp .env.example .env && chmod 600 .env
-   sed -i \
-     -e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 16)/" \
-     -e "s/^DOMINIO=.*/DOMINIO=crm.empresa.com.br/" \
-     -e "s/^Admin__Email=.*/Admin__Email=voce@empresa.com.br/" \
-     -e "s/^Admin__SenhaInicial=.*/Admin__SenhaInicial=$(openssl rand -hex 8)/" \
-     -e "s/^Integracao__Chave=.*/Integracao__Chave=$(openssl rand -hex 24)/" \
-     -e "s/^N8n__WebhookChave=.*/N8n__WebhookChave=$(openssl rand -hex 24)/" .env
+   cr=$(printf '\r')
+   sed -b -i \
+     -e "s/^POSTGRES_PASSWORD=[^$cr]*\($cr*\)\$/POSTGRES_PASSWORD=$(openssl rand -hex 16)\1/" \
+     -e "s/^DOMINIO=[^$cr]*\($cr*\)\$/DOMINIO=crm.empresa.com.br\1/" \
+     -e "s/^Admin__Email=[^$cr]*\($cr*\)\$/Admin__Email=voce@empresa.com.br\1/" \
+     -e "s/^Admin__SenhaInicial=[^$cr]*\($cr*\)\$/Admin__SenhaInicial=$(openssl rand -hex 8)\1/" \
+     -e "s/^Integracao__Chave=[^$cr]*\($cr*\)\$/Integracao__Chave=$(openssl rand -hex 24)\1/" \
+     -e "s/^N8n__WebhookChave=[^$cr]*\($cr*\)\$/N8n__WebhookChave=$(openssl rand -hex 24)\1/" .env
    grep '^Admin__SenhaInicial=' .env   # a senha do primeiro acesso
    ```
 
@@ -1121,7 +1127,8 @@ Uma chave errada recebe 403 e só conta na `crm_entradas_recusadas` (`google_cha
 ```bash
 nova=$(openssl rand -hex 16)
 docker compose -f docker-compose.prod.yml exec db psql -U crm -d crm -c "ALTER USER crm WITH PASSWORD '$nova';"
-sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$nova/" .env
+cr=$(printf '\r')
+sed -b -i "s/^POSTGRES_PASSWORD=[^$cr]*\($cr*\)\$/POSTGRES_PASSWORD=$nova\1/" .env
 docker compose -f docker-compose.prod.yml up -d
 ```
 
