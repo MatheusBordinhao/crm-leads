@@ -1,6 +1,6 @@
 # Guia: desenvolver o CRM com o Claude Code no VS Code
 
-O CRM é construído em 12 passos (0 a 11), cada um iniciado com o comando `/passo N`. O Claude Code lê o `CLAUDE.md`, segue a `docs/especificacao.md` e usa o n8n pelo servidor MCP configurado em `.mcp.json`.
+O CRM é construído em 12 passos (0 a 11), cada um iniciado com o comando `/passo N`. O Claude Code lê o `CLAUDE.md`, segue a `docs/especificacao.md` e usa o n8n local pelo servidor MCP `n8n-local` (README › n8n local).
 
 ## 1. Preparar o computador (uma vez)
 
@@ -9,19 +9,12 @@ O CRM é construído em 12 passos (0 a 11), cada um iniciado com o comando `/pas
 
 ## 2. Abrir o projeto
 
-1. Extraia o zip e abra a pasta `crm-leads` no VS Code (Arquivo > Abrir Pasta). Quando o VS Code perguntar, confie na pasta: a extensão não funciona no Modo Restrito.
-2. No terminal integrado (`` Ctrl+` ``), crie o repositório:
-   ```bash
-   git init
-   git add .
-   git commit -m "Especificação e configuração do Claude Code"
-   ```
-   Se a empresa tiver um servidor Git, crie o repositório lá e rode `git remote add origin <url>` e `git push -u origin HEAD`.
+1. Clone o repositório (`git clone <endereço do repositório>`) e abra a pasta `crm-leads` no VS Code (Arquivo > Abrir Pasta). Quando o VS Code perguntar, confie na pasta: a extensão não funciona no Modo Restrito.
+2. Siga a "Primeira vez" do README: o `.env`, as chaves e as dependências.
 3. Abra o Claude Code pelo ícone de faísca, no canto superior direito do editor ou na barra lateral, e entre com a sua conta Claude.
-4. Conecte o n8n:
-   - Se aparecer um pedido para aprovar o servidor `n8n` do projeto, aprove.
-   - Digite `/mcp`, escolha **n8n** e faça a autenticação. O navegador abre o login do n8n. No fim, o n8n deve aparecer como **Connected**.
-   - Se o n8n não estiver na lista, adicione pelo próprio `/mcp`: servidor HTTP, nome `n8n`, URL `https://matheusbordinhao.app.n8n.cloud/mcp-server/http`.
+4. Conecte o n8n local:
+   - suba o n8n do Compose e crie o servidor MCP `n8n-local`, como em README › n8n local (MCP da instância). Depois, o `/mcp` mostra o `n8n-local` como **Connected**;
+   - o `n8n` do `.mcp.json` é o do n8n Cloud de teste, que acabou em 06/10/2026: ele aparece como **Failed** até o n8n Cloud de produção existir. Não mexa nele.
 
 ## 3. Primeira conversa: conferir o ambiente
 
@@ -30,7 +23,7 @@ Envie:
 ```text
 Leia o CLAUDE.md e a docs/especificacao.md. Antes do Passo 0, confira o ambiente sem criar nem alterar arquivos:
 1. versões do .NET SDK, do Node e do Docker, e se o Docker está rodando;
-2. se o servidor MCP n8n responde (liste os fluxos e as credenciais, só leitura);
+2. se o servidor MCP n8n-local responde (liste os fluxos e as credenciais, só leitura);
 3. se o repositório Git está iniciado.
 Depois resuma em até 10 linhas como você entendeu o projeto e liste as dúvidas que tiver sobre a especificação.
 ```
@@ -63,7 +56,7 @@ Para cada passo:
 | 10 | `/passo 10` | Nada |
 | 11 | `/passo 11` | Etapas do funil definidas com a Gama; para o celular, o servidor com HTTPS |
 
-- **Ordem:** a da seção 10 da especificação, que mudou em 05/10/2026. Depois dos passos 0 a 5, vêm os passos 7 e 8, tudo local, com a demonstração para o chefe logo depois do 8; os passos 9 e 10, enquanto o servidor não chega; e, com o servidor, a publicação que falta do Passo 5 e o Passo 6. O Passo 11 foi adiantado em 13/10/2026; dele, ficam as etapas definitivas, com a Gama, o celular de verdade, com o servidor, e a divisão do pacote por tela.
+- **Ordem:** a da seção 10 da especificação, que mudou em 05/10/2026. Depois dos passos 0 a 5, vêm os passos 7 e 8, tudo local, com a demonstração para o chefe logo depois do 8; os passos 9 e 10, enquanto o servidor não chega; e, com o servidor, a publicação que falta do Passo 5 e o Passo 6. O Passo 11 foi adiantado em 13/10/2026; dele, ficam as etapas definitivas, com a Gama, e o celular de verdade, com o servidor. A divisão do pacote por tela saiu em 09/11/2026. Desde 16/10/2026, com a reunião sem data, o trabalho seguiu em lotes, com tudo o que não depende da empresa (`CLAUDE.md` › Como trabalhar).
 - **Quando faltar algo externo:** o Claude deixa o passo pronto e lista o que falta.
 
 ## 5. Prompts úteis
@@ -106,4 +99,4 @@ Mostre os fluxos do n8n criados neste passo, o que cada nó faz e o que eu preci
 - Revise cada fluxo no n8n antes de ativar: um fluxo ativo manda e-mail de verdade.
 - Para desfazer uma alteração, passe o mouse sobre a mensagem, clique no botão de voltar e escolha **Rewind code to here**.
 - Não use o modo **Bypass permissions**.
-- O n8n de desenvolvimento é da sua conta pessoal. Produção vai para uma conta da empresa (seção 11 da especificação).
+- O n8n de desenvolvimento roda no Compose, neste computador (README › n8n local). A produção vai ser o n8n Cloud, numa conta da empresa (seção 11 da especificação).
