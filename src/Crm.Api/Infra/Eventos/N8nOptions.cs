@@ -27,7 +27,12 @@ public sealed class N8nOptions
     /// </summary>
     public string? Eventos { get; set; }
 
-    public int TempoLimiteSegundos { get; set; } = 10;
+    /// <summary>
+    /// Quanto o despachante espera a resposta do n8n. O <c>CRM - Alertas</c> só responde depois de mandar o e-mail, e
+    /// a entrega chegou a passar de 10 s: o evento ia de novo, e o e-mail saía repetido. Fica abaixo da
+    /// <see cref="DespachanteEventos.Reserva"/>, para outro despachante não pegar o evento durante o envio.
+    /// </summary>
+    public int TempoLimiteSegundos { get; set; } = 30;
 
     /// <summary>De quanto em quanto tempo o despachante confere a fila.</summary>
     public int IntervaloSegundos { get; set; } = 5;
