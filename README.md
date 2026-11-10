@@ -1230,6 +1230,7 @@ Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
   - Fixas: o `CRM - Reenvio de pendentes` (`0 8-20 * * 1-5`, cerca de 290 por mês), o `CRM - Resumo diário` (`0 8 * * *`, cerca de 30) e o `CRM - Relatório semanal Gama` (`0 8 * * 1`, 4 ou 5).
   - Cada lead que entra pela integração gasta uma execução da entrada e uma do `CRM - Alertas`, pelo `lead.criado`. Um `lead.reatribuido` ou um `lead.entrada_repetida` gastam mais uma cada: são os tipos do `N8n__Eventos`.
   - Com 300 leads por mês, o consumo fica perto de 930 (seção 4.5 da especificação). Com a cota esgotada, todos os fluxos param até ela renovar: acompanhe o contador de execuções da conta, sobretudo no primeiro mês.
+- A entrega dos eventos ao n8n é feita pelo menos uma vez: se um fluxo demorar mais que a espera do CRM, de 30 s, o evento vai de novo, e o e-mail de alerta pode sair repetido.
 - Logs, sem dados pessoais: `docker compose -f docker-compose.prod.yml logs -f api`. Cada contêiner guarda até 5 arquivos de 10 MB.
 - O log do Caddy (`docker compose -f docker-compose.prod.yml logs caddy`) mostra as falhas do proxy, como um 502 com a API reiniciando. Ele grava a URL sem a query string, que pode levar a busca da lista, e o `Referer`, o `X-Api-Key`, o `Cookie` e o `Authorization` como `REDACTED`; o filtro fica no bloco global do [deploy/Caddyfile](deploy/Caddyfile). Para conferir no servidor, na primeira publicação, porque a API fica parada por alguns segundos:
 
