@@ -4,8 +4,8 @@ Este guia mostra o caminho de um lead no CRM, da chegada até Ganho ou Perdido. 
 
 ## 1. Entrar
 
-1. Abra o endereço do CRM que o Matheus passar, preencha **E-mail** e **Senha** e clique em **Entrar**.
-2. No primeiro acesso, a tela **Trocar senha** pede a **Senha provisória** (a que o Matheus passou), a **Nova senha**, com pelo menos 10 caracteres, e **Repita a nova senha**. Clique em **Salvar nova senha**.
+1. Abra o endereço do CRM que o admin do CRM (hoje, o Matheus) passar, preencha **E-mail** e **Senha** e clique em **Entrar**.
+2. No primeiro acesso, a tela **Trocar senha** pede a **Senha provisória** (a que o admin do CRM passou), a **Nova senha**, com pelo menos 10 caracteres, e **Repita a nova senha**. Clique em **Salvar nova senha**.
 3. Você cai no **Funil**. O menu tem **Funil**, **Leads** e **Painel**; no celular, ele abre pelo botão ☰, no canto de cima. Para trocar a senha ou sair, clique no seu nome, no canto de cima: **Trocar senha** ou **Sair**.
 
 ## 2. Ative os avisos do navegador
@@ -43,11 +43,11 @@ No menu, **Painel** mostra os seus números: **Leads novos**, **Conversão** e *
 
 ## 7. Pedido de cópia ou de exclusão dos dados
 
-Se um lead pedir uma cópia dos dados dele ou para apagar os dados, não apague nada e não mande os dados dele por WhatsApp ou e-mail. Avise o Matheus só com o número do lead, que aparece no endereço da ficha (por exemplo, `.../leads/1024`). O admin cuida do pedido.
+Se um lead pedir uma cópia dos dados dele ou para apagar os dados, não apague nada e não mande os dados dele por WhatsApp ou e-mail. Avise o admin do CRM só com o número do lead, que aparece no endereço da ficha (por exemplo, `.../leads/1024`). O admin cuida do pedido.
 
 ## Se algo der errado
 
 - **Lead não encontrado**: o lead passou para outra pessoa.
 - "Não foi possível abrir esta tela": confira a internet e clique em **Recarregar a página**.
-- **E-mail ou senha incorretos.** cinco vezes seguidas bloqueia o login por 15 minutos. Esqueceu a senha? Peça ao Matheus para redefini-la: ele passa uma senha provisória.
+- "E-mail ou senha incorretos": depois de cinco tentativas erradas seguidas, o login fica bloqueado por 15 minutos. Esqueceu a senha? Peça ao admin do CRM para redefini-la: ele passa uma senha provisória.
 - Um cliente chegou por outro caminho, como uma ligação ou uma indicação? Em **Leads**, clique em **Novo lead**, preencha e clique em **Cadastrar lead**.
