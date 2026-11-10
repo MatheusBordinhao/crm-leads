@@ -4,7 +4,7 @@ CRM interno que recebe os leads das campanhas da Gama Marketing (Facebook, Insta
 
 - Regras, contrato com o n8n, modelo de dados e passos de entrega: [docs/especificacao.md](docs/especificacao.md)
 - Como desenvolver com o Claude Code: [docs/guia-claude-code.md](docs/guia-claude-code.md)
-- Guia de uma página para as atendentes: [docs/guia-das-atendentes.md](docs/guia-das-atendentes.md)
+- Guia das atendentes, numa folha, frente e verso: [docs/guia-das-atendentes.md](docs/guia-das-atendentes.md)
 - Operação: [Publicação](#publicação) (com backup, restauração e troca de chaves e senhas), [Plano B da demonstração](#plano-b-o-compose-de-produção-no-próprio-computador) e [Pedido do titular (LGPD)](#pedido-do-titular-lgpd)
 
 ## Pré-requisitos

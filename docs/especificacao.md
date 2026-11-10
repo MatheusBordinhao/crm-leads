@@ -609,7 +609,7 @@ Em 14/10/2026, ficou decidido que a produção do n8n é o n8n Cloud, quando o p
 
 Em 16/10/2026, a reunião de 15/10/2026 ficou sem data. Até ela ser marcada, o trabalho segue com tudo o que não depende da empresa, e fica para a terceira fase o que precisa de servidor, domínio, n8n Cloud, e-mail da empresa, Meta, Google Ads ou da Gama. A demonstração é conferida no fim de cada etapa desse trabalho, e, quando a reunião for marcada, tudo congela até ela. O que tinha ficado para depois da reunião entra nesse trabalho: a divisão do pacote por tela (Passo 11) e, no Passo 6, os e-mails do `CRM - Erros` em massa e as execuções do n8n com chave.
 
-Em 09/11/2026, esse trabalho terminou. O que falta depende da empresa, da Gama ou das pessoas, e a lista está no README (Publicação › O que depende da empresa).
+Em 10/11/2026, com o Lote 6, esse trabalho terminou. O que falta depende da empresa, da Gama ou das pessoas, e a lista está no README (Publicação › O que depende da empresa).
 
 ### Passos
 
@@ -769,8 +769,8 @@ Em 09/11/2026, esse trabalho terminou. O que falta depende da empresa, da Gama o
     - antes de qualquer tela, o `index.html` baixa 599,56 kB (189,63 kB com gzip), em 5 arquivos. A primeira carga do login tem 727,34 kB, a do funil, 789,43 kB, e a do painel, 619,64 kB: de 12% a 31% a menos;
     - com o CRM aberto durante uma publicação nova, a tela cujo arquivo antigo sumiu recarrega a página uma vez, já na versão nova. Se falhar de novo em menos de um minuto, mostra o erro com o botão de recarregar, sem recarga em laço.
   - **Pendente, para decidir depois:** o login baixa o layout de quem já entrou, sem usá-lo, como o SignalR do tempo real e os menus e a gaveta do Radix (cerca de 138 kB).
-- README de operação: publicar, fazer e restaurar backup, trocar as chaves. **Feito em 13/10/2026:** com o que depende do servidor e do domínio marcado, a troca de cada chave e senha com o efeito dela, o plano B da demonstração e o pedido do titular (LGPD), com o que fica fora do CRM. **Completado em 09/11/2026 (Lote 6):** a volta de uma atualização que deu errado, ensaiada num Compose descartável, a cota do n8n nos cuidados e a lista do que depende da empresa.
-- Roteiro de treinamento de uma página para Adriana e Pietra. **Feito em 13/10/2026:** [docs/guia-das-atendentes.md](guia-das-atendentes.md), conferido por um roteiro do Playwright que fez o caminho do guia como uma atendente nova, no computador e em 360 px.
+- README de operação: publicar, fazer e restaurar backup, trocar as chaves. **Feito em 13/10/2026:** com o que depende do servidor e do domínio marcado, a troca de cada chave e senha com o efeito dela, o plano B da demonstração e o pedido do titular (LGPD), com o que fica fora do CRM. **Completado no Lote 6, de 09 a 10/11/2026:** a volta de uma atualização que deu errado, ensaiada num Compose descartável, a cota do n8n nos cuidados e a lista do que depende da empresa.
+- Roteiro de treinamento numa folha, frente e verso, para Adriana e Pietra. **Feito em 13/10/2026:** [docs/guia-das-atendentes.md](guia-das-atendentes.md), conferido por um roteiro do Playwright que fez o caminho do guia como uma atendente nova, no computador e em 360 px. **Revisto no Lote 6, de 09 a 10/11/2026:** com os avisos embaixo, a tela que não abre, a mensagem do login entre aspas e "o admin do CRM". Impresso em A4, ele ocupa 2 páginas, com 11 pt e com 12 pt.
 - Aceite: as atendentes conseguem, sozinhas, receber um lead, registrar o contato e levá-lo até Ganho ou Perdido. **Pendente:** a validação com a Adriana e a Pietra, usando o guia.
 
 ## 11. Decisões em aberto
