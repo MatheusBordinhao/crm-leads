@@ -880,7 +880,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 **Os fluxos do n8n.** Se a atualização também mudou fluxos de [n8n/](n8n/) já importados no n8n Cloud, volte cada um ao JSON do commit anterior, que está no repositório:
 
 ```bash
-git show "$anterior":n8n/crm-entrada-site.json > crm-entrada-site.json   # um por fluxo que mudou
+git show "$anterior":n8n/crm-entrada-site.json > /tmp/crm-entrada-site.json   # um por fluxo que mudou, fora do repositório
 ```
 
 Importe-o como na primeira vez (passos 3 e 4 de "n8n Cloud: importar os fluxos"). Ele entra como um fluxo novo, com id novo: refaça nele o que é da instância, despublique o fluxo da versão nova, publique o importado e arquive o outro. Se for o `CRM - Erros`, aponte para ele o Error Workflow dos outros. O histórico de versões do n8n Cloud, que mantém o id, é a segunda opção, se o plano contratado tiver: no Starter, ele pode não existir ou durar pouco.
