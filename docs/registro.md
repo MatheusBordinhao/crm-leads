@@ -585,7 +585,7 @@ O que falta está no [README](../README.md), em Publicação › O que depende d
   - a sessão do Claude Code reiniciou com o `npm run dev` em segundo plano, e o `node` do Vite ficou no ar na 5173: o Claude conferiu a porta e o processo, o `vite.js` do projeto, e o encerrou;
   - a imagem do Playwright 1.56.1 e o volume `crm-playwright` saíram no fim do lote, sem nenhum contêiner que os usasse;
   - o fechamento, registrado no Lote 6: no push de `e664e8f..0bc538e`, o `Testes` #22 ficou verde em 6 min 54 s, no `0bc538e`. O `Imagem de produção` não rodou, porque o lote mexeu só no `web/src`, no README, no CLAUDE.md e na especificação, que não estão nos caminhos dele.
-- Lote 6 (documentação), feito em 09/11/2026:
+- Lote 6 (documentação), feito de 09 a 10/11/2026:
   - o plano da seção 3, conferido contra o código, mudou em quatro pontos: os `sed -i` que gravam no `.env` eram cinco, e não dois, e só o `-b` não bastava (com o `.*`, o CR da linha trocada se perderia); o lembrete de proteger a `master` não estava escrito em lugar nenhum; o guia das atendentes não falava dos avisos embaixo nem da tela que não abre; e o `docs/guia-claude-code.md` ainda apontava para o n8n Cloud de teste;
   - por decisão minha: entraram a saída pelo `getElementError` e o teste das campanhas, a primeira carga do login ficou para depois, os registros saíram do CLAUDE.md, e a volta de uma atualização passou por um ensaio. As paradas das medidas, calibradas por mim: a mediana do `campanhas.test.tsx` mais de 10% acima da linha de partida, o total de falhas das 3 rodadas com `--cpus=1` subindo 4 ou mais, ou uma falha nas 5 rodadas como o CI;
   - os commits, numa ordem diferente da do plano, para cada commit do README ficar com um assunto só, sem o `git add -p`:
@@ -598,7 +598,14 @@ O que falta está no [README](../README.md), em Publicação › O que depende d
     - `9666785`: o guia das atendentes, com os avisos embaixo e a tela que não abre;
     - `a12b9f1`: "Se a atualização der errado", depois do ensaio;
     - `8569a7f`: a especificação;
-    - o último, com este registro e a "Situação atual" curta;
+    - `9dfbb06`: este registro e a "Situação atual" curta;
+    - de 10/11/2026, depois do meu e-mail e das minhas leituras:
+      - `1009a6c`: a espera do CRM pelo n8n sobe para 30 s, no `N8nOptions.cs`, com a seção 4.3 da especificação;
+      - `6540920`: o guia, com "o admin do CRM (hoje, o Matheus)" e a mensagem do login entre aspas;
+      - `ec3212b`: a entrega ao n8n pelo menos uma vez, nos Cuidados do README;
+      - `774fd83`: o `git show` da volta grava o JSON em `/tmp`, fora do repositório;
+      - `9432fb3`: o guia numa folha, frente e verso, na especificação e no README;
+      - o último, com os dois e-mails e as decisões;
   - conferido pelo Claude:
     - os blocos do `sed`, num `.env` de mentira em LF e em CRLF: 10 de 10 no Git Bash e no Ubuntu 24.04 da imagem do SDK, com a permissão 600. Os controles falharam nos 5 casos em CRLF: o `sed` sem o `-b` (no Git Bash, o CR saiu de todas as linhas) e o `-b` com o `.*` (o CR saiu da linha trocada);
     - o `esperas.test.tsx`: com o `setup.ts` de antes, só o caso da tentativa de dentro do `waitFor` falhou;
@@ -617,11 +624,21 @@ O que falta está no [README](../README.md), em Publicação › O que depende d
       - o banco não foi recriado em nenhum `up -d --build`;
       - no fim, o `ps -a` e o `volume ls`, o `down -v`, as imagens apagadas, a `crm-api` do plano B e o `backups/` do repositório sem mudança, e o clone apagado, com o backup;
       - o caminho do n8n não entrou no ensaio, porque mexeria nos fluxos do n8n local;
-    - o guia numa página A4: no PDF do Edge sem janela, a partir do HTML do `marked` 18.1.3, com o A4 no CSS, ele ocupa 2 páginas com 11 pt e margens de 15 mm e com 12 pt e 20 mm, e só cabe numa com 9 pt e 12 mm. A versão de antes do lote também ocupava 2. Fica para decidir (Situação atual);
+    - o guia numa página A4: no PDF do Edge sem janela, a partir do HTML do `marked` 18.1.3, com o A4 no CSS, ele ocupa 2 páginas com 11 pt e margens de 15 mm e com 12 pt e 20 mm, e só cabe numa com 9 pt e 12 mm. A versão de antes do lote também ocupava 2. A decisão está abaixo;
     - os links entre os documentos: nenhum caminho relativo quebrado, e as referências a seções do README apontam para títulos que existem;
     - a suíte .NET, no contêiner, com 817 de 817, em 198 s, e a formatação;
-    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1184, que foi para a Adriana. O `lead.criado` esgotou os 10 s na primeira tentativa, com o n8n no ar, e saiu na segunda, às 13:11:53, 83 s depois do lead. O "Responder ao CRM" do `CRM - Alertas` vem depois do "Enviar o e-mail" (Situação atual);
-  - o fechamento entra no registro do próximo lote.
+    - a demonstração: o `preparar-demonstracao` gravou 60 leads, e o `site.json` criou o lead 1184, que foi para a Adriana. O `lead.criado` esgotou os 10 s na primeira tentativa, com o n8n no ar, e saiu na segunda, às 13:11:53, 83 s depois do lead. O "Responder ao CRM" do `CRM - Alertas` vem depois do "Enviar o e-mail";
+  - validado por mim: chegaram dois e-mails do lead 1184, os dois às 13:11 de 09/11/2026. Pela hora, a primeira execução do n8n mandou o e-mail depois de o CRM desistir, às 13:10:40, e a segunda tentativa mandou o outro;
+  - as minhas decisões, em 10/11/2026:
+    - a espera do CRM pelo n8n sobe para 30 s, num commit próprio (`1009a6c`). Depois dele, a suíte .NET, no contêiner, deu 817 de 817, em 202 s, e a formatação passou. A reserva de 1 minuto do despachante continua maior que a espera, como o comentário dela exige;
+    - nos Cuidados do README, a entrega ao n8n é feita pelo menos uma vez, e o e-mail pode sair repetido (`ec3212b`);
+    - a idempotência do `CRM - Alertas` pelo id do evento entra nas pendências, para decidir junto com a ida para o n8n Cloud. Nenhum fluxo mudou;
+    - o guia fica numa folha, frente e verso, sem encurtar o texto (`9432fb3`). Depois da minha leitura, ele diz "o admin do CRM", e a mensagem do login vai entre aspas (`6540920`). No PDF do Edge, ele continua em 2 páginas A4, com 11 pt e margens de 15 mm e com 12 pt e 20 mm;
+    - a primeira carga do login continua para depois;
+    - os comandos em PowerShell que gravam o `.env` com LF ficam como estão: o LF não atrapalha, e os blocos do `sed` tratam os dois fins de linha;
+    - depois da minha leitura do README, o `git show` da volta grava o JSON em `/tmp` (`774fd83`);
+  - a `api` de desenvolvimento foi recompilada com a espera de 30 s (`docker compose restart api`), com a fila de eventos vazia antes, e o `/health` respondeu 200. O `db` e o `n8n` estavam no ar havia 24 minutos: depois de um reinício do Docker Desktop ou da máquina, eles voltaram sozinhos;
+  - o push e o CI entram no registro do próximo lote.
 
 ## A correção de 13/10/2026
 
