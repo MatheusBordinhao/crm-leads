@@ -1,0 +1,58 @@
+# A imagem da API no GHCR, para a publicação no Coolify (README › Publicação › No Coolify). Só roda quando disparada pela
+# tela do Actions, e só na master: dispare-a com o Testes verde no mesmo commit. A imagem leva a tag do commit, que vai
+# para a CRM_VERSAO do Coolify, e a versão volta pela tag. O pacote é privado: o servidor o baixa com um token clássico,
+# só com read:packages. É o único workflow com uma permissão de escrita, e só neste job (o WorkflowsTests confere).
+name: Publicar a imagem
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    name: Build e push no GHCR
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGEM: ghcr.io/matheusbordinhao/crm-leads
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # O token do job vale só durante ele e entra pelo stdin, sem aparecer na linha de comando.
+      - name: Login no GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Build
+        run: >-
+          docker build
+          --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+          --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+          --tag "${IMAGEM}:${GITHUB_SHA}" .
+
+      - name: Push
+        run: docker push "${IMAGEM}:${GITHUB_SHA}"
+
+      - name: Resumo
+        run: |
+          digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "${IMAGEM}:${GITHUB_SHA}")
+          {
+            echo "### Imagem publicada"
+            echo
+            echo "- CRM_VERSAO para o Coolify: \`${GITHUB_SHA}\`"
+            echo "- Imagem: \`${IMAGEM}:${GITHUB_SHA}\`"
+            echo "- Digest: \`${digest}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logout do GHCR
+        if: ${{ always() }}
+        run: docker logout ghcr.io

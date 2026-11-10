@@ -12,18 +12,26 @@ public class WorkflowsTests
 {
     private static readonly string Pasta = Path.Combine(Repositorio.Raiz, ".github", "workflows");
 
+    /// <summary>
+    /// O único workflow com permissão de escrita: publica a imagem no GHCR, para o Coolify, só quando disparado à mão e só da
+    /// master. Ele tem as regras dele, conferidas abaixo, e segue as outras dos workflows.
+    /// </summary>
+    private const string PublicarImagem = "publicar-imagem.yml";
+
     public static TheoryData<string> Workflows() => [.. Directory.GetFiles(Pasta, "*.yml").Select(arquivo => Path.GetFileName(arquivo))];
 
+    public static TheoryData<string> WorkflowsSoDeLeitura() => [.. Workflows().Select(w => w.Data).Where(w => w != PublicarImagem)];
+
     [Fact]
-    public void Os_tres_workflows_estao_guardados()
+    public void Os_quatro_workflows_estao_guardados()
     {
         Assert.Superset(
-            new HashSet<string> { "testes.yml", "imagem.yml", "front-5-rodadas.yml" },
+            new HashSet<string> { "testes.yml", "imagem.yml", "front-5-rodadas.yml", PublicarImagem },
             Workflows().Select(w => w.Data).ToHashSet());
     }
 
     [Theory]
-    [MemberData(nameof(Workflows))]
+    [MemberData(nameof(WorkflowsSoDeLeitura))]
     public void O_workflow_so_le_o_repositorio(string arquivo)
     {
         var texto = LerWorkflow(arquivo);
@@ -56,13 +64,64 @@ public class WorkflowsTests
 
     [Theory]
     [MemberData(nameof(Workflows))]
-    public void O_workflow_nao_usa_segredos_nem_o_pull_request_target(string arquivo)
+    public void O_workflow_nao_usa_o_pull_request_target(string arquivo)
+    {
+        Assert.DoesNotContain("pull_request_target", LerWorkflow(arquivo));
+    }
+
+    [Theory]
+    [MemberData(nameof(WorkflowsSoDeLeitura))]
+    public void O_workflow_nao_usa_segredos(string arquivo)
     {
         var texto = LerWorkflow(arquivo);
 
-        Assert.DoesNotContain("pull_request_target", texto);
         Assert.DoesNotMatch(@"\bsecrets\s*[.\[:]", texto);
         Assert.DoesNotContain("github.token", texto);
+    }
+
+    [Fact]
+    public void A_imagem_so_e_publicada_quando_disparada_a_mao_e_da_master()
+    {
+        var texto = LerWorkflow(PublicarImagem);
+
+        Assert.Equal(["  workflow_dispatch:"], Bloco(texto, "on"));
+        Assert.Contains("    if: github.ref == 'refs/heads/master'", texto);
+    }
+
+    [Fact]
+    public void So_o_job_que_publica_escreve_pacotes()
+    {
+        var texto = LerWorkflow(PublicarImagem);
+        var doJob = Regex.Match(texto, @"(?m)^    permissions:\n((?:      [^\n]+\n)+)");
+
+        Assert.Equal(["  contents: read"], Bloco(texto, "permissions"));
+        Assert.Equal(2, Regex.Matches(texto, @"(?m)^\s*permissions:").Count);
+        Assert.True(doJob.Success, "O job não tem o permissions dele.");
+        Assert.Equal(["      contents: read", "      packages: write"], doJob.Groups[1].Value.TrimEnd('\n').Split('\n'));
+        Assert.Single(Regex.Matches(texto, @":\s*write\b"));
+    }
+
+    [Fact]
+    public void O_token_do_job_entra_so_no_login_pelo_stdin()
+    {
+        var texto = LerWorkflow(PublicarImagem);
+
+        Assert.Equal(["TOKEN: ${{ secrets.GITHUB_TOKEN }}"], Regex.Matches(texto, @"[^\n]*\bsecrets\b[^\n]*").Select(m => m.Value.Trim()));
+        Assert.Contains("printf '%s' \"$TOKEN\" | docker login ghcr.io --username \"$GITHUB_ACTOR\" --password-stdin", texto);
+        Assert.DoesNotContain("github.token", texto);
+    }
+
+    [Fact]
+    public void A_imagem_leva_so_a_tag_do_commit_que_o_Compose_do_Coolify_usa()
+    {
+        var texto = LerWorkflow(PublicarImagem);
+        var compose = Ler("docker-compose.coolify.yml");
+
+        Assert.Contains("      IMAGEM: ghcr.io/matheusbordinhao/crm-leads", texto);
+        Assert.Contains("--tag \"${IMAGEM}:${GITHUB_SHA}\" .", texto);
+        Assert.Contains("run: docker push \"${IMAGEM}:${GITHUB_SHA}\"", texto);
+        Assert.DoesNotContain("latest", texto);
+        Assert.Contains("image: ghcr.io/matheusbordinhao/crm-leads:${CRM_VERSAO:?}", compose);
     }
 
     [Fact]
