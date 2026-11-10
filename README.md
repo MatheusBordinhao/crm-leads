@@ -623,13 +623,14 @@ docker compose -f docker-compose.testes.yml run --rm testes
 
 ### CI no GitHub Actions
 
-Três workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em runners Ubuntu de 2 vCPUs:
+Quatro workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em runners Ubuntu de 2 vCPUs:
 
 | Workflow | Quando roda | O que faz |
 | --- | --- | --- |
 | `Testes` ([testes.yml](.github/workflows/testes.yml)) | Em todo push na `master` e em todo PR, inclusive os do Dependabot, menos quando só mudam arquivos `.md` | A suíte .NET pelo `docker-compose.testes.yml`, o `dotnet format --verify-no-changes` e o front: o `npm ci`, o lint, o `format:check`, a suíte e o build |
 | `Imagem de produção` ([imagem.yml](.github/workflows/imagem.yml)) | Quando muda o que entra na imagem ou nos Compose: o `Dockerfile`, os Compose, os `.props`, o `global.json`, o `dotnet-tools.json`, o `package.json` e o lockfile do front ou o Caddyfile | O build da imagem e o Compose de produção num projeto só do CI, com dados sorteados: as migrations terminam com 0, o `/health` responde 200 pelo Caddy, e a API roda o ASP.NET Core 10.0.13 ou mais novo |
 | `Front: 5 rodadas em paralelo` ([front-5-rodadas.yml](.github/workflows/front-5-rodadas.yml)) | Só quando alguém dispara, pela tela do Actions | A suíte do front 5 vezes ao mesmo tempo, cada uma num runner próprio, para medir a folga das esperas |
+| `Publicar a imagem` ([publicar-imagem.yml](.github/workflows/publicar-imagem.yml)) | Só quando alguém dispara, pela tela do Actions, e só na `master` | O build da imagem e o push dela para o GHCR, com a tag do commit, para o Coolify (veja "No Coolify") |
 
 - **O front roda na imagem do Node do `Dockerfile`**, a mesma do build de produção, pelo [.github/scripts/front.sh](.github/scripts/front.sh). Assim, o CI pega um problema do build em Alpine e acompanha sozinho a versão que o Dependabot subir. O script roda igual aqui, pelo Git Bash, sem tocar no `node_modules` nem no `dist` do Windows:
 
@@ -639,7 +640,7 @@ Três workflows, em [.github/workflows](.github/workflows), rodam no GitHub, em 
   ```
 
 - **As 5 rodadas do front:** em Actions › "Front: 5 rodadas em paralelo" › Run workflow, na `master`. As rodadas não disputam CPU entre si, e cada uma escreve na página da rodada o processador do runner, o tempo da suíte, as falhas e os 10 testes mais lentos, com o "Perdido pede o motivo" em destaque. Rode depois de uma mudança grande no front ou quando o `Testes` falhar por tempo: uma espera acima de 1 s mostra que a folga do runner acabou.
-- **Os workflows só leem o repositório:** a permissão é só de leitura, o checkout não guarda o token do GitHub no `.git` (`persist-credentials: false`), nenhum usa segredos nem o `pull_request_target`, e as ações de terceiros ficam fixadas pelo commit (SHA), com a versão num comentário. O `WorkflowsTests` cobra isso. Para conferir os workflows antes do push:
+- **Os workflows só leem o repositório:** a permissão é só de leitura, o checkout não guarda o token do GitHub no `.git` (`persist-credentials: false`), nenhum usa segredos nem o `pull_request_target`, e as ações de terceiros ficam fixadas pelo commit (SHA), com a versão num comentário. A única exceção é o "Publicar a imagem": só o job dele escreve pacotes, e o token do job entra só no login do GHCR, pelo stdin. O `WorkflowsTests` cobra isso. Para conferir os workflows antes do push:
 
   ```powershell
   docker run --rm -v "${PWD}:/repo:ro" -w /repo rhysd/actionlint:1.7.12
@@ -719,10 +720,10 @@ Pronto e testado no Compose de produção no próprio computador (veja "Plano B"
 O resto depende do servidor e do domínio, do n8n Cloud pago, do e-mail da empresa, dos acessos da Meta e do Google Ads e de decisões da Gama, do chefe e das pessoas:
 
 - **Servidor e domínio:**
-  - **[servidor]** a máquina, com o Docker e as portas 80 e 443 abertas, e a pasta dos backups (`BACKUP_PASTA`);
+  - **[servidor]** a máquina da produção, com o Docker e as portas 80 e 443 abertas, e a pasta dos backups (`BACKUP_PASTA`). A fase de teste já roda num VPS da Hostinger, com o Coolify (veja "O servidor de teste"); se a produção fica nele é decisão da empresa;
   - **[servidor]** o destino da cópia criptografada dos backups e o cron dela (veja "Backup");
   - **[servidor]** repetir lá o teste da restauração e a conferência do log do Caddy, e conferir na auditoria o IP de um cliente IPv4 e o de um IPv6, como um celular no 4G (veja "Cuidados");
-  - **[domínio]** o domínio, com o registro DNS do tipo A apontando para o servidor. Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
+  - **[domínio]** o domínio da empresa, com o registro DNS do tipo A apontando para o servidor; na fase de teste, o endereço é provisório (`crm.srv1711815.hstgr.cloud`). Ele vira o `DOMINIO` do `.env`, que dá o certificado do Let's Encrypt, os links dos e-mails (`Crm__UrlPublica`) e o `wss://` da CSP;
   - **[domínio]** o PWA e a notificação num celular de verdade, que exigem HTTPS.
 - **n8n Cloud, numa conta da empresa:**
   - os 8 fluxos de [n8n/](n8n/), já testados no n8n local, as credenciais, as 3 Data Tables e o `N8n__WebhookUrl` (veja "n8n Cloud: importar os fluxos");
@@ -747,6 +748,141 @@ O resto depende do servidor e do domínio, do n8n Cloud pago, do e-mail da empre
   - a validação com a Adriana e a Pietra, pelo [guia das atendentes](docs/guia-das-atendentes.md), que é o aceite do Passo 11 e pode ser no ambiente local;
   - a data da reunião com o chefe.
 - **GitHub:** quando o repositório for para a conta da empresa, proteger a `master` com uma regra que bloqueie o force push e a exclusão. Em repositório privado, isso exige um plano com regras de branch, que o GitHub Free não tem (veja "CI no GitHub Actions").
+
+### O servidor de teste
+
+A fase de teste roda num VPS KVM 2 da Hostinger (`srv1711815.hstgr.cloud`, `2.25.143.35` e `2a02:4780:75:250f::1`), com o Coolify v4. Ela é com a Adriana e a Pietra e só com dados fictícios. O servidor é dividido com outros projetos (FS DashBoard, FSinnovation e SUN3S), que não podem mudar nem cair.
+
+- O CRM fica em `https://crm.srv1711815.hstgr.cloud`, e o painel do Coolify, em `https://painel.srv1711815.hstgr.cloud`. O DNS da Hostinger responde a qualquer nome abaixo do `srv1711815.hstgr.cloud`. O `hstgr.cloud` está na Public Suffix List, e por isso os certificados do Let's Encrypt contam só no limite deste servidor.
+- O Traefik do Coolify ocupa a 80 e a 443 e faz o HTTPS. O Caddy do CRM fica atrás dele e repassa para a API, com os mesmos cabeçalhos, a mesma CSP e o mesmo filtro do log da produção ([deploy/Caddyfile.coolify](deploy/Caddyfile.coolify)).
+
+**O painel do Coolify e o firewall do servidor.** Isso foi feito antes do CRM, porque muda o servidor inteiro:
+
+1. **O painel em HTTPS,** pelo Instance's Domain, em Settings. Depois:
+   - a senha nova;
+   - o segundo fator, em Profile › Two-factor Authentication;
+   - o cadastro de usuários desligado, em Settings › Advanced › Access › Registration.
+2. **Os outros projetos.** Os webhooks do GitHub e as chamadas à API do Coolify deles passaram para o endereço novo do painel antes de a 8000 fechar. A confirmação foi um ping, e não o reenvio de um push, que faria o deploy do projeto.
+3. **O firewall da Hostinger,** em VPS › Segurança › Firewall. Ele descarta tudo o que não tiver regra, no IPv4 e no IPv6, e aceita só:
+
+   | Protocolo | Porta | Por quê |
+   | --- | --- | --- |
+   | TCP | 22 | o SSH |
+   | TCP | 80 | o HTTP e a validação do Let's Encrypt |
+   | TCP | 443 | o HTTPS de todos os projetos |
+   | UDP | 443 | o HTTP/3 do Traefik |
+   | ICMP e ICMPv6 | — | o ping e, no IPv6, a descoberta do tamanho dos pacotes |
+
+   Ficam fechadas as portas do Coolify: a 8000 (painel), a 6001 e a 6002 (tempo real e terminal) e a 8080 (a API do Traefik). Nenhum contêiner dos outros projetos publica porta: todos passam pelo Traefik.
+4. **A volta.** Desativar o firewall no painel da Hostinger reabre tudo; as mudanças valem em até 2 minutos, e as conexões abertas continuam. Sem o firewall, o painel volta a abrir em `http://2.25.143.35:8000`, onde o Instance's Domain pode ser esvaziado.
+
+### No Coolify (fase de teste)
+
+- **O que sobe.** O [docker-compose.coolify.yml](docker-compose.coolify.yml) sobe o PostgreSQL, as migrations, a API, o Caddy e o backup, sem publicar nenhuma porta: o Coolify liga o Traefik ao `caddy` pelo campo Domains.
+- **A imagem.** A imagem da API vem do GHCR, publicada pelo workflow "Publicar a imagem" com a tag do commit.
+- **Os recursos.** Cada serviço tem limite de memória e de CPU, e o `cpu_shares` 512 dá aos outros projetos a prioridade numa disputa de CPU.
+- **O seu computador.** Os comandos dele rodam no Git Bash, e não no PowerShell 5.1. Nele, o `curl` é o `Invoke-WebRequest`, as aspas do JSON somem na chamada do `curl.exe`, e o `grep` não existe.
+
+**As variáveis do recurso, em Environment Variables:**
+
+| Variável | Quem define | O que é |
+| --- | --- | --- |
+| `DOMINIO` | você | `crm.srv1711815.hstgr.cloud`, igual ao Domains do `caddy` |
+| `CRM_VERSAO` | você | o SHA completo do commit da imagem |
+| `Admin__Email` | você | o e-mail do primeiro admin |
+| `SERVICE_PASSWORD_POSTGRES` | o Coolify sorteia | a senha do banco, com 32 caracteres |
+| `SERVICE_PASSWORD_ADMIN` | o Coolify sorteia | a senha do primeiro acesso, que você lê no painel |
+
+A integração e o n8n ficam desligados nesta fase, com as variáveis vazias no Compose: a integração responde 401, e os eventos ficam pendentes. Nenhuma senha nem chave passa por e-mail ou por chat: o Coolify as sorteia e guarda, e você as lê no painel, em HTTPS.
+
+**A primeira publicação:**
+
+1. **A imagem.** Com o `Testes` verde no commit: Actions › "Publicar a imagem" › Run workflow, na `master`. O resumo do job mostra a `CRM_VERSAO` e o digest. Confira que o pacote `crm-leads` está privado e ligado ao repositório.
+2. **O token.** Em GitHub › Settings › Developer settings › Personal access tokens › Tokens (classic), gere um token só com `read:packages`, com validade de 90 dias, depois de conferir que só ele está marcado. Anote a data em que ele vence (veja "Cuidados").
+3. **O login no GHCR.** No Coolify, em Registries: o GHCR, com o seu usuário do GitHub e o token, e depois "Log in". O Coolify roda o `docker login` no servidor, e o login fica no `~/.docker/config.json` dele, codificado, mas não criptografado. Por isso o token só lê pacotes.
+4. **A chave de deploy.** No Coolify, em Keys & Tokens, uma chave nova. No GitHub, em Settings › Deploy keys do repositório, a chave pública, sem "Allow write access".
+5. **O recurso.** Um projeto "CRM" › New resource › Private Repository (with Deploy Key):
+   - o `git@github.com:MatheusBordinhao/crm-leads.git`, na `master`;
+   - o build pack Docker Compose, com o arquivo `/docker-compose.coolify.yml`;
+   - o "Preserve repository during deployment" ligado, por causa do Caddyfile e dos scripts do backup;
+   - o "Connect to predefined network" desligado e o deploy normal, e não o Raw;
+   - se a tela tiver o campo do commit, ele recebe o mesmo SHA da `CRM_VERSAO`.
+6. **O endereço e as variáveis.** Em Domains, o serviço `caddy` com `https://crm.srv1711815.hstgr.cloud`. Em Environment Variables, as três variáveis da tabela. Confira que o Coolify sorteou as duas `SERVICE_PASSWORD_*`.
+7. **O deploy.** No log: o `db` saudável, o `migracoes` com saída 0, e a `api` e o `caddy` no ar.
+8. **Os IPs fixos,** no terminal do servidor, com o UUID do recurso, que aparece no endereço da tela do Coolify:
+
+   ```bash
+   for c in $(docker ps -q --filter "name=<uuid>"); do docker inspect "$c" --format '{{.Name}}{{range $n, $e := .NetworkSettings.Networks}} {{$n}}={{$e.IPAddress}}{{end}}'; done
+   ```
+
+   O `caddy` fica em `10.73.0.10`, a `api` em `10.73.0.11`, e o `caddy` fica também na rede que o Coolify liga ao Traefik. A API só aceita o IP de quem acessa vindo do IP fixo do Caddy.
+9. **O primeiro acesso.**
+   - A senha é a `SERVICE_PASSWORD_ADMIN`: entre com o `Admin__Email` e troque a senha. Com um admin no banco, a subida não cria outro, e a senha trocada fica.
+   - Depois, crie as atendentes em Configurações › Usuários e importe os leads fictícios de [docs/exemplos/](docs/exemplos/).
+   - O `preparar-demonstracao` não roda aqui: ele recusa um `Crm__UrlPublica` fora do `localhost`.
+
+**A conferência.** Os nomes dos contêineres saem do `docker ps --filter "name=<uuid>"`.
+
+- **No seu computador, no Git Bash:** os cabeçalhos. O esperado são os seis, sem o `server:`, e a CSP com `wss://crm.srv1711815.hstgr.cloud`:
+
+  ```bash
+  curl -sI https://crm.srv1711815.hstgr.cloud/ | grep -iE '^(strict-transport-security|content-security-policy|x-content-type-options|x-frame-options|referrer-policy|permissions-policy|server):'
+  ```
+
+- **No seu computador, no Git Bash:** o IP de quem acessa. A resposta é 401, e a auditoria mostra o seu IPv4 público, e não o 203.0.113.7 nem um IP interno:
+
+  ```bash
+  curl -4 -s -o /dev/null -w '%{http_code}\n' -H 'Content-Type: application/json' -H 'X-Forwarded-For: 203.0.113.7' --data-raw '{"email":"ninguem@exemplo.com","senha":"errada-de-proposito"}' https://crm.srv1711815.hstgr.cloud/api/auth/login
+  ```
+
+  Com o `-6`, se o seu computador tiver IPv6, a auditoria mostra o que grava para quem entra por IPv6 (veja "Cuidados").
+- **No terminal do servidor:** o filtro do log, num bloco só. A API fica parada por alguns segundos:
+
+  ```bash
+  docker stop <api>
+  curl -s -o /dev/null -w '%{http_code}\n' -H 'X-Api-Key: conferencia-do-log' -H 'Referer: https://crm.srv1711815.hstgr.cloud/leads?busca=conferencia-do-log' 'https://crm.srv1711815.hstgr.cloud/api/leads?busca=conferencia-do-log'   # 502
+  docker logs <caddy> 2>&1 | grep -c conferencia-do-log                    # 0
+  docker logs <caddy> 2>&1 | grep -c '"uri":"/api/leads?REDACTED"'         # 1 ou mais
+  docker logs coolify-proxy --since 10m 2>&1 | grep -c conferencia-do-log  # 0
+  docker start <api>
+  ```
+
+- **No terminal do servidor:** o backup e o teste da restauração:
+
+  ```bash
+  docker exec <backup> sh /backup/backup.sh agora
+  docker exec <backup> sh /backup/testar-restauracao.sh
+  ```
+
+- **No terminal do servidor e no navegador:** os outros projetos. O `docker ps --format '{{.Names}}\t{{.Status}}'` mostra os contêineres deles com o mesmo tempo no ar de antes, e os endereços deles respondem.
+
+**Atualizar e voltar:**
+
+- **Uma versão nova.**
+  1. Com o `Testes` verde no commit, dispare o "Publicar a imagem".
+  2. Tire um backup (`docker exec <backup> sh /backup/backup.sh agora`).
+  3. Troque a `CRM_VERSAO` pelo SHA novo, e também o commit do recurso, se a tela tiver o campo, e faça o deploy.
+
+  O Coolify lê o Compose, o Caddyfile e os scripts do backup da `master` no deploy, e a imagem vem da `CRM_VERSAO`: os dois precisam ser do mesmo commit.
+- **A volta.** A `CRM_VERSAO` anterior, o commit anterior e o deploy.
+  - Se houver migration nova entre as duas versões (`git diff --stat <anterior> <atual> -- src/Crm.Api/Infra/Dados/Migrations`), restaure antes o backup tirado antes da atualização. O que entrou depois dele se perde, como em "Restaurar de verdade":
+
+    ```bash
+    docker stop <api>
+    docker exec <backup> sh -c 'dropdb crm && createdb crm && pg_restore --no-owner --exit-on-error --dbname=crm /backups/crm-AAAA-MM-DD-HHMMSS.dump'
+    ```
+
+  - Sem o campo do commit na tela, a volta só pela tag vale enquanto o `git diff --stat <anterior> <atual> -- docker-compose.coolify.yml deploy/Caddyfile.coolify deploy/backup` vier vazio. Com diferença, esses arquivos voltam antes na `master`, com um `git revert` e o push, e só então vai o deploy da tag anterior.
+- **Um backup fora do volume:** `docker cp <backup>:/backups/crm-AAAA-MM-DD-HHMMSS.dump .`, no servidor. Ele tem os dados do CRM: apague a cópia quando não precisar mais.
+
+**Os eventos pendentes, quando o n8n chegar.** Sem o `N8n__WebhookUrl`, cada evento fica pendente. Quando a URL entrar, todos sairiam de uma vez, com um e-mail para cada lead fictício. Antes dela, conte e apague os pendentes:
+
+```bash
+docker exec <db> psql -U crm -d crm -c "SELECT situacao, count(*) FROM eventos_saida GROUP BY situacao;"
+docker exec <db> psql -U crm -d crm -c "DELETE FROM eventos_saida WHERE situacao = 'pendente';"
+```
+
+Depois, o Compose ganha as chaves pelas variáveis que o Coolify sorteia (`SERVICE_PASSWORD_64_INTEGRACAO` e `SERVICE_PASSWORD_64_EVENTOS`), e o recurso, a URL do n8n. Se o servidor virar produção com dados reais, o recurso começa com volumes novos.
 
 ### O que o servidor precisa
 
@@ -1231,6 +1367,14 @@ Todas as sessões terminam, e todo mundo entra de novo. Nada mais muda.
   - Cada lead que entra pela integração gasta uma execução da entrada e uma do `CRM - Alertas`, pelo `lead.criado`. Um `lead.reatribuido` ou um `lead.entrada_repetida` gastam mais uma cada: são os tipos do `N8n__Eventos`.
   - Com 300 leads por mês, o consumo fica perto de 930 (seção 4.5 da especificação). Com a cota esgotada, todos os fluxos param até ela renovar: acompanhe o contador de execuções da conta, sobretudo no primeiro mês.
 - A entrega dos eventos ao n8n é feita pelo menos uma vez: se um fluxo demorar mais que a espera do CRM, de 30 s, o evento vai de novo, e o e-mail de alerta pode sair repetido.
+- No Coolify (veja "No Coolify"):
+  - **O token do GHCR,** em Registries, vence 90 dias depois de criado. Renove antes: um token novo, só com `read:packages`, e o "Log in" de novo em Registries. Vencido, o próximo deploy falha ao baixar a imagem, e o que está no ar continua.
+  - **As imagens antigas do CRM** ficam no disco do servidor, que é dividido com os outros projetos: cada `CRM_VERSAO` ocupa cerca de 420 MB.
+    - Para apagar as antigas, guardando a atual e a anterior: `docker image ls ghcr.io/matheusbordinhao/crm-leads` e, depois, `docker image rm ghcr.io/matheusbordinhao/crm-leads:<sha>`. O Docker recusa apagar a que está em uso.
+    - A limpeza automática do Coolify (Servers › Docker Cleanup) roda todo dia à meia-noite, ou só acima de 80% do disco, e apagar as imagens antigas das aplicações é uma opção dela. A documentação não diz se ela apaga as imagens sem uso. Se ela apagar a anterior, a volta baixa de novo do GHCR, com o token válido.
+  - **Excluir o recurso** no Coolify apaga os volumes dele, com o banco e os backups: copie um backup para fora antes.
+  - **O log de acesso do Traefik** está desligado (conferido em 10/11/2026): as URLs, com a busca, não vão para o log dele. Ligá-lo mexe nos outros projetos e pede o mesmo filtro do Caddy.
+  - **O IPv6.** O `crm.` também resolve para o IPv6 do servidor. Se a auditoria gravar um IP interno para quem entra por IPv6, todos esses acessos dividem o limite de 10 logins por minuto por IP: os erros de uma pessoa podem deixar outra com o "muitas tentativas" por até 1 minuto. O bloqueio de 5 senhas erradas por 15 minutos é por conta e não muda.
 - Logs, sem dados pessoais: `docker compose -f docker-compose.prod.yml logs -f api`. Cada contêiner guarda até 5 arquivos de 10 MB.
 - O log do Caddy (`docker compose -f docker-compose.prod.yml logs caddy`) mostra as falhas do proxy, como um 502 com a API reiniciando. Ele grava a URL sem a query string, que pode levar a busca da lista, e o `Referer`, o `X-Api-Key`, o `Cookie` e o `Authorization` como `REDACTED`; o filtro fica no bloco global do [deploy/Caddyfile](deploy/Caddyfile). Para conferir no servidor, na primeira publicação, porque a API fica parada por alguns segundos:
 
