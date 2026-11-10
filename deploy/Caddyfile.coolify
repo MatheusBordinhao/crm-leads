@@ -1,0 +1,51 @@
+# Na publicação pelo Coolify (README › Publicação › No Coolify): o Traefik do Coolify faz o HTTPS e repassa em HTTP para
+# este Caddy, que põe os cabeçalhos de segurança e repassa para a API. O bloco do log e o dos cabeçalhos são os mesmos do
+# deploy/Caddyfile, e um teste confere que continuam iguais.
+{
+	# Todo log do Caddy sai por aqui, como no deploy/Caddyfile: o filtro troca por REDACTED a query string, o Referer e o
+	# X-Api-Key, e o próprio Caddy grava o Cookie e o Authorization como REDACTED.
+	log {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*" "?REDACTED"
+				request>headers>Referer replace REDACTED
+				request>headers>X-Api-Key replace REDACTED
+			}
+		}
+	}
+
+	servers {
+		# Este Caddy não publica porta: só o Traefik do Coolify chega nele, por uma rede do Docker, numa faixa privada. O
+		# X-Forwarded-For é lido da direita para a esquerda (trusted_proxies_strict), e o primeiro IP fora das faixas
+		# privadas vira o de quem acessa: o que o Traefik acrescenta à direita, e não o da esquerda, que pode ser forjado.
+		trusted_proxies static private_ranges
+		trusted_proxies_strict
+	}
+}
+
+# Sem nome no endereço do site, o Caddy não tenta um certificado próprio: o HTTPS é do Traefik.
+:80 {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		# O style-src aceita estilos inline porque o sonner (avisos) e o Radix (diálogos) põem <style> na página. O
+		# connect-src repete o domínio com wss:// para o WebSocket do tempo real: o Safari anterior a 2022 não o cobre pelo 'self'.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss://{$DOMINIO}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+
+	# A API só confia no IP fixo deste Caddy na rede interna (Proxy__Ip). O Caddy repassa ao IP fixo dela, e não ao nome
+	# api, para a conexão passar por essa rede, e manda no X-Forwarded-For só o IP de quem acessa. O Traefik chega em HTTP,
+	# mas quem acessa usou HTTPS.
+	reverse_proxy {$API_ENDERECO} {
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Forwarded-Proto https
+	}
+}

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Crm.IntegrationTests.Infra;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Networks;
 
 namespace Crm.IntegrationTests;
 
@@ -43,10 +44,84 @@ public class LogDoCaddyTests
             .Build();
         await caddy.StartAsync(Ct);
 
-        using var http = new HttpClient(new SocketsHttpHandler { UseCookies = false })
+        await ConferirO502SemDadosNoLogAsync(caddy, nomeDaChave);
+    }
+
+    /// <summary>
+    /// O mesmo log no Caddy da publicação no Coolify (deploy/Caddyfile.coolify), atrás do Traefik: nada escuta na 8080 dentro
+    /// do próprio contêiner, e o proxy recebe a conexão recusada, como com a API reiniciando.
+    /// </summary>
+    [Theory]
+    [InlineData("X-Api-Key")]
+    [InlineData("x-api-key")]
+    public async Task No_Coolify_o_502_vai_para_o_log_sem_a_query_string_o_Referer_e_o_X_Api_Key(string nomeDaChave)
+    {
+        await using var caddy = CaddyDoCoolify(apiEndereco: "127.0.0.1:8080");
+        await caddy.StartAsync(Ct);
+
+        await ConferirO502SemDadosNoLogAsync(caddy, nomeDaChave);
+    }
+
+    /// <summary>
+    /// No Coolify, o Traefik chega ao Caddy por uma rede do Docker, numa faixa privada, e acrescenta à direita do
+    /// X-Forwarded-For o IP de quem acessa. O Caddy lê da direita para a esquerda: o primeiro IP fora das faixas privadas é o
+    /// de quem acessa, e o da esquerda, que pode ser forjado, não vale. A API recebe só esse IP e o esquema https. Aqui, o
+    /// próprio teste faz o papel do Traefik, e um Caddy de eco, o da API.
+    /// </summary>
+    [Fact]
+    public async Task No_Coolify_a_API_recebe_o_IP_mais_a_direita_fora_das_faixas_privadas_e_o_esquema_https()
+    {
+        await using var rede = new NetworkBuilder().Build();
+        await rede.CreateAsync(Ct);
+        var eco = "{\n\tadmin off\n}\n\n:8080 {\n\trespond \"{header.X-Forwarded-For}|{header.X-Forwarded-Proto}\"\n}\n"u8.ToArray();
+        await using var api = new ContainerBuilder(Repositorio.ImagemDoComposeDeProducao("caddy"))
+            .WithNetwork(rede)
+            .WithNetworkAliases("eco")
+            .WithResourceMapping(eco, "/etc/caddy/Caddyfile")
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("serving initial configuration"))
+            .Build();
+        await api.StartAsync(Ct);
+        await using var caddy = CaddyDoCoolify(apiEndereco: "eco:8080", rede);
+        await caddy.StartAsync(Ct);
+        using var http = ClienteDo(caddy);
+
+        using var forjado = new HttpRequestMessage(HttpMethod.Get, "/");
+        forjado.Headers.TryAddWithoutValidation("X-Forwarded-For", "203.0.113.7, 198.51.100.20");
+        using var resposta = await http.SendAsync(forjado, Ct);
+
+        Assert.Equal("198.51.100.20|https", await resposta.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("max-age=31536000", Assert.Single(resposta.Headers.GetValues("Strict-Transport-Security")));
+        Assert.Contains("connect-src 'self' wss://crm.example.com;", Assert.Single(resposta.Headers.GetValues("Content-Security-Policy")));
+        Assert.False(resposta.Headers.Contains("Server"));
+
+        // Sem X-Forwarded-For, vale o IP de quem conectou: o da rede do Docker.
+        var semCabecalho = (await http.GetStringAsync("/", Ct)).Split('|');
+        Assert.True(IPAddress.TryParse(semCabecalho[0], out _), string.Join('|', semCabecalho));
+        Assert.Equal("https", semCabecalho[1]);
+    }
+
+    private static IContainer CaddyDoCoolify(string apiEndereco, INetwork? rede = null)
+    {
+        var caddyfile = File.ReadAllBytes(Path.Combine(Repositorio.Raiz, "deploy", "Caddyfile.coolify"));
+        var construtor = new ContainerBuilder(Repositorio.ImagemDoComposeDeProducao("caddy"))
+            .WithEnvironment("DOMINIO", "crm.example.com")
+            .WithEnvironment("API_ENDERECO", apiEndereco)
+            .WithResourceMapping(caddyfile, "/etc/caddy/Caddyfile")
+            .WithPortBinding(80, assignRandomHostPort: true)
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("serving initial configuration"));
+        return (rede is null ? construtor : construtor.WithNetwork(rede)).Build();
+    }
+
+    private static HttpClient ClienteDo(IContainer caddy) =>
+        new(new SocketsHttpHandler { UseCookies = false })
         {
             BaseAddress = new Uri($"http://{caddy.Hostname}:{caddy.GetMappedPublicPort(80)}"),
         };
+
+    /// <summary>Um pedido com dados sigilosos na URL e nos cabeçalhos, com a API fora do ar, e o que o log guarda dele.</summary>
+    private static async Task ConferirO502SemDadosNoLogAsync(IContainer caddy, string nomeDaChave)
+    {
+        using var http = ClienteDo(caddy);
         using var requisicao = new HttpRequestMessage(HttpMethod.Get, "/api/leads/42?busca=maria.sigilosa%40example.com&pagina=2");
         requisicao.Headers.Referrer = new Uri("https://crm.example.com/leads?busca=referer.sigiloso%40example.com");
         requisicao.Headers.Add(nomeDaChave, "chave-sigilosa-da-integracao");

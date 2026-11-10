@@ -79,12 +79,13 @@ tests/Crm.UnitTests/         regras de negócio, sem banco
 tests/Crm.IntegrationTests/  API + PostgreSQL real (Testcontainers)
 web/                         React
 n8n/                         JSON dos 8 fluxos do n8n e, em exemplos/, os payloads fictícios dos testes
-deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção
+deploy/                      Caddyfile e scripts de backup e de teste da restauração, do Compose de produção, e o Caddyfile.coolify, atrás do Traefik do Coolify
 docs/                        especificação, registro dos passos e dos lotes, guias das atendentes e do Claude Code e CSVs de exemplo da importação (exemplos/)
 Dockerfile                   imagem de produção: a API com o build do React e o migration bundle
 docker-compose.yml           desenvolvimento: PostgreSQL, a API e o dotnet ef num contêiner Linux, e o n8n local
 docker-compose.prod.yml      produção: Caddy, API, PostgreSQL, migrations e backup
 docker-compose.testes.yml    os testes .NET num contêiner Linux
+docker-compose.coolify.yml   a fase de teste no Coolify: a imagem do GHCR, sem portas, com limites (README › No Coolify)
 .claude/                     permissões do projeto e o comando /passo
 .github/                     o CI (os workflows e, em scripts/, o front.sh e o resumo das 5 rodadas), a conferência dos binários nativos do lockfile do front (scripts/nativos-do-lock.mjs) e o Dependabot (um PR por mês com as imagens, outro com o NuGet e outro com as ações, sem o npm)
 .mcp.json                    servidor MCP do n8n Cloud (o do n8n local fica no ~/.claude.json, fora do Git)

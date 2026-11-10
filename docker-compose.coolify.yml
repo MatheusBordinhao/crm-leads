@@ -1,0 +1,156 @@
+# A publicação no Coolify (README › Publicação › No Coolify). O Traefik do Coolify faz o HTTPS na frente do Caddy, que põe
+# os cabeçalhos de segurança e repassa para a API. Nenhuma porta é publicada: o Coolify liga o Traefik ao caddy pelo campo
+# Domains. A imagem da API vem do GHCR, publicada pelo workflow "Publicar a imagem", com a tag do commit (CRM_VERSAO), e as
+# senhas vêm das variáveis que o próprio Coolify sorteia (SERVICE_PASSWORD_*). O servidor é dividido com outros projetos:
+# cada serviço tem limite de memória e de CPU, e o cpu_shares 512 (metade do padrão) dá a eles a prioridade numa disputa
+# de CPU. Nenhum nome fixo de contêiner, volume ou rede: o Coolify dá os nomes do recurso.
+
+services:
+  db:
+    image: postgres:17.11
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      interna:
+    mem_limit: 512m
+    cpus: 0.5
+    cpu_shares: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  # Aplica as migrations pendentes e termina. A API só sobe depois dele, a cada deploy. O exclude_from_hc tira da saúde
+  # do recurso um serviço que termina de propósito.
+  migracoes:
+    image: ghcr.io/matheusbordinhao/crm-leads:${CRM_VERSAO:?}
+    entrypoint: ["/app/efbundle"]
+    environment:
+      ConnectionStrings__Crm: Host=db;Port=5432;Database=crm;Username=crm;Password=${SERVICE_PASSWORD_POSTGRES}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    exclude_from_hc: true
+    networks:
+      interna:
+    mem_limit: 512m
+    cpus: 0.5
+    cpu_shares: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  api:
+    image: ghcr.io/matheusbordinhao/crm-leads:${CRM_VERSAO:?}
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__Crm: Host=db;Port=5432;Database=crm;Username=crm;Password=${SERVICE_PASSWORD_POSTGRES}
+      Crm__UrlPublica: https://${DOMINIO:?}
+      # O primeiro admin só é criado com o banco sem nenhum admin: depois, estas duas não mudam nada.
+      Admin__Email: ${Admin__Email:-}
+      Admin__SenhaInicial: ${SERVICE_PASSWORD_ADMIN}
+      # Sem o n8n nesta fase: a integração responde 401, e os eventos ficam pendentes (README › No Coolify).
+      Integracao__Chave: ""
+      N8n__WebhookUrl: ""
+      N8n__WebhookChave: ""
+      # Só do IP fixo do Caddy na rede interna a API aceita o IP de quem acessa.
+      Proxy__Ip: 10.73.0.10
+      DataProtection__Pasta: /dados/chaves
+    volumes:
+      # As chaves que protegem o cookie da sessão: um deploy novo não encerra as sessões.
+      - chaves-sessao:/dados/chaves
+    depends_on:
+      migracoes:
+        condition: service_completed_successfully
+    networks:
+      interna:
+        ipv4_address: 10.73.0.11
+    mem_limit: 768m
+    cpus: 1.0
+    cpu_shares: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  caddy:
+    image: caddy:2.11.7
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:?}
+      API_ENDERECO: 10.73.0.11:8080
+    volumes:
+      - ./deploy/Caddyfile.coolify:/etc/caddy/Caddyfile:ro
+      - caddy-dados:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    networks:
+      interna:
+        ipv4_address: 10.73.0.10
+    mem_limit: 128m
+    cpus: 0.25
+    cpu_shares: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  # pg_dump diário às 03:00 (horário de Brasília), com 14 dias guardados no volume backups.
+  backup:
+    image: postgres:17.11
+    restart: unless-stopped
+    entrypoint: ["sh", "/backup/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: crm
+      PGDATABASE: crm
+      PGPASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./deploy/backup:/backup:ro
+      - backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      interna:
+    mem_limit: 256m
+    cpus: 0.25
+    cpu_shares: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+# A rede interna, com a faixa fixa para o IP do Caddy e o da API. Ela fica fora das faixas que o Docker do servidor
+# reparte sozinho (172.16.0.0/12 e 192.168.0.0/16, no daemon.json): nenhuma rede que o Coolify criar colide com ela.
+networks:
+  interna:
+    ipam:
+      config:
+        - subnet: 10.73.0.0/24
+
+volumes:
+  dados-postgres:
+  chaves-sessao:
+  caddy-dados:
+  caddy-config:
+  backups:

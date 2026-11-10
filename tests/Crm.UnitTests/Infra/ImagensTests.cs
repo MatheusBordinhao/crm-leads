@@ -19,10 +19,14 @@ public class ImagensTests
     /// <summary>A imagem da API, que o próprio Compose de produção constrói pelo Dockerfile.</summary>
     private const string ImagemDaApi = "crm-api";
 
+    /// <summary>A mesma imagem, publicada no GHCR para o Coolify, com a tag do commit (<c>CRM_VERSAO</c>).</summary>
+    private const string ImagemDaApiNoGhcr = "ghcr.io/matheusbordinhao/crm-leads";
+
     /// <summary>A primeira versão do ASP.NET Core 10 com a correção da CVE-2026-70159, no SignalR.</summary>
     private static readonly Version RuntimeCorrigido = new(10, 0, 13);
 
-    private static readonly string[] Arquivos = ["Dockerfile", "docker-compose.yml", "docker-compose.prod.yml", "docker-compose.testes.yml"];
+    private static readonly string[] Arquivos =
+        ["Dockerfile", "docker-compose.yml", "docker-compose.prod.yml", "docker-compose.testes.yml", "docker-compose.coolify.yml"];
 
     /// <summary>O formato da versão fixa de cada imagem. Uma imagem nova entra aqui, com a versão exata.</summary>
     private static readonly Dictionary<string, string> VersaoFixa = new(StringComparer.Ordinal)
@@ -39,7 +43,9 @@ public class ImagensTests
     [Fact]
     public void Toda_imagem_tem_a_versao_fixa()
     {
-        var imagens = Imagens().Where(i => i.Nome != ImagemDaApi).ToList();
+        var imagens = Imagens()
+            .Where(i => i.Nome != ImagemDaApi && !i.Nome.StartsWith(ImagemDaApiNoGhcr, StringComparison.Ordinal))
+            .ToList();
 
         Assert.NotEmpty(imagens);
         Assert.All(imagens, i =>
@@ -67,8 +73,19 @@ public class ImagensTests
     {
         var postgres = Imagens().Where(i => i.Nome == Postgres).ToList();
 
-        Assert.Equal(["docker-compose.prod.yml", "docker-compose.yml"], postgres.Select(i => i.Arquivo).Distinct().Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["docker-compose.coolify.yml", "docker-compose.prod.yml", "docker-compose.yml"],
+            postgres.Select(i => i.Arquivo).Distinct().Order(StringComparer.Ordinal));
         Assert.Single(postgres.Select(i => i.Tag).Distinct());
+    }
+
+    [Fact]
+    public void A_Caddy_e_a_mesma_na_producao_e_no_Coolify()
+    {
+        var caddy = Imagens().Where(i => i.Nome == "caddy").ToList();
+
+        Assert.Equal(["docker-compose.coolify.yml", "docker-compose.prod.yml"], caddy.Select(i => i.Arquivo).Distinct().Order(StringComparer.Ordinal));
+        Assert.Single(caddy.Select(i => i.Tag).Distinct());
     }
 
     [Fact]
